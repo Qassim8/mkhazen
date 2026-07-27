@@ -1,168 +1,240 @@
-"use client";
-
-import { useState } from "react";
-import {
-  FiBox,
-  FiPlus,
-  FiRefreshCw,
-  FiBarChart2,
-  FiAlertTriangle,
-} from "react-icons/fi";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
-import { Modal } from "@/components/ui/Modal";
-import { events, financeMetrics, products } from "@/data/mock-data";
-import WHChart from "./warehouse/@components/Chart";
-import CategoriesPieChart from "./categories/@components/Chart";
 import Link from "next/link";
+// types
+import { StatsCardProps } from "@/types/types";
+// icons
+import {
+  LuBoxes,
+  LuDollarSign,
+  LuRefreshCcw,
+  LuTriangleAlert,
+} from "react-icons/lu";
+// components
+import StatsCard from "./(dashboard)/StatsCard";
+import AreaChartComponent from "./(dashboard)/AreaChart";
+import PieChartComponent from "./(dashboard)/PieChart";
 
-export default function DashboardPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const Dashboard = () => {
+  const actions = [
+    { name: "Add Product", href: "/products/new" },
+    { name: "New Sale", href: "/pos" },
+    { name: "Stock Adjustment", href: "/warehouse" },
+    { name: "Genarate Report", href: "/reports" },
+  ];
+
+  const activities = [
+    {
+      name: "new product to stock",
+      responsable: "eglal omar",
+      time: "10m ago",
+    },
+    {
+      name: "adjusted inventory",
+      responsable: "omar ahmad",
+      time: "55m ago",
+    },
+    {
+      name: "fulfilled order",
+      responsable: "yusuf faris",
+      time: "2h ago",
+    },
+    {
+      name: "flagged low stock",
+      responsable: "omar ahmad",
+      time: "5h ago",
+    },
+  ];
+
+  const products = [
+    {
+      title: "Mechanical Keyboard",
+      category: "Electronics",
+      totalQty: 38,
+      recentQty: 5,
+      status: "low stock",
+    },
+    {
+      title: "Smart Watch",
+      category: "Electronics",
+      totalQty: 20,
+      recentQty: 0,
+      status: "out of stock",
+    },
+    {
+      title: "Air Max, Shoe",
+      category: "Cloths",
+      totalQty: 40,
+      recentQty: 7,
+      status: "low stock",
+    },
+    {
+      title: "Dior Sauvage",
+      category: "Beauty",
+      totalQty: 20,
+      recentQty: 2,
+      status: "low stock",
+    },
+    {
+      title: "IPhone 16 Pro Max, Golden",
+      category: "Electronics",
+      totalQty: 50,
+      recentQty: 0,
+      status: "out of stock",
+    },
+  ];
+
+  const statsData: StatsCardProps[] = [
+    {
+      title: "Total Revenue",
+      value: "$12,345",
+      icon: <LuRefreshCcw />,
+      iconBg: "#df346a",
+      statNumber: 3.7,
+      statType: "increase",
+    },
+    {
+      title: "Net Profit",
+      value: "$2,345",
+      icon: <LuDollarSign />,
+      iconBg: "#13a390",
+      statNumber: 0,
+      statType: "increase",
+    },
+    {
+      title: "Active Orders",
+      value: "150",
+      icon: <LuBoxes />,
+      iconBg: "#b547d6",
+      statNumber: 12.8,
+      statType: "increase",
+    },
+    {
+      title: "Low Stock",
+      value: "7",
+      icon: <LuTriangleAlert />,
+      iconBg: "#f5a50f",
+      statNumber: 15.2,
+      statType: "decrease",
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Welcome back! Your store is healthy and ready for the next move."
-        actionLabel="Quick Action"
-        onAction={() => setIsModalOpen(true)}
-      />
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {financeMetrics.map((item) => (
-          <StatCard
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            change={item.change}
-            trend={item.trend}
+    <div>
+      <header className="my-7">
+        <h1 className="text-3xl font-bold">Welcome back, John! 👋</h1>
+        <p className="text-gray-600">
+          Here&apos;s what&apos;s happening with your store today.
+        </p>
+      </header>
+      <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {/* Stats cards */}
+        {statsData.map((stat) => (
+          <StatsCard
+            key={stat.title}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            iconBg={stat.iconBg}
+            statType={stat.statType}
+            statNumber={stat.statNumber}
           />
         ))}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm">
-          <WHChart />
+      </section>
+      <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="col-span-2">
+          <AreaChartComponent />
         </div>
-
-        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm">
-          <CategoriesPieChart />
+        <div className="col-span-1">
+          <PieChartComponent />
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[
-          {
-            label: "Add Product",
-            icon: FiBox,
-            color: "bg-red-600",
-            link: "/products/new",
-          },
-          {
-            label: "Add Supplier",
-            icon: FiBox,
-            color: "bg-gray-800",
-            link: "/suppliers/new",
-          },
-          {
-            label: "New Movement",
-            icon: FiRefreshCw,
-            color: "bg-orange-500",
-            link: "/movements/new",
-          },
-          {
-            label: "Generate Report",
-            icon: FiBarChart2,
-            color: "bg-emerald-600",
-            link: "/reports/new",
-          },
-        ].map((action) => (
-          <Link
-            href={action.link}
-            key={action.label}
-            className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5"
-          >
-            <div>
-              <div
-                className={`mb-2 inline-flex rounded-xl p-2 text-white ${action.color}`}
-              >
-                <action.icon className="h-4 w-4" />
-              </div>
-              <div className="font-medium text-gray-900">{action.label}</div>
+      </section>
+      <section className="my-8 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="col-span-1 space-y-5">
+          <div className="frame">
+            <p className="text-sm text-gray-500 mb-5">Quick actions</p>
+            <div className="grid grid-cols-2 gap-3">
+              {actions.map(({ name, href }) => (
+                <Link
+                  href={href}
+                  key={name}
+                  className="py-3 px-4 text-center text-sm rounded-xl border border-slate-300 transition duration-350 hover:text-white hover:border-0 hover:bg-(--primary-red)"
+                >
+                  {name}
+                </Link>
+              ))}
             </div>
-            <FiPlus className="h-4 w-4 text-gray-400" />
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Events</h2>
-          <div className="mt-4 space-y-3">
-            {events.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3"
+          </div>
+          <div className="frame">
+            <p className="text-sm text-gray-500 mb-5">Recent Activity</p>
+            <div className="space-y-2">
+              {activities.map((active) => {
+                const id = 0;
+                return (
+                  <div className="flex gap-3" key={`${active.name}empl${id}`}>
+                    <div className="h-12 w-12 flex justify-center items-center font-semibold text-(--primary-pink) bg-(--primary-pink)/10 text-sm rounded-2xl">
+                      {active.responsable.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="">
+                      <h3 className="font-semibold">{active.name}</h3>
+                      <p className="text-(--primary-red) text-sm my-0 py-0">
+                        {active.responsable}
+                      </p>
+                      <span className="text-gray-500 text-xs">
+                        {active.time}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="col-span-2 frame">
+          <div className="flex justify-between items-center mb-5">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-gray-500">Needs restocking</p>
+              <h2 className="font-semibold text-gray-900">
+                Low Stock / Out of Stock
+              </h2>
+            </div>
+            <Link
+              href="/products"
+              className="text-(--primary-red) transition-colors duration-300 hover:text-(--primary-red-hover)"
+            >
+              Manage Products
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {products.map((product, index) => (
+              <Link
+                href={product.title}
+                key={product.title}
+                className={`pt-2 pb-3 flex justify-between items-center ${index !== products.length - 1 ? "border-b border-b-gray-200" : ""}`}
               >
-                <div className="mt-1 rounded-full bg-red-100 p-2 text-red-600">
-                  <FiAlertTriangle className="h-4 w-4" />
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 rounded-2xl bg-slate-400/30"></div>
+                  <div>
+                    <h2 className="font-semibold">{product.title}</h2>
+                    <p className="text-gray-500 text-sm">{product.category}</p>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-medium text-gray-900">{event.title}</div>
-                  <div className="text-sm text-gray-600">{event.detail}</div>
-                  <div className="mt-1 text-xs text-gray-500">{event.time}</div>
+                <div className="flex items-center gap-3">
+                  <p className="flex items-center gap-1 text-sm">
+                    <span className="text-gray-500">{product.recentQty}</span> /{" "}
+                    <span>{product.totalQty}</span>
+                  </p>
+                  <div
+                    className={`py-1 px-3 text-sm rounded-full ${product.recentQty ? "text-amber-500 bg-amber-400/15" : "text-(--primary-red) bg-(--primary-red)/15"}`}
+                  >
+                    {product.status}
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
-
-        <div className="rounded-3xl border border-gray-300 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Low Stock Watch
-          </h2>
-          <div className="mt-4 space-y-3">
-            {products
-              .filter((item) => item.status !== "In Stock")
-              .map((item) => (
-                <div
-                  key={item.id}
-                  className={`rounded-2xl border p-3 ${item.status === "Out of Stock" ? "border-red-300 bg-red-50" : "border-yellow-300 bg-yellow-50"}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium text-gray-900">{item.name}</div>
-                    <div
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === "Out of Stock" ? "bg-red-600 text-white" : "bg-yellow-500 text-white"}`}
-                    >
-                      {item.status}
-                    </div>
-                  </div>
-                  <div className="mt-1 text-sm text-gray-600">
-                    Stock: {item.stock} units
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      </div>
-
-      <Modal
-        title="Quick Action"
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      >
-        <div className="space-y-3 text-sm text-gray-700">
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-            Create a new product entry
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-            Log a warehouse movement
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-            Generate a financial report
-          </div>
-        </div>
-      </Modal>
+      </section>
     </div>
   );
-}
+};
+
+export default Dashboard;

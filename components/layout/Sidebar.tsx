@@ -28,7 +28,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-gray-300 bg-white/80 p-6 backdrop-blur lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-gray-200 bg-white/80 p-6 backdrop-blur lg:flex">
       <div className="mb-8">
         <div className="text-sm font-semibold uppercase tracking-[0.3em] text-red-600">
           ERP Mini

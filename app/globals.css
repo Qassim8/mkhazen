@@ -5,9 +5,10 @@
   --foreground: #171717;
   --primary-red: #dc2626;
   --primary-red-hover: #b91c1c;
+  --primary-pink: #f02c76;
   --border-soft: #e5e7eb;
   --surface-soft: #f9fafb;
-  --color: #df346a;
+  --color: #3bcb3b;
 }
 
 @theme inline {
@@ -30,4 +31,11 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--primary-red) 20%, white);
   color: #111827;
+}
+
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+.frame {
+  @apply rounded-xl bg-white border border-slate-200 p-6 transition-transform duration-300 shadow-[0_4px_8px_rgba(0,0,0,0.05)];
 }
