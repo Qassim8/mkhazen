@@ -18,13 +18,13 @@ export type Category = {
 };
 
 export type Product = {
-  id: string;
+  id?: string;
   name: string;
   image: string;
-  sku: string;
-  category: string;
-  supplier: string;
-  qty: number;
+  sku?: string;
+  category?: string;
+  supplier?: string;
+  qty?: number;
   price: number;
-  status: "In stock" | "Low stock" | "Out of stock";
+  status?: "In stock" | "Low stock" | "Out of stock";
 };

@@ -5,7 +5,7 @@ import CartItem from "./CartItem";
 const CartList = () => {
   const cartProducts = products.slice(0, 4);
   const subtotal = cartProducts.reduce(
-    (sum, product) => sum + product.price * product.qty,
+    (sum, product) => sum + product.price * (product.qty || 1),
     0,
   );
   const tax = subtotal * 0.08;
