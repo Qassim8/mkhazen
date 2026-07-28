@@ -1,8 +1,8 @@
 import React from "react";
-import Searchbar from "../products/(components)/Searchbar";
+import Searchbar from "../products/components/Searchbar";
 import { categories, products } from "@/data/data";
-import Card from "./(components)/Card";
-import CartList from "./(components)/CartList";
+import Card from "./components/Card";
+import CartList from "./components/CartList";
 
 const POS = () => {
   return (

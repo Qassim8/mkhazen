@@ -1,8 +1,8 @@
 import React from "react";
-import AreaChartComponent from "./(components)/BarChart";
+import AreaChartComponent from "./components/BarChart";
 import Table from "@/components/layout/Table";
-import Filters from "../products/(components)/Filters";
-import Movement from "./(components)/Movement";
+import Filters from "../products/components/Filters";
+import Movement from "./components/Movement";
 
 const Warehouse = () => {
   return (

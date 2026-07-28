@@ -23,9 +23,9 @@ const links = [
   { href: "/pos", label: "Sale Orders", icon: LuStore },
   { href: "/suppliers", label: "Suppliers", icon: LuPackageCheck },
   { href: "/warehouse", label: "Warehouse", icon: LuLayers },
-  { href: "/reports", label: "Reports", icon: LuFileChartColumn },
-  { href: "/users", label: "Users", icon: LuUsers },
-  { href: "/settings", label: "Settings", icon: LuSettings },
+  // { href: "/reports", label: "Reports", icon: LuFileChartColumn },
+  // { href: "/users", label: "Users", icon: LuUsers },
+  // { href: "/settings", label: "Settings", icon: LuSettings },
 ];
 
 export function Sidebar() {

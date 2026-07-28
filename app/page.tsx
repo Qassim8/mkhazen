@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 // components
-import StatsCard from "./(dashboard)/StatsCard";
-import AreaChartComponent from "./(dashboard)/AreaChart";
-import PieChartComponent from "./(dashboard)/PieChart";
+import StatsCard from "./components/StatsCard";
+import AreaChartComponent from "./components/AreaChart";
+import PieChartComponent from "./components/PieChart";
 // data
 import { actions, activities, statsData } from "@/data/data";
 

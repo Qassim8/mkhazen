@@ -1,6 +1,6 @@
 import Table from "../../components/layout/Table";
-import Filters from "./(components)/Filters";
-import Searchbar from "./(components)/Searchbar";
+import Filters from "./components/Filters";
+import Searchbar from "./components/Searchbar";
 
 const Products = () => {
   return (

@@ -1,4 +1,4 @@
-import Filters from "../products/(components)/Filters";
+import Filters from "../products/components/Filters";
 import Table from "@/components/layout/Table";
 
 const Orders = () => {
