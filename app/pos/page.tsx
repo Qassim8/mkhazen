@@ -3,6 +3,7 @@ import Searchbar from "../products/components/Searchbar";
 import { categories, products } from "@/data/data";
 import Card from "./components/Card";
 import CartList from "./components/CartList";
+import { LuList } from "react-icons/lu";
 
 const POS = () => {
   return (
@@ -13,14 +14,21 @@ const POS = () => {
             <Searchbar />
           </div>
           <div className="py-5 md:py-10">
-            <h2 className="text-gray-600 mb-3">Filter By Catgory:</h2>
-            <div className="flex justify-between items-center gap-5 overflow-x-scroll md:overflow-x-auto">
+            <h2 className="mb-3 text-gray-600">Filter By Catgory:</h2>
+            <div
+              className="flex items-center gap-3 overflow-x-auto scroll-smooth px-2 py-3"
+              style={{ scrollbarWidth: "thin", msOverflowStyle: "none" }}
+            >
+              <div className="flex min-w-max shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-all duration-300 hover:border-(--primary-pink) hover:bg-(--primary-pink) hover:text-white">
+                <LuList className="text-base" />
+                <h3>All</h3>
+              </div>
               {categories.map(({ id, title, icon: Icon }) => (
                 <div
                   key={id}
-                  className={`py-2 px-6 grow flex items-center justify-center gap-3 text-gray-600 rounded-2xl border border-gray-600 cursor-pointer transition-colors duration-300 hover:text-white hover:bg-(--primary-pink) hover:border-(--primary-pink)`}
+                  className="flex min-w-max shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-all duration-300 hover:border-(--primary-pink) hover:bg-(--primary-pink) hover:text-white"
                 >
-                  <Icon />
+                  <Icon className="text-base" />
                   <h3>{title}</h3>
                 </div>
               ))}

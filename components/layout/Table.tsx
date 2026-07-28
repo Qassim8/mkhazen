@@ -50,7 +50,9 @@ const Table = () => {
       }),
       columnHelper.accessor("supplier", {
         header: "Supplier",
-        cell: (info) => <span className="text-gray-600">{info.getValue()}</span>,
+        cell: (info) => (
+          <span className="text-gray-600">{info.getValue()}</span>
+        ),
       }),
       columnHelper.accessor("qty", {
         header: "Qty",
@@ -134,7 +136,7 @@ const Table = () => {
         },
       }),
     ],
-    [openMenuId]
+    [openMenuId],
   );
 
   const table = useReactTable({
