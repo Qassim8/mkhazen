@@ -1,81 +1,31 @@
-import React from "react";
-import {
-  LuBookOpen,
-  LuCpu,
-  LuPencilRuler,
-  LuShirt,
-  LuSofa,
-  LuSparkles,
-  LuWrench,
-} from "react-icons/lu";
-import Card from "./(components)/Card";
-
-export type Category = {
-  id: number | string;
-  icon: React.ReactNode;
-  color: string;
-  title: string;
-  products: number;
-};
-
-const categories: Category[] = [
-  {
-    id: 1,
-    icon: <LuCpu />,
-    color: "#1151b8",
-    title: "Electronics",
-    products: 230,
-  },
-  {
-    id: 2,
-    icon: <LuShirt />,
-    color: "var(--primary-red)",
-    title: "Cloths",
-    products: 370,
-  },
-  {
-    id: 3,
-    icon: <LuSofa />,
-    color: "#e09626",
-    title: "Furniture",
-    products: 80,
-  },
-  {
-    id: 4,
-    icon: <LuWrench />,
-    color: "#57575a",
-    title: "Tools",
-    products: 150,
-  },
-  {
-    id: 5,
-    icon: <LuSparkles />,
-    color: "var(--primary-pink)",
-    title: "Beauty",
-    products: 230,
-  },
-  {
-    id: 6,
-    icon: <LuBookOpen />,
-    color: "#3bcb3b",
-    title: "Libarary",
-    products: 100,
-  },
-];
+import { categories } from "@/data/data";
+import { LuPencil, LuTrash2 } from "react-icons/lu";
 
 const Categories = () => {
   return (
     <div>
       <div className="grid grid-cols-4 gap-5">
-        {categories.map((cat) => (
-          <Card
-            key={cat.id}
-            id={cat.id}
-            icon={cat.icon}
-            title={cat.title}
-            color={cat.color}
-            products={cat.products}
-          />
+        {categories.map(({ id, color, icon: Icon, title, products }) => (
+          <div key={id} className="frame space-y-2">
+            <div
+              style={{ backgroundColor: color }}
+              className="h-12 w-12 flex justify-center items-center text-2xl text-white rounded-xl"
+            >
+              <Icon />
+            </div>
+            <h2 className="font-semibold mt-6 mb-0">{title}</h2>
+            <p className="text-gray-500 text-sm">{products} products</p>
+            <div className="mt-5 pt-3 border-t border-t-gray-300 flex justify-between items-center ">
+              <button className="text-sm flex items-center gap-1 py-1 px-3 rounded text-gray-800 cursor-pointer transition-colors duration-200 hover:bg-blue-500/15 hover:text-blue-500">
+                <LuPencil />
+                <span>Edit</span>
+              </button>
+              <button className="text-sm flex items-center gap-1 py-1 px-3 rounded text-gray-800 cursor-pointer transition-colors duration-200 hover:bg-red-500/15 hover:text-red-500">
+                <LuTrash2 />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>

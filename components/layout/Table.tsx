@@ -8,107 +8,9 @@ import {
   createColumnHelper,
 } from "@tanstack/react-table";
 import { FiMoreHorizontal } from "react-icons/fi";
-
-// 1. تعريف نوع البيانات (TypeScript Interface - اختياري)
-type Product = {
-  id: string;
-  name: string;
-  image: string;
-  sku: string;
-  category: string;
-  supplier: string;
-  qty: number;
-  price: number;
-  status: "In stock" | "Low stock" | "Out of stock";
-};
-
-// 2. بيانات تجريبية مطابقة للصورة
-const data: Product[] = [
-  {
-    id: "1",
-    name: "Ceramic Pour-Over Kettle",
-    image:
-      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100&q=80",
-    sku: "BEV-KTL-003",
-    category: "Beverages",
-    supplier: "Atlas Distribution",
-    qty: 62,
-    price: 48.0,
-    status: "In stock",
-  },
-  {
-    id: "2",
-    name: "Cold Brew Coffee Maker",
-    image:
-      "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=100&q=80",
-    sku: "BEV-CBM-010",
-    category: "Beverages",
-    supplier: "Atlas Distribution",
-    qty: 33,
-    price: 39.0,
-    status: "In stock",
-  },
-  {
-    id: "3",
-    name: "Compact Mirrorless Camera",
-    image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=100&q=80",
-    sku: "CAM-MIR-006",
-    category: "Cameras",
-    supplier: "Kyoto Supply Co.",
-    qty: 8,
-    price: 899.0,
-    status: "Low stock",
-  },
-  {
-    id: "4",
-    name: "Cordless Drill Kit",
-    image:
-      "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=100&q=80",
-    sku: "TLS-DRL-005",
-    category: "Tools",
-    supplier: "Brisbane Wholesale",
-    qty: 41,
-    price: 179.5,
-    status: "In stock",
-  },
-  {
-    id: "5",
-    name: "Hardcover Design Anthology",
-    image:
-      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100&q=80",
-    sku: "BOK-DSN-008",
-    category: "Books",
-    supplier: "Nordwind Trading",
-    qty: 210,
-    price: 42.0,
-    status: "In stock",
-  },
-  {
-    id: "6",
-    name: "Linen Table Lamp",
-    image:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&q=80",
-    sku: "HOM-LMP-007",
-    category: "Home & Lighting",
-    supplier: "Atlas Distribution",
-    qty: 55,
-    price: 74.0,
-    status: "In stock",
-  },
-  {
-    id: "7",
-    name: "Mechanical Keyboard 75%",
-    image:
-      "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=100&q=80",
-    sku: "ELE-KEY-002",
-    category: "Electronics",
-    supplier: "Nordwind Trading",
-    qty: 14,
-    price: 139.9,
-    status: "Low stock",
-  },
-];
+import { Product } from "@/types/types";
+import Image from "next/image";
+import { products } from "@/data/data";
 
 const columnHelper = createColumnHelper<Product>();
 
@@ -119,10 +21,12 @@ const columns = [
     header: "Product",
     cell: (info) => (
       <div className="flex items-center gap-3">
-        <img
+        <Image
           src={info.row.original.image}
           alt={info.getValue()}
           className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200"
+          width={10}
+          height={10}
         />
         <span className="font-medium text-gray-900">{info.getValue()}</span>
       </div>
@@ -197,7 +101,7 @@ const columns = [
 
 const Table = () => {
   const table = useReactTable({
-    data,
+    data: products,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
