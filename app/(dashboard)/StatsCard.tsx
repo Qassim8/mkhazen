@@ -4,7 +4,7 @@ import { LuArrowDownLeft, LuArrowUpRight } from "react-icons/lu";
 const StatsCard = ({
   title,
   value,
-  icon,
+  icon: Icon,
   iconBg,
   statNumber,
   statType,
@@ -20,7 +20,7 @@ const StatsCard = ({
           style={{ backgroundColor: `${iconBg}` }}
           className={`text-xl flex h-11 w-11 items-center justify-center rounded-xl text-white bg-[${iconBg}] shadow-md`}
         >
-          {icon}
+          <Icon />
         </div>
       </div>
       <div className="mt-4">

@@ -1,4 +1,6 @@
-import { Category, Product } from "@/types/types";
+// types
+import { Category, Product, StatsCardProps } from "@/types/types";
+// icons
 import {
   LuBookOpen,
   LuCpu,
@@ -6,7 +8,76 @@ import {
   LuSofa,
   LuSparkles,
   LuWrench,
+  LuBoxes,
+  LuDollarSign,
+  LuRefreshCcw,
+  LuTriangleAlert,
 } from "react-icons/lu";
+
+export const actions = [
+  { name: "Add Product", href: "/products/new" },
+  { name: "New Sale", href: "/pos" },
+  { name: "Stock Adjustment", href: "/warehouse" },
+  { name: "Genarate Report", href: "/reports" },
+];
+
+export const activities = [
+  {
+    name: "new product to stock",
+    responsable: "eglal omar",
+    time: "10m ago",
+  },
+  {
+    name: "adjusted inventory",
+    responsable: "omar ahmad",
+    time: "55m ago",
+  },
+  {
+    name: "fulfilled order",
+    responsable: "yusuf faris",
+    time: "2h ago",
+  },
+  {
+    name: "flagged low stock",
+    responsable: "omar ahmad",
+    time: "5h ago",
+  },
+];
+
+export const statsData: StatsCardProps[] = [
+  {
+    title: "Total Revenue",
+    value: "$12,345",
+    icon: LuRefreshCcw,
+    iconBg: "#df346a",
+    statNumber: 3.7,
+    statType: "increase",
+  },
+  {
+    title: "Net Profit",
+    value: "$2,345",
+    icon: LuDollarSign,
+    iconBg: "#13a390",
+    statNumber: 0,
+    statType: "increase",
+  },
+  {
+    title: "Active Orders",
+    value: "150",
+    icon: LuBoxes,
+    iconBg: "#b547d6",
+    statNumber: 12.8,
+    statType: "increase",
+  },
+  {
+    title: "Low Stock",
+    value: "7",
+    icon: LuTriangleAlert,
+    iconBg: "#f5a50f",
+    statNumber: 15.2,
+    statType: "decrease",
+  },
+];
 
 // Categories
 export const categories: Category[] = [

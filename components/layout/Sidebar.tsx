@@ -3,28 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  FiGrid,
-  FiPackage,
-  FiLayers,
-  FiTruck,
-  FiArchive,
-  FiBarChart2,
-  FiSettings,
-  FiUsers,
-  FiShoppingCart,
-} from "react-icons/fi";
+  LuFileChartColumn,
+  LuFolderTree,
+  LuLayers,
+  LuLayoutDashboard,
+  LuPackage2,
+  LuPackageCheck,
+  LuSettings,
+  LuStore,
+  LuTruck,
+  LuUsers,
+} from "react-icons/lu";
 
 const links = [
-  { href: "/", label: "Dashboard", icon: FiGrid },
-  { href: "/products", label: "Products", icon: FiPackage },
-  { href: "/categories", label: "Categories", icon: FiLayers },
-  { href: "/orders", label: "Purchase Orders", icon: FiTruck },
-  { href: "/pos", label: "Sale Orders", icon: FiShoppingCart },
-  { href: "/suppliers", label: "Suppliers", icon: FiTruck },
-  { href: "/warehouse", label: "Warehouse", icon: FiArchive },
-  { href: "/reports", label: "Reports", icon: FiBarChart2 },
-  { href: "/users", label: "Users", icon: FiUsers },
-  { href: "/settings", label: "Settings", icon: FiSettings },
+  { href: "/", label: "Dashboard", icon: LuLayoutDashboard },
+  { href: "/products", label: "Products", icon: LuPackage2 },
+  { href: "/categories", label: "Categories", icon: LuFolderTree },
+  { href: "/orders", label: "Purchase Orders", icon: LuTruck },
+  { href: "/pos", label: "Sale Orders", icon: LuStore },
+  { href: "/suppliers", label: "Suppliers", icon: LuPackageCheck },
+  { href: "/warehouse", label: "Warehouse", icon: LuLayers },
+  { href: "/reports", label: "Reports", icon: LuFileChartColumn },
+  { href: "/users", label: "Users", icon: LuUsers },
+  { href: "/settings", label: "Settings", icon: LuSettings },
 ];
 
 export function Sidebar() {

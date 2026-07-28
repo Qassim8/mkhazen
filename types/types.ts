@@ -3,7 +3,7 @@ import { IconType } from "react-icons";
 export type StatsCardProps = {
   title: string;
   value: string;
-  icon: React.ReactNode;
+  icon: IconType;
   iconBg?: string;
   statNumber: number;
   statType: "increase" | "decrease" | "neutral";
