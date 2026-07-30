@@ -1,5 +1,5 @@
-import Table from "../../components/layout/Table";
 import Filters from "./components/Filters";
+import ProductsTable from "./components/ProductsTable";
 import Searchbar from "./components/Searchbar";
 
 const Products = () => {
@@ -9,7 +9,7 @@ const Products = () => {
         <Searchbar />
         <Filters />
       </div>
-      <Table />
+      <ProductsTable />
     </div>
   );
 };

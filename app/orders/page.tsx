@@ -1,5 +1,5 @@
 import Filters from "../products/components/Filters";
-import Table from "@/components/layout/Table";
+import OrdersTable from "./components/OrdersTable";
 
 const Orders = () => {
   return (
@@ -8,7 +8,7 @@ const Orders = () => {
         <div className="p-5">
           <Filters />
         </div>
-        <Table />
+        <OrdersTable />
       </div>
     </div>
   );

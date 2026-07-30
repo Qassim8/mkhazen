@@ -23,9 +23,9 @@ const links = [
   { href: "/pos", label: "Sale Orders", icon: LuStore },
   { href: "/suppliers", label: "Suppliers", icon: LuPackageCheck },
   { href: "/warehouse", label: "Warehouse", icon: LuLayers },
-  // { href: "/reports", label: "Reports", icon: LuFileChartColumn },
-  // { href: "/users", label: "Users", icon: LuUsers },
-  // { href: "/settings", label: "Settings", icon: LuSettings },
+  { href: "/reports", label: "Reports", icon: LuFileChartColumn },
+  { href: "/users", label: "Users", icon: LuUsers },
+  { href: "/settings", label: "Settings", icon: LuSettings },
 ];
 
 export function Sidebar() {
@@ -48,7 +48,7 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${active ? "bg-(--primary-red) text-white shadow-lg" : "text-gray-700 hover:bg-red-50 hover:text-(--primary-red)"}`}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active ? "bg-(--primary-red) text-white shadow-lg" : "text-gray-700 hover:bg-red-50 hover:text-(--primary-red)"}`}
             >
               <Icon className="h-4 w-4" />
               {label}

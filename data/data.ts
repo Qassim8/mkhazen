@@ -1,5 +1,12 @@
 // types
-import { Category, Product, StatsCardProps } from "@/types/types";
+import {
+  Category,
+  Movement,
+  Order,
+  Product,
+  StatsCardProps,
+  Supplier,
+} from "@/types/types";
 // icons
 import {
   LuBookOpen,
@@ -210,5 +217,161 @@ export const products: Product[] = [
     qty: 14,
     price: 139.9,
     status: "Low stock",
+  },
+];
+
+// suppliers
+export const suppliers: Supplier[] = [
+  {
+    id: "sup_1",
+    companyName: "Arabian Supply Company",
+    contact: ["Ahmed Mahmoud (Sales Manager)", "Sara Ali (Technical Support)"],
+    phone: ["+201012345678", "+201198765432"],
+    email: ["sales@arabian-supply.com", "info@arabian-supply.com"],
+    location: ["Cairo, Egypt", "Jeddah, Saudi Arabia"],
+    products: 145,
+    status: "active",
+  },
+  {
+    id: "sup_2",
+    companyName: "Global Tech Logistics",
+    contact: ["John Doe (Logistics Manager)"],
+    phone: ["+15550199234"],
+    email: ["logistics@globaltech.com"],
+    location: ["Dubai, UAE", "New York, USA"],
+    products: 32,
+    status: "active",
+  },
+  {
+    id: "sup_3",
+    companyName: "Al-Noor Trading Establishment",
+    contact: ["Mohamed Khaled (Procurement)"],
+    phone: ["+966501234567"],
+    email: ["m.khaled@alnoor-trade.com"],
+    location: ["Riyadh, Saudi Arabia"],
+    products: 0,
+    status: "inactive",
+  },
+  {
+    id: "sup_4",
+    companyName: "EcoPack Solutions",
+    contact: ["Fatima Omar (Contracts Dept.)", "Hassan Youssef"],
+    phone: ["+201234567890"],
+    email: ["contracts@ecopack.eg", "support@ecopack.eg"],
+    location: ["Alexandria, Egypt"],
+    products: 18,
+    status: "active",
+  },
+  {
+    id: "sup_5",
+    companyName: "Alpha Raw Materials",
+    contact: ["Karim Mamdouh (Operations)"],
+    phone: ["+9647701234567", "+9647809876543"],
+    email: ["alpha.materials@gmail.com"],
+    location: ["Baghdad, Iraq"],
+    products: 0,
+    status: "inactive",
+  },
+];
+
+// movement
+export const movements: Movement[] = [
+  {
+    id: "mov_101",
+    date: new Date("2026-07-28T09:30:00"),
+    product: "iPhone 15 Pro Max (256GB)",
+    type: "Stock In",
+    qty: 50,
+    employee: "Alex Johnson",
+    reference: "PO-2026-0089",
+    status: "Completed",
+  },
+  {
+    id: "mov_102",
+    date: new Date("2026-07-28T14:15:00"),
+    product: "Logitech MX Master 3S",
+    type: "Stock Out",
+    qty: 12,
+    employee: "Sarah Connor",
+    reference: "SO-2026-0412",
+    status: "Completed",
+  },
+  {
+    id: "mov_103",
+    date: new Date("2026-07-29T10:00:00"),
+    product: 'Dell UltraSharp 27" Monitor',
+    type: "Adjustment",
+    qty: -2,
+    employee: "David Miller",
+    reference: "ADJ-2026-0014",
+    status: "Completed",
+  },
+  {
+    id: "mov_104",
+    date: new Date("2026-07-29T16:45:00"),
+    product: "Sony WH-1000XM5 Headphones",
+    type: "Stock In",
+    qty: 30,
+    employee: "Emily Davis",
+    reference: "PO-2026-0095",
+    status: "Pending",
+  },
+  {
+    id: "mov_105",
+    date: new Date("2026-07-30T08:20:00"),
+    product: 'MacBook Pro 14" M3',
+    type: "Stock Out",
+    qty: 5,
+    employee: "James Wilson",
+    reference: "SO-2026-0425",
+    status: "Failed",
+  },
+];
+
+// orders
+export const orders: Order[] = [
+  {
+    id: "ORD-2026-9041",
+    customerName: "Michael Scott",
+    customerEmail: "michael.s@dunderMifflin.com",
+    itemsCount: 5,
+    totalAmount: 420.5,
+    paymentMethod: "Credit Card",
+    shippingAddress: "1725 Slough Avenue, Scranton, PA",
+    orderDate: new Date("2026-07-28T11:20:00"),
+    status: "Processing",
+  },
+  {
+    id: "ORD-2026-9042",
+    customerName: "Dwight Schrute",
+    customerEmail: "dwight.s@schrutebeetfarms.com",
+    itemsCount: 2,
+    totalAmount: 89.99,
+    paymentMethod: "Cash on Delivery",
+    shippingAddress: "Beet Farm Road, Scranton, PA",
+    orderDate: new Date("2026-07-29T09:15:00"),
+    status: "Shipped",
+  },
+  {
+    id: "ORD-2026-9043",
+    customerName: "Jim Halpert",
+    customerEmail: "jim.h@gmail.com",
+    itemsCount: 1,
+    totalAmount: 1250.0,
+    paymentMethod: "Bank Transfer",
+    shippingAddress: "Philly Apartments, Philadelphia, PA",
+    orderDate: new Date("2026-07-25T16:40:00"),
+    status: "Delivered",
+  },
+  {
+    id: "ORD-2026-9044",
+    customerName: "Pam Beesly",
+    customerEmail: "pam.b@artdesigns.com",
+    itemsCount: 3,
+    totalAmount: 45.1,
+    paymentMethod: "PayPal",
+    shippingAddress: "Pratt Institute Dorms, New York, NY",
+    orderDate: new Date("2026-07-30T08:05:00"),
+    status: "Cancelled",
   },
 ];

@@ -1,8 +1,8 @@
 import React from "react";
 import AreaChartComponent from "./components/BarChart";
-import Table from "@/components/layout/Table";
 import Filters from "../products/components/Filters";
 import Movement from "./components/Movement";
+import MovementTable from "./components/MovementsTable";
 
 const Warehouse = () => {
   return (
@@ -19,7 +19,7 @@ const Warehouse = () => {
         <div className="p-5">
           <Filters />
         </div>
-        <Table />
+        <MovementTable />
       </div>
     </div>
   );

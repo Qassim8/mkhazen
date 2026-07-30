@@ -1,6 +1,6 @@
 import Searchbar from "@/components/layout/Searchbar";
-import Table from "@/components/layout/Table";
-import React from "react";
+
+import SuppliersTable from "./components/SuppliersTable";
 
 const Suppliers = () => {
   return (
@@ -8,7 +8,7 @@ const Suppliers = () => {
       <div className="py-5 px-3">
         <Searchbar />
       </div>
-      <Table />
+      <SuppliersTable />
     </div>
   );
 };
