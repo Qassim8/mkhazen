@@ -48,7 +48,7 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active ? "bg-(--primary-red) text-white shadow-lg" : "text-gray-700 hover:bg-red-50 hover:text-(--primary-red)"}`}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active ? "bg-(--primary-red)/15 text-(--primary-red)" : "text-gray-700 hover:bg-red-50 hover:text-(--primary-red)"}`}
             >
               <Icon className="h-4 w-4" />
               {label}

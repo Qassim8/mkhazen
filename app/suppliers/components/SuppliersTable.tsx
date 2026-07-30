@@ -96,8 +96,8 @@ const SuppliersTable = () => {
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
               isActive
-                ? "bg-emerald-100/70 text-emerald-800"
-                : "bg-rose-100/70 text-rose-800"
+                ? "bg-emerald-100/50 text-emerald-800"
+                : "bg-rose-100/50 text-rose-800"
             }`}
           >
             <span
@@ -105,7 +105,7 @@ const SuppliersTable = () => {
                 isActive ? "bg-emerald-500" : "bg-rose-500"
               }`}
             />
-            {isActive ? "نشط" : "غير نشط"}
+            {isActive ? "active" : "inactive"}
           </span>
         );
       },
