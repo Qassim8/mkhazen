@@ -1,7 +1,4 @@
 import TableFilter, { filterOption } from "@/components/layout/TableFilter";
-import { categories } from "@/data/data";
-import React from "react";
-import { LuArrowUpDown } from "react-icons/lu";
 
 const Filters = () => {
   const sortOption: filterOption[] = [
@@ -18,8 +15,8 @@ const Filters = () => {
 
   return (
     <div className="flex items-center gap-2">
-      <TableFilter options={sortOption} />
-      <TableFilter options={statusOption} />
+      <TableFilter label="Select One to Sort" options={sortOption} />
+      <TableFilter label="Select Status" options={statusOption} />
     </div>
   );
 };

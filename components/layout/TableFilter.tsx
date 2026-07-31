@@ -4,14 +4,16 @@ export type filterOption = {
 };
 
 type filterProps = {
+  label: string;
   paramKey?: string;
   options: filterOption[];
 };
 
-const TableFilter = ({ options }: filterProps) => {
+const TableFilter = ({ label, options }: filterProps) => {
   return (
     <div className="relative">
-      <select className="rounded-lg shadow bg-gray-50 px-6 py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500 focus:bg-white focus:outline-none focus:ring focus:ring-red-200">
+      <select className="rounded-lg custom-shadow bg-gray-50 px-6 py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500 focus:bg-white focus:outline-none focus:ring focus:ring-red-200">
+        <option>{label}</option>
         {options.map(({ label, value }) => (
           <option key={label} value={value}>
             {label}

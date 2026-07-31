@@ -19,6 +19,7 @@ import {
   LuDollarSign,
   LuRefreshCcw,
   LuTriangleAlert,
+  LuBringToFront,
 } from "react-icons/lu";
 
 export const actions = [
@@ -80,6 +81,41 @@ export const statsData: StatsCardProps[] = [
     title: "Low Stock",
     value: "7",
     icon: LuTriangleAlert,
+    iconBg: "#f5a50f",
+    statNumber: 15.2,
+    statType: "decrease",
+  },
+];
+
+export const reportsData: StatsCardProps[] = [
+  {
+    title: "Sales",
+    value: "$12,345",
+    icon: LuRefreshCcw,
+    iconBg: "#df346a",
+    statNumber: 3.7,
+    statType: "increase",
+  },
+  {
+    title: "Profit",
+    value: "$2,345",
+    icon: LuDollarSign,
+    iconBg: "#13a390",
+    statNumber: 0,
+    statType: "increase",
+  },
+  {
+    title: "Orders",
+    value: "1700",
+    icon: LuBoxes,
+    iconBg: "#b547d6",
+    statNumber: 12.8,
+    statType: "increase",
+  },
+  {
+    title: "Average Order",
+    value: "800",
+    icon: LuBringToFront,
     iconBg: "#f5a50f",
     statNumber: 15.2,
     statType: "decrease",

@@ -41,3 +41,6 @@ body {
 .frame {
   @apply rounded-xl bg-white border border-slate-200 p-6 transition-transform duration-300 shadow-[0_4px_8px_rgba(0,0,0,0.05)];
 }
+.custom-shadow {
+  @apply shadow-[0_4px_8px_rgba(0,0,0,0.05)]!;
+}
