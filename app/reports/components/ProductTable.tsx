@@ -47,6 +47,10 @@ const ProductTable = () => {
 
   return (
     <div className="frame p-0! h-full">
+      <div className="flex flex-col gap-2 p-5">
+        <p className="text-sm text-gray-500">Products overview</p>
+        <h2 className="font-semibold text-gray-900">Must sold products</h2>
+      </div>
       <Table data={products.slice(0, 5)} columns={columns} />
     </div>
   );

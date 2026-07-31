@@ -24,7 +24,7 @@ const links = [
   { href: "/suppliers", label: "Suppliers", icon: LuPackageCheck },
   { href: "/inventory", label: "Inventory", icon: LuLayers },
   { href: "/reports", label: "Reports", icon: LuFileChartColumn },
-  { href: "/users", label: "Users", icon: LuUsers },
+  { href: "/employees", label: "Employees", icon: LuUsers },
   { href: "/settings", label: "Settings", icon: LuSettings },
 ];
 

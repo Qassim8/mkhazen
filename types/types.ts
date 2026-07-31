@@ -41,6 +41,18 @@ export type Supplier = {
   status: "active" | "inactive";
 };
 
+export type Employee = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  job: string;
+  department: string;
+  address?: string;
+  shift: "Morning" | "Night" | "Flexible";
+  status: "active" | "inactive";
+};
+
 export type Movement = {
   id?: string;
   date: Date;

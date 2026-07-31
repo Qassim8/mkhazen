@@ -1,6 +1,5 @@
 import TableFilter, { filterOption } from "@/components/layout/TableFilter";
 import { categories, suppliers } from "@/data/data";
-import RevenueChart from "./RevenueChart";
 
 const Filters = () => {
   const timeOption: filterOption[] = [

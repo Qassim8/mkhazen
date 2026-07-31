@@ -1,9 +1,8 @@
-import React from "react";
-import Searchbar from "../products/components/Searchbar";
 import { categories, products } from "@/data/data";
 import Card from "./components/Card";
 import CartList from "./components/CartList";
 import { LuList } from "react-icons/lu";
+import TableSearchbar from "@/components/layout/TableSearchbar";
 
 const POS = () => {
   return (
@@ -11,7 +10,7 @@ const POS = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
         <div className="col-span-2">
           <div>
-            <Searchbar />
+            <TableSearchbar placeholder="Search for products...." />
           </div>
           <div className="py-5 md:py-10">
             <h2 className="mb-3 text-gray-600">Filter By Catgory:</h2>

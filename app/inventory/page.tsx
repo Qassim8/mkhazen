@@ -1,4 +1,3 @@
-import React from "react";
 import AreaChartComponent from "./components/BarChart";
 import Filters from "../products/components/Filters";
 import Movement from "./components/Movement";

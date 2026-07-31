@@ -19,8 +19,8 @@ const Orders = () => {
     <div>
       <div className="frame my-8 p-0! ">
         <div className="p-5 flex items-center gap-5">
-          <TableFilter options={sortFilter} />
-          <TableFilter options={statusOption} />
+          <TableFilter label="Select sort type:" options={sortFilter} />
+          <TableFilter label="Select status:" options={statusOption} />
         </div>
         <OrdersTable />
       </div>

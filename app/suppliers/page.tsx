@@ -13,7 +13,7 @@ const Suppliers = () => {
       <div className="py-5 px-3 flex items-center gap-5">
         <TableSearchbar placeholder="Search by name" />
         <div>
-          <TableFilter options={statusOption} />
+          <TableFilter label="Select status:" options={statusOption} />
         </div>
       </div>
       <SuppliersTable />
