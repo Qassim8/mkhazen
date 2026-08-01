@@ -2,7 +2,7 @@ import { categories, products } from "@/data/data";
 import Card from "./components/Card";
 import CartList from "./components/CartList";
 import { LuList } from "react-icons/lu";
-import TableSearchbar from "@/components/layout/TableSearchbar";
+import TableSearchbar from "@/components/shared/TableSearchbar";
 
 const POS = () => {
   return (

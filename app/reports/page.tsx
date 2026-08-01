@@ -6,12 +6,17 @@ import CategoryChart from "./components/CategoryChart";
 import TopProductsChart from "./components/TopProductsChart";
 import InventoryChart from "./components/InventoryChart";
 import ProductTable from "./components/ProductTable";
+import PageHeader from "@/components/shared/PageHeader";
 
 const Reports = () => {
   return (
     <main>
+      <PageHeader
+        title="Reports"
+        subtitle="insights and analytics across your inventory"
+      />
       <Filters />
-      <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <section className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {/* Stats cards */}
         {reportsData.map((stat) => (
           <StatsCard

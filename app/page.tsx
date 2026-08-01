@@ -6,6 +6,7 @@ import AreaChartComponent from "./components/AreaChart";
 import PieChartComponent from "./components/PieChart";
 // data
 import { actions, activities, statsData } from "@/data/data";
+import PageHeader from "@/components/shared/PageHeader";
 
 const Dashboard = () => {
   const products = [
@@ -48,12 +49,11 @@ const Dashboard = () => {
 
   return (
     <div>
-      <header className="my-7">
-        <h1 className="text-3xl font-bold">Welcome back, John! 👋</h1>
-        <p className="text-gray-600">
-          Here&apos;s what&apos;s happening with your store today.
-        </p>
-      </header>
+      <PageHeader
+        title="Welcome back, John! 👋"
+        subtitle="
+          Here's what's happening with your store today."
+      />
       <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {/* Stats cards */}
         {statsData.map((stat) => (

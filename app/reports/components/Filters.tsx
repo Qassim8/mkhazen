@@ -1,4 +1,4 @@
-import TableFilter, { filterOption } from "@/components/layout/TableFilter";
+import TableFilter, { filterOption } from "@/components/shared/TableFilter";
 import { categories, suppliers } from "@/data/data";
 
 const Filters = () => {
@@ -20,7 +20,7 @@ const Filters = () => {
   }));
   return (
     <div>
-      <div className="py-5 flex items-center gap-5">
+      <div className="pb-3 flex items-center gap-5">
         <TableFilter label="Select Time:" options={timeOption} />
         <TableFilter label="Select Category:" options={categoriesOption} />
         <TableFilter label="Select Supplier:" options={supplierOption} />

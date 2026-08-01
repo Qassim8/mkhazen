@@ -1,6 +1,6 @@
 "use client";
 
-import Table from "@/components/layout/Table";
+import Table from "@/components/shared/Table";
 import { employees } from "@/data/data";
 import { useTable } from "@/store/useTable";
 import { Employee } from "@/types/types";

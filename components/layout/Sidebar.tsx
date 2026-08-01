@@ -19,8 +19,8 @@ const links = [
   { href: "/", label: "Dashboard", icon: LuLayoutDashboard },
   { href: "/products", label: "Products", icon: LuPackage2 },
   { href: "/categories", label: "Categories", icon: LuFolderTree },
-  { href: "/orders", label: "Purchase Orders", icon: LuTruck },
-  { href: "/pos", label: "Sale Orders", icon: LuStore },
+  { href: "/orders", label: "Orders", icon: LuTruck },
+  { href: "/pos", label: "POS", icon: LuStore },
   { href: "/suppliers", label: "Suppliers", icon: LuPackageCheck },
   { href: "/inventory", label: "Inventory", icon: LuLayers },
   { href: "/reports", label: "Reports", icon: LuFileChartColumn },
@@ -33,14 +33,17 @@ export function Sidebar() {
 
   return (
     <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-gray-200 bg-white/80 p-6 backdrop-blur lg:flex">
-      <div className="mb-8">
-        <div className="text-sm font-semibold uppercase tracking-[0.3em] text-(--primary-red)">
-          ERP Mini
+      <Link href="/" className="mb-8">
+        <div className="flex items-center gap-3">
+          <LuStore className="text-(--primary-red) text-2xl" />
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-(--primary-red)">
+            Matjarey
+          </p>
         </div>
         <h2 className="mt-2 text-xl font-semibold text-gray-900">
-          Store Control Center
+          ERP Store Control
         </h2>
-      </div>
+      </Link>
       <nav className="space-y-1.5">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;

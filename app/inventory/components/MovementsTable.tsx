@@ -1,5 +1,5 @@
 "use client";
-import Table from "@/components/layout/Table";
+import Table from "@/components/shared/Table";
 import { movements } from "@/data/data";
 import { useTable } from "@/store/useTable";
 import { Movement } from "@/types/types";

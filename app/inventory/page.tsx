@@ -2,10 +2,16 @@ import AreaChartComponent from "./components/BarChart";
 import Filters from "../products/components/Filters";
 import Movement from "./components/Movement";
 import MovementTable from "./components/MovementsTable";
+import PageHeader from "@/components/shared/PageHeader";
 
 const Warehouse = () => {
   return (
-    <div>
+    <main>
+      <PageHeader
+        title="Inventory Movements"
+        subtitle="track every stock change across your warehouse"
+        buttonTitle="Log Movement"
+      />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
         <div className="col-span-2">
           <AreaChartComponent />
@@ -20,7 +26,7 @@ const Warehouse = () => {
         </div>
         <MovementTable />
       </div>
-    </div>
+    </main>
   );
 };
 

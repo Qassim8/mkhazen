@@ -1,5 +1,9 @@
-import TableFilter, { filterOption } from "@/components/layout/TableFilter";
+import TableFilter, { filterOption } from "@/components/shared/TableFilter";
 import OrdersTable from "./components/OrdersTable";
+import PageHeader from "@/components/shared/PageHeader";
+import { orders } from "@/data/data";
+import GenericModal from "@/components/ui/AddNewModal";
+import ModalContent from "./components/ModalContent";
 
 const Orders = () => {
   const sortFilter: filterOption[] = [
@@ -16,15 +20,21 @@ const Orders = () => {
   ];
 
   return (
-    <div>
-      <div className="frame my-8 p-0! ">
+    <main>
+      <GenericModal modalContent={<ModalContent />} />
+      <PageHeader
+        title="Orders"
+        subtitle={`${orders?.length} has been made`}
+        buttonTitle="Craete Order"
+      />
+      <div className="frame mb-8 p-0! ">
         <div className="p-5 flex items-center gap-5">
           <TableFilter label="Select sort type:" options={sortFilter} />
           <TableFilter label="Select status:" options={statusOption} />
         </div>
         <OrdersTable />
       </div>
-    </div>
+    </main>
   );
 };
 

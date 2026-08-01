@@ -1,5 +1,5 @@
 "use client";
-import Table from "@/components/layout/Table";
+import Table from "@/components/shared/Table";
 import { suppliers } from "@/data/data";
 import { useTable } from "@/store/useTable";
 import { Supplier } from "@/types/types";

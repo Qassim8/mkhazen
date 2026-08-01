@@ -1,5 +1,5 @@
 "use client";
-import Table from "@/components/layout/Table";
+import Table from "@/components/shared/Table";
 import { products } from "@/data/data";
 import { Product } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";

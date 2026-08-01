@@ -1,4 +1,4 @@
-import TableFilter, { filterOption } from "@/components/layout/TableFilter";
+import TableFilter, { filterOption } from "@/components/shared/TableFilter";
 import { categories, suppliers } from "@/data/data";
 
 const Filters = () => {

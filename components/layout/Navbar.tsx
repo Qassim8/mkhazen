@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Searchbar from "./Searchbar";
 import Link from "next/link";
-import PageName from "./PageName";
+import PageName from "../shared/PageName";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);

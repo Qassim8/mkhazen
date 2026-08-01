@@ -1,25 +1,9 @@
-import Link from "next/link";
-import { LuArrowLeft, LuLock } from "react-icons/lu";
+import { LuLock } from "react-icons/lu";
 
-export default function PasswordPage() {
+const Password = () => {
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/settings"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:border-(--primary-red) hover:text-(--primary-red)"
-        >
-          <LuArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <p className="text-sm font-medium text-(--primary-red)">Settings</p>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Password Setting
-          </h1>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div>
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-(--primary-red)/10 text-(--primary-red)">
             <LuLock className="h-5 w-5" />
@@ -73,4 +57,6 @@ export default function PasswordPage() {
       </div>
     </div>
   );
-}
+};
+
+export default Password;
