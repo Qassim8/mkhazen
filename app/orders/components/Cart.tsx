@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LuTrash2, LuPlus, LuMinus } from "react-icons/lu";
-import { PurchaseItem } from "./NewPurchaseOrderForm";
+import { PurchaseItem } from "./ModalContent";
 
 interface PurchaseCartProps {
   supplierId: string;

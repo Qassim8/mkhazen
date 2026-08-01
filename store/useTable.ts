@@ -7,6 +7,9 @@ type tableState = {
   isOpen: boolean;
   openModal: () => void;
   closeModal: () => void;
+  deleteConfirmation: boolean;
+  showDeleteConfirmation: () => void;
+  onCancel: () => void;
 };
 
 export const useTable = create<tableState>((set) => ({
@@ -19,4 +22,7 @@ export const useTable = create<tableState>((set) => ({
   isOpen: false,
   openModal: () => set({ isOpen: true }),
   closeModal: () => set({ isOpen: false }),
+  deleteConfirmation: false,
+  showDeleteConfirmation: () => set({ deleteConfirmation: true }),
+  onCancel: () => set({ deleteConfirmation: false }),
 }));

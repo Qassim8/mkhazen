@@ -3,6 +3,8 @@ import SuppliersTable from "./components/SuppliersTable";
 import TableSearchbar from "@/components/shared/TableSearchbar";
 import PageHeader from "@/components/shared/PageHeader";
 import { suppliers } from "@/data/data";
+import GenericModal from "@/components/ui/AddNewModal";
+import ModalContent from "./components/ModalContent";
 
 const Suppliers = () => {
   const statusOption: filterOption[] = [
@@ -12,6 +14,7 @@ const Suppliers = () => {
 
   return (
     <main>
+      <GenericModal modalContent={<ModalContent />} />
       <PageHeader
         title="Suppliers"
         subtitle={`${suppliers?.length} suppliers has been registerd till now`}

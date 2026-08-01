@@ -3,10 +3,13 @@ import EmployeesTable from "./components/EmployeesTable";
 import TableSearchbar from "@/components/shared/TableSearchbar";
 import Filters from "./components/Filters";
 import PageHeader from "@/components/shared/PageHeader";
+import GenericModal from "@/components/ui/AddNewModal";
+import ModalContent from "./components/ModalContent";
 
 const Employees = () => {
   return (
     <main>
+      <GenericModal modalContent={<ModalContent />} />
       <PageHeader
         title="Employees"
         subtitle="manage all your employees"

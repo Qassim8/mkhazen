@@ -1,5 +1,6 @@
 "use client";
 
+import { useTable } from "@/store/useTable";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -30,6 +31,7 @@ const links = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const closeModal = useTable((state) => state.closeModal);
 
   return (
     <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-gray-200 bg-white/80 p-6 backdrop-blur lg:flex">
@@ -51,6 +53,7 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
+              onClick={closeModal}
               className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${active ? "bg-(--primary-red)/15 text-(--primary-red)" : "text-gray-700 hover:bg-red-50 hover:text-(--primary-red)"}`}
             >
               <Icon className="h-4 w-4" />
@@ -59,12 +62,12 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto rounded-2xl border border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+      {/* <div className="mt-auto rounded-2xl border border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
         <p className="font-medium text-gray-900">Need a quick overview?</p>
         <p className="mt-1">
           Use the dashboard and reports to keep your store in sync.
         </p>
-      </div>
+      </div> */}
     </aside>
   );
 }

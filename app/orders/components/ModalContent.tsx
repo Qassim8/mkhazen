@@ -51,7 +51,7 @@ export default function ModalContent() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-12 min-h-[500px]">
+    <div className="grid gap-6 lg:grid-cols-12 min-h-125">
       {/* الطرف الأيمن: البيانات والبحث */}
       <div className="lg:col-span-7 space-y-6">
         <div>

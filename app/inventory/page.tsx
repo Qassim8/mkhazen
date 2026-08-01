@@ -3,10 +3,13 @@ import Filters from "../products/components/Filters";
 import Movement from "./components/Movement";
 import MovementTable from "./components/MovementsTable";
 import PageHeader from "@/components/shared/PageHeader";
+import GenericModal from "@/components/ui/AddNewModal";
+import ModalContent from "./components/ModalContent";
 
 const Warehouse = () => {
   return (
     <main>
+      <GenericModal modalContent={<ModalContent />} />
       <PageHeader
         title="Inventory Movements"
         subtitle="track every stock change across your warehouse"
