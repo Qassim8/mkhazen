@@ -15,8 +15,8 @@ const Filters = () => {
 
   return (
     <div className="flex items-center gap-2">
-      <TableFilter label="Select sort type:" options={sortOption} />
-      <TableFilter label="Select status:" options={statusOption} />
+      <TableFilter label="اختر نمط الترتيب:" options={sortOption} />
+      <TableFilter label="اختر حالة للمنتج:" options={statusOption} />
     </div>
   );
 };

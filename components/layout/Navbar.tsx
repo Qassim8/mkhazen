@@ -29,25 +29,25 @@ const Navbar = () => {
         </div>
       </div>
       {open && (
-        <div className="bg-white rounded-lg border border-gray-200 absolute top-16 right-10 w-44 shadow-lg">
+        <div className="bg-white rounded-lg border border-gray-200 absolute top-16 inset-e-5 w-44 shadow-lg">
           <div className="flex flex-col p-1 text-sm">
             <h2 className="font-semibold p-2 mb-1 border-b border-b-gray-200">
-              My Account
+              حسابي
             </h2>
             <Link
               href="/settings"
-              className="text-left hover:text-(--primary-red) hover:bg-(--primary-red)/10 p-2 rounded-lg"
+              className="hover:text-(--primary-red) hover:bg-(--primary-red)/10 p-2 rounded-lg"
             >
-              Profile
+              الملف الشخصي
             </Link>
             <Link
               href="/settings"
-              className="text-left hover:text-(--primary-red) hover:bg-(--primary-red)/10 p-2 rounded-lg"
+              className="hover:text-(--primary-red) hover:bg-(--primary-red)/10 p-2 rounded-lg"
             >
-              Settings
+              الاعدادات
             </Link>
-            <button className="text-left mt-1 border-t border-t-gray-200 hover:text-(--primary-red) hover:bg-(--primary-red)/10 p-2 rounded-lg">
-              Logout
+            <button className="mt-1 border-t border-t-gray-200 hover:text-(--primary-red) hover:bg-(--primary-red)/10 p-2 rounded-lg">
+              تسجيل الخروج
             </button>
           </div>
         </div>

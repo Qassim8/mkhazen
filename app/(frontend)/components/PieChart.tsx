@@ -21,8 +21,8 @@ const PieChartComponent = ({
   return (
     <div className="frame h-[60vh]">
       <div className="flex flex-col gap-1">
-        <p className="text-sm text-gray-500">Best Seller</p>
-        <h2 className="font-semibold text-gray-900">Distribution</h2>
+        <p className="text-sm text-gray-500">الاعلى مبيعاً</p>
+        <h2 className="font-semibold text-gray-900">الاصناف</h2>
       </div>
       <div className="pt-5">
         <PieChart

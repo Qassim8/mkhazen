@@ -17,16 +17,16 @@ import {
 } from "react-icons/lu";
 
 const links = [
-  { href: "/", label: "Dashboard", icon: LuLayoutDashboard },
-  { href: "/products", label: "Products", icon: LuPackage2 },
-  { href: "/categories", label: "Categories", icon: LuFolderTree },
-  { href: "/orders", label: "Orders", icon: LuTruck },
-  { href: "/pos", label: "POS", icon: LuStore },
-  { href: "/suppliers", label: "Suppliers", icon: LuPackageCheck },
-  { href: "/inventory", label: "Inventory", icon: LuLayers },
-  { href: "/reports", label: "Reports", icon: LuFileChartColumn },
-  { href: "/employees", label: "Employees", icon: LuUsers },
-  { href: "/settings", label: "Settings", icon: LuSettings },
+  { href: "/", label: "لوحة التحكم", icon: LuLayoutDashboard },
+  { href: "/products", label: "المنتجات", icon: LuPackage2 },
+  { href: "/categories", label: "الاصناف", icon: LuFolderTree },
+  { href: "/orders", label: "الطلبيات", icon: LuTruck },
+  { href: "/pos", label: "نقطة البيع", icon: LuStore },
+  { href: "/suppliers", label: "الموردين", icon: LuPackageCheck },
+  { href: "/inventory", label: "المخازن", icon: LuLayers },
+  { href: "/reports", label: "التقارير", icon: LuFileChartColumn },
+  { href: "/employees", label: "الموظفين", icon: LuUsers },
+  { href: "/settings", label: "الاعدادات", icon: LuSettings },
 ];
 
 export function Sidebar() {
@@ -34,17 +34,15 @@ export function Sidebar() {
   const closeModal = useTable((state) => state.closeModal);
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-gray-200 bg-white/80 p-6 backdrop-blur lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-72 flex-col border-e border-gray-200 bg-white/80 p-6 backdrop-blur lg:flex">
       <Link href="/" className="mb-8">
         <div className="flex items-center gap-3">
           <LuStore className="text-(--primary-red) text-2xl" />
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-(--primary-red)">
-            Matjarey
+            متجري
           </p>
         </div>
-        <h2 className="mt-2 text-xl font-semibold text-gray-900">
-          ERP Store Control
-        </h2>
+        <h2 className="mt-2 text-xl font-semibold text-gray-900">نظام ادارة</h2>
       </Link>
       <nav className="space-y-1.5">
         {links.map(({ href, label, icon: Icon }) => {

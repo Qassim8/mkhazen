@@ -11,35 +11,36 @@ import { RechartsDevtools } from "@recharts/devtools";
 
 const AreaChartComponent = ({ isAnimationActive = true }) => {
   const data = [
-    { name: "Jan", revenue: 13.325, profit: 3.325 },
-    { name: "Feb", revenue: 20.125, profit: 5.825 },
-    { name: "Mar", revenue: 23.875, profit: 3.525 },
-    { name: "Apr", revenue: 35.235, profit: 15.235 },
-    { name: "May", revenue: 40.575, profit: 7.625 },
-    { name: "Jun", revenue: 41.115, profit: 20.953 },
+    { name: "Jan", ايراد: 13.325, ربح: 3.325 },
+    { name: "Feb", ايراد: 20.125, ربح: 5.825 },
+    { name: "Mar", ايراد: 23.875, ربح: 3.525 },
+    { name: "Apr", ايراد: 35.235, ربح: 15.235 },
+    { name: "May", ايراد: 40.575, ربح: 7.625 },
+    { name: "Jun", ايراد: 41.115, ربح: 20.953 },
   ];
 
   return (
     <div className="frame h-[60vh]">
       <div className="flex justify-between items-center">
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-gray-500">Sales Overview</p>
-          <h2 className="font-semibold text-gray-900">Revenue vs. Profit</h2>
+          <p className="text-sm text-gray-500">نظرة عامة على المبيعات</p>
+          <h2 className="font-semibold text-gray-900">الارباح x الايرادات</h2>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full bg-(--primary-red)" />
-            <span className="text-sm font-medium">Revenue</span>
+            <span className="text-sm font-medium">الايرادات</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full bg-(--primary-pink)" />
-            <span className="text-sm font-medium">Profit</span>
+            <span className="text-sm font-medium">الارباح</span>
           </div>
         </div>
       </div>
       <div className="pt-10 h-[55vh] max-h-[55vh]">
         <AreaChart
           style={{
+            direction: "rtl",
             width: "100%",
             maxWidth: "100%",
             maxHeight: "40vh",
@@ -91,7 +92,7 @@ const AreaChartComponent = ({ isAnimationActive = true }) => {
           <Tooltip />
           <Area
             type="monotone"
-            dataKey="revenue"
+            dataKey="ايراد"
             stroke="var(--primary-red)"
             fillOpacity={1}
             fill="url(#colorUv)"
@@ -101,7 +102,7 @@ const AreaChartComponent = ({ isAnimationActive = true }) => {
           />
           <Area
             type="monotone"
-            dataKey="profit"
+            dataKey="ربح"
             stroke="var(--primary-pink)"
             fillOpacity={1}
             fill="url(#colorPv)"

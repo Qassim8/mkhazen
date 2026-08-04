@@ -38,7 +38,7 @@ const StatsCard = ({
               stable
             </span>
           )}
-          <span className="text-gray-500 text-xs">from last week</span>
+          <span className="text-gray-500 text-xs">منذ اخر اسبوع</span>
         </p>
       </div>
     </div>

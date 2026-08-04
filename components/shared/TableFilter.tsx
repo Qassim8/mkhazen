@@ -12,7 +12,7 @@ type filterProps = {
 const TableFilter = ({ label, options }: filterProps) => {
   return (
     <div className="relative">
-      <select className="rounded-lg custom-shadow bg-gray-50 px-6 py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500 focus:bg-white focus:outline-none focus:ring focus:ring-red-200">
+      <select className="rounded-lg bg-gray-50 px-6 py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500/20 focus:bg-white focus:outline-none focus:ring focus:ring-red-200">
         <option>{label}</option>
         {options.map(({ label, value }) => (
           <option key={label} value={value}>

@@ -19,13 +19,14 @@ const ProductsTable = () => {
       header: "Product",
       cell: (info) => (
         <div className="flex items-center gap-3">
-          <Image
-            src={info.row.original.image}
-            alt={info.getValue()}
-            className="h-10 w-10 rounded-lg border border-gray-200 bg-gray-100 object-cover"
-            width={10}
-            height={10}
-          />
+          <div className="relative w-20 h-20 flex justify-center items-center">
+            <Image
+              src={info.row.original.image}
+              alt={info.getValue()}
+              className="h-full w-full rounded-lg border border-gray-200 bg-gray-100 object-cover"
+              fill
+            />
+          </div>
           <span className="font-medium text-gray-900">{info.getValue()}</span>
         </div>
       ),

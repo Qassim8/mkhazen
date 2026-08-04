@@ -24,38 +24,38 @@ import {
 } from "react-icons/lu";
 
 export const actions = [
-  { name: "Add Product", href: "/products/new" },
-  { name: "New Sale", href: "/pos" },
-  { name: "Stock Adjustment", href: "/warehouse" },
-  { name: "Genarate Report", href: "/reports" },
+  { name: "اضف منتج", href: "/products/new" },
+  { name: "عملية بيع", href: "/pos" },
+  { name: "التعديل على المخزن", href: "/warehouse" },
+  { name: "توليد تقرير", href: "/reports" },
 ];
 
 export const activities = [
   {
-    name: "new product to stock",
-    responsable: "eglal omar",
-    time: "10m ago",
+    name: "تمت اضافة منتج جديد للمخزن",
+    responsable: "عمر محمد",
+    time: "10m",
   },
   {
-    name: "adjusted inventory",
-    responsable: "omar ahmad",
-    time: "55m ago",
+    name: "تعديل منتج في المخزن",
+    responsable: "الادمن",
+    time: "55m",
   },
   {
-    name: "fulfilled order",
-    responsable: "yusuf faris",
-    time: "2h ago",
+    name: "الموافقة على طلبية",
+    responsable: "يوسف خالد",
+    time: "2h",
   },
   {
-    name: "flagged low stock",
-    responsable: "omar ahmad",
-    time: "5h ago",
+    name: "اجراء عملية بيع جديد",
+    responsable: "عمر محمد",
+    time: "5h",
   },
 ];
 
 export const statsData: StatsCardProps[] = [
   {
-    title: "Total Revenue",
+    title: "إجمالي الإيرادات",
     value: "$12,345",
     icon: LuRefreshCcw,
     iconBg: "#df346a",
@@ -63,7 +63,7 @@ export const statsData: StatsCardProps[] = [
     statType: "increase",
   },
   {
-    title: "Net Profit",
+    title: "صافي الارباح",
     value: "$2,345",
     icon: LuDollarSign,
     iconBg: "#13a390",
@@ -71,7 +71,7 @@ export const statsData: StatsCardProps[] = [
     statType: "increase",
   },
   {
-    title: "Active Orders",
+    title: "الطلبات النشطة",
     value: "150",
     icon: LuBoxes,
     iconBg: "#b547d6",
@@ -79,7 +79,7 @@ export const statsData: StatsCardProps[] = [
     statType: "increase",
   },
   {
-    title: "Low Stock",
+    title: "مخزون منخفض",
     value: "7",
     icon: LuTriangleAlert,
     iconBg: "#f5a50f",
@@ -173,11 +173,11 @@ export const categories: Category[] = [
 export const products: Product[] = [
   {
     id: "1",
-    name: "Ceramic Pour-Over Kettle",
+    name: "مركوب جلد اسود",
     image:
-      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100&q=80",
+      "https://jallabiya.com/cdn/shop/files/Whisk_34fb27389414cfb830b4298df62c5f8deg.jpg?v=1771896643&width=1920",
     sku: "BEV-KTL-003",
-    category: "Beverages",
+    category: "احذية",
     supplier: "Atlas Distribution",
     qty: 62,
     price: 48.0,
@@ -185,11 +185,11 @@ export const products: Product[] = [
   },
   {
     id: "2",
-    name: "Cold Brew Coffee Maker",
+    name: "جلابية قطن برتقالية عادية",
     image:
-      "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=100&q=80",
+      "https://tse2.mm.bing.net/th/id/OIP.2M2W2k4-3aYKt-FSrgg1FQHaJ4?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
     sku: "BEV-CBM-010",
-    category: "Beverages",
+    category: "جلاليب",
     supplier: "Atlas Distribution",
     qty: 33,
     price: 39.0,
@@ -197,11 +197,11 @@ export const products: Product[] = [
   },
   {
     id: "3",
-    name: "Compact Mirrorless Camera",
+    name: "طقم كتان ثلاثي",
     image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=100&q=80",
+      "https://tse1.mm.bing.net/th/id/OIP.B4xkOxgdF23ztTtSY4JpMwAAAA?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
     sku: "CAM-MIR-006",
-    category: "Cameras",
+    category: "اطقم",
     supplier: "Kyoto Supply Co.",
     qty: 8,
     price: 899.0,
@@ -209,11 +209,11 @@ export const products: Product[] = [
   },
   {
     id: "4",
-    name: "Cordless Drill Kit",
+    name: "مركوب جلد بني",
     image:
-      "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=100&q=80",
+      "https://jallabiya.com/cdn/shop/files/Whisk_c40211d9e6d2c4d855b449fd53030937dr.jpg",
     sku: "TLS-DRL-005",
-    category: "Tools",
+    category: "احذية",
     supplier: "Brisbane Wholesale",
     qty: 41,
     price: 179.5,
@@ -221,11 +221,11 @@ export const products: Product[] = [
   },
   {
     id: "5",
-    name: "Hardcover Design Anthology",
+    name: "على الله زرقاء مسلوبة",
     image:
-      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=100&q=80",
+      "https://tse1.mm.bing.net/th/id/OIP.taZ1kt8LXC5h5AQ6wBtdQgHaJ4?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
     sku: "BOK-DSN-008",
-    category: "Books",
+    category: "على الله",
     supplier: "Nordwind Trading",
     qty: 210,
     price: 42.0,
@@ -233,11 +233,11 @@ export const products: Product[] = [
   },
   {
     id: "6",
-    name: "Linen Table Lamp",
+    name: "طقم العريس",
     image:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=100&q=80",
+      "https://media.mapp.sa/80628/conversions/202209111636_65703-preview.jpeg",
     sku: "HOM-LMP-007",
-    category: "Home & Lighting",
+    category: "اطقم",
     supplier: "Atlas Distribution",
     qty: 55,
     price: 74.0,
@@ -245,11 +245,11 @@ export const products: Product[] = [
   },
   {
     id: "7",
-    name: "Mechanical Keyboard 75%",
+    name: "طقم العريس",
     image:
-      "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=100&q=80",
+      "https://tse2.mm.bing.net/th/id/OIP.DEpjBwA4CXF4x7k8_kjIEwHaHe?r=0&pid=ImgDet&w=474&h=478&rs=1&o=7&rm=3",
     sku: "ELE-KEY-002",
-    category: "Electronics",
+    category: "اطقم",
     supplier: "Nordwind Trading",
     qty: 14,
     price: 139.9,

@@ -12,7 +12,7 @@ const TableSearchbar = ({ placeholder }: searchbarProps) => {
       <input
         type="text"
         placeholder={placeholder}
-        className="w-full rounded-lg custom-shadow bg-gray-50 px-8 py-2 text-sm text-gray-700 placeholder-gray-600 border border-gray-300 focus:border-red-500 focus:bg-white focus:outline-none focus:ring focus:ring-red-200"
+        className="w-full rounded-lg bg-gray-50 px-8 py-2 text-sm text-gray-700 placeholder-gray-600 border border-gray-300 focus:border-red-500/20 focus:bg-white focus:outline-none focus:ring focus:ring-red-200"
       />
     </div>
   );

@@ -50,9 +50,9 @@ const Dashboard = () => {
   return (
     <div>
       <PageHeader
-        title="Welcome back, John! 👋"
+        title="مرحباَ بك مجدداَ, محمد 👋"
         subtitle="
-          Here's what's happening with your store today."
+          اطلع على اخر المستجدات في متجرك اليوم"
       />
       <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {/* Stats cards */}
@@ -79,7 +79,7 @@ const Dashboard = () => {
       <section className="my-8 grid grid-cols-1 gap-5 md:grid-cols-3">
         <div className="col-span-1 space-y-5">
           <div className="frame">
-            <p className="text-sm text-gray-500 mb-5">Quick actions</p>
+            <p className="text-sm text-gray-500 mb-5">تنفيذ سريع</p>
             <div className="grid grid-cols-2 gap-3">
               {actions.map(({ name, href }) => (
                 <Link
@@ -93,7 +93,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="frame">
-            <p className="text-sm text-gray-500 mb-5">Recent Activity</p>
+            <p className="text-sm text-gray-500 mb-5">احدث الانشطة</p>
             <div className="space-y-2">
               {activities.map((active) => {
                 const id = 0;
@@ -120,16 +120,16 @@ const Dashboard = () => {
         <div className="col-span-2 frame">
           <div className="flex justify-between items-center mb-5">
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-gray-500">Needs restocking</p>
+              <p className="text-sm text-gray-500">بحاجة للشراء</p>
               <h2 className="font-semibold text-gray-900">
-                Low Stock / Out of Stock
+                كمية قليلة / نفذ من المخزن
               </h2>
             </div>
             <Link
               href="/products"
               className="text-(--primary-red) transition-colors duration-300 hover:text-(--primary-red-hover)"
             >
-              Manage Products
+              ادر منتجاتك
             </Link>
           </div>
           <div className="space-y-2">
