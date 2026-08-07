@@ -10,10 +10,10 @@ const Password = () => {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              Password update
+              تحديث كلمة المرور
             </h2>
             <p className="text-sm text-gray-500">
-              Change your password securely here.
+              غيّر كلمة المرور بشكل آمن هنا.
             </p>
           </div>
         </div>
@@ -21,7 +21,7 @@ const Password = () => {
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block md:col-span-2">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Current Password
+              كلمة المرور الحالية
             </span>
             <input
               type="password"
@@ -31,7 +31,7 @@ const Password = () => {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              New Password
+              كلمة المرور الجديدة
             </span>
             <input
               type="password"
@@ -41,7 +41,7 @@ const Password = () => {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Confirm Password
+              تأكيد كلمة المرور
             </span>
             <input
               type="password"
@@ -52,7 +52,7 @@ const Password = () => {
         </div>
 
         <button className="mt-6 rounded-xl bg-(--primary-red) px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-(--primary-red-hover)">
-          Update Password
+          تحديث كلمة المرور
         </button>
       </div>
     </div>

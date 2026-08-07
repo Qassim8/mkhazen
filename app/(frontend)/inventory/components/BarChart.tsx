@@ -17,13 +17,11 @@ const BarChartComponent = ({
   ];
 
   return (
-    <div className="frame h-[65vh]">
+    <div className="frame h-[40vh] md:h-[65vh]">
       <div className="flex justify-between items-center">
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-gray-500">Inventory Overview</p>
-          <h2 className="font-semibold text-gray-900">
-            Stock in vs. Stock out
-          </h2>
+          <p className="text-sm text-gray-500">تتبع المخزن</p>
+          <h2 className="font-semibold text-gray-900">داخل X. خارج</h2>
         </div>
       </div>
       <div className="pt-10 h-[65vh] max-h-[65vh]">

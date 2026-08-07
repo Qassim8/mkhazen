@@ -11,12 +11,12 @@ const Warehouse = () => {
     <main>
       <GenericModal modalContent={<ModalContent />} />
       <PageHeader
-        title="Inventory Movements"
-        subtitle="track every stock change across your warehouse"
-        buttonTitle="Log Movement"
+        title="تحركات المخزن"
+        subtitle="تتبع كل التحركات والتغيرات في مخزنك"
+        buttonTitle="عملية جديدة"
       />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
-        <div className="col-span-2">
+        <div className="md:col-span-2">
           <AreaChartComponent />
         </div>
         <div className="frame">

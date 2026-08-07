@@ -2,20 +2,20 @@ import TableFilter, { filterOption } from "@/components/shared/TableFilter";
 
 const Filters = () => {
   const sortOption: filterOption[] = [
-    { label: "Sort: Date", value: "date" },
-    { label: "Sort: Quantity", value: "quantity" },
-    { label: "Sort: Price", value: "price" },
+    { label: "التاريخ", value: "date" },
+    { label: "الكمية", value: "quantity" },
+    { label: "السعر", value: "price" },
   ];
 
   const statusOption: filterOption[] = [
-    { label: "In Stock", value: "instock" },
-    { label: "Out Of Stock", value: "outstock" },
+    { label: "متوفر", value: "instock" },
+    { label: "نفذ", value: "outstock" },
     { label: "Adjustment", value: "adjustment" },
   ];
 
   return (
-    <div className="flex items-center gap-2">
-      <TableFilter label="اختر نمط الترتيب:" options={sortOption} />
+    <div className="flex md:items-center gap-2">
+      <TableFilter label="الترتيب حسب:" options={sortOption} />
       <TableFilter label="اختر حالة للمنتج:" options={statusOption} />
     </div>
   );

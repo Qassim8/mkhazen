@@ -10,6 +10,8 @@ type tableState = {
   deleteConfirmation: boolean;
   showDeleteConfirmation: () => void;
   onCancel: () => void;
+  sidebarOpen: boolean;
+  sidebarToggler: (open?: boolean) => void;
 };
 
 export const useTable = create<tableState>((set) => ({
@@ -25,4 +27,9 @@ export const useTable = create<tableState>((set) => ({
   deleteConfirmation: false,
   showDeleteConfirmation: () => set({ deleteConfirmation: true }),
   onCancel: () => set({ deleteConfirmation: false }),
+  sidebarOpen: false,
+  sidebarToggler: (open) =>
+    set((state) => ({
+      sidebarOpen: typeof open === "boolean" ? open : !state.sidebarOpen,
+    })),
 }));

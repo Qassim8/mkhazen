@@ -9,13 +9,13 @@ const PieChartComponent = ({
 }) => {
   const data = [
     {
-      name: "Samsung Galaxy S25, Black, 512GB",
+      name: "احذية",
       value: 250,
       fill: "var(--primary-red)",
     },
-    { name: "Jaguar XE, Black, 2023", value: 200, fill: "var(--primary-pink)" },
-    { name: "Men Half Boot Chelsea, Brown", value: 160, fill: "#f5a50f" },
-    { name: "Other", value: 400, fill: "var(--primary-red-hover)" },
+    { name: "جلاليب", value: 200, fill: "var(--primary-pink)" },
+    { name: "على الله", value: 160, fill: "#f5a50f" },
+    { name: "اخرى", value: 400, fill: "var(--primary-red-hover)" },
   ];
 
   return (
@@ -24,7 +24,7 @@ const PieChartComponent = ({
         <p className="text-sm text-gray-500">الاعلى مبيعاً</p>
         <h2 className="font-semibold text-gray-900">الاصناف</h2>
       </div>
-      <div className="pt-5">
+      <div className="pt-3">
         <PieChart
           style={{
             width: "100%",
@@ -50,7 +50,7 @@ const PieChartComponent = ({
           <RechartsDevtools />
         </PieChart>
       </div>
-      <div className="pt-3 space-y-1">
+      <div className="pt-3 flex flex-wrap justify-between items-center">
         {data.map((entry) => (
           <div key={entry.name} className="flex items-center gap-1">
             <div

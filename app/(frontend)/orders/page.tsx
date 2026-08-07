@@ -23,12 +23,12 @@ const Orders = () => {
     <main>
       <GenericModal modalContent={<ModalContent />} />
       <PageHeader
-        title="Orders"
+        title="الطلبيات"
         subtitle={`${orders?.length} has been made`}
-        buttonTitle="Craete Order"
+        buttonTitle="انشاء طلبية"
       />
-      <div className="frame mb-8 p-0! ">
-        <div className="p-5 flex items-center gap-5">
+      <div className="frame my-8 p-0! ">
+        <div className="p-3 md:p-5 flex md:items-center gap-2 md:gap-5">
           <TableFilter label="Select sort type:" options={sortFilter} />
           <TableFilter label="Select status:" options={statusOption} />
         </div>

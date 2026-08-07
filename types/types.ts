@@ -11,7 +11,7 @@ export type StatsCardProps = {
 
 export type Category = {
   id: number | string;
-  icon: IconType;
+  icon: string;
   color: string;
   title: string;
   products: number;

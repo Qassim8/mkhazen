@@ -16,13 +16,13 @@ const InventoryChart = () => {
     <div className="frame">
       <div className="flex justify-between items-center">
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-gray-500">Inventory Overview</p>
+          <p className="text-sm text-gray-500">نظرة عامة على المخزون</p>
           <h2 className="font-semibold text-gray-900">
             Stock in vs. Stock out
           </h2>
         </div>
       </div>
-      <div className="pt-5">
+      <div className="pt-8 h-[50vh] max-h-[50vh]">
         <BarChart
           style={{
             width: "100%",

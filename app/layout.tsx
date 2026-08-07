@@ -31,7 +31,7 @@ export default function RootLayout({
       <body
         className={`${ibm.className} min-h-screen bg-gray-50 text-gray-900 antialiased`}
       >
-        <div className="flex min-h-screen">
+        <div className="md:flex min-h-screen">
           <Sidebar />
           <div className="flex-1 flex flex-col">
             <Navbar />

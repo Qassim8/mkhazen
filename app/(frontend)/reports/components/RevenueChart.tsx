@@ -51,10 +51,10 @@ const data = [
 
 const RevenueChart = () => {
   return (
-    <section className="frame max-h-[85vh] mt-10">
+    <section className="frame max-h-[85vh] mt-8">
       <div className="flex flex-col gap-2 mb-5">
-        <p className="text-sm text-gray-500">Sales Overview</p>
-        <h2 className="font-semibold text-gray-900">Revenue vs. Profit</h2>
+        <p className="text-sm text-gray-500">نظرة عامة على المبيعات</p>
+        <h2 className="font-semibold text-gray-900">المبيعات X. الارباح</h2>
       </div>
       <div>
         <ComposedChart
@@ -62,6 +62,7 @@ const RevenueChart = () => {
             width: "100%",
             maxHeight: "70vh",
             aspectRatio: 1.618,
+            overflowX: "auto",
           }}
           responsive
           data={data}

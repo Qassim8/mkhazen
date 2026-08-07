@@ -11,18 +11,16 @@ const CompanyInfo = () => {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              Company details
+              تفاصيل الشركة
             </h2>
-            <p className="text-sm text-gray-500">
-              Update your business information here.
-            </p>
+            <p className="text-sm text-gray-500">حدّث معلومات عملك هنا.</p>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Company Name
+              اسم الشركة
             </span>
             <input
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none transition focus:border-(--primary-red) focus:bg-white"
@@ -31,7 +29,7 @@ const CompanyInfo = () => {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Address
+              العنوان
             </span>
             <input
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none transition focus:border-(--primary-red) focus:bg-white"
@@ -40,7 +38,7 @@ const CompanyInfo = () => {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Tax Number
+              الرقم الضريبي
             </span>
             <input
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none transition focus:border-(--primary-red) focus:bg-white"
@@ -49,7 +47,7 @@ const CompanyInfo = () => {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-gray-700">
-              Industry
+              المجال
             </span>
             <input
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none transition focus:border-(--primary-red) focus:bg-white"
@@ -59,7 +57,7 @@ const CompanyInfo = () => {
         </div>
 
         <button className="mt-6 rounded-xl bg-(--primary-red) px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-(--primary-red-hover)">
-          Save Company Info
+          حفظ معلومات الشركة
         </button>
       </div>
     </div>

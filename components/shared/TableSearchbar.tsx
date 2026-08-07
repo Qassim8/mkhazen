@@ -8,11 +8,11 @@ type searchbarProps = {
 const TableSearchbar = ({ placeholder }: searchbarProps) => {
   return (
     <div className="relative grow">
-      <LuSearch className="h-4 w-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+      <LuSearch className="h-4 w-4 text-gray-500 absolute inset-s-1.5 md:inset-s-3 top-1/2 -translate-y-1/2" />
       <input
         type="text"
         placeholder={placeholder}
-        className="w-full rounded-lg bg-gray-50 px-8 py-2 text-sm text-gray-700 placeholder-gray-600 border border-gray-300 focus:border-red-500/20 focus:bg-white focus:outline-none focus:ring focus:ring-red-200"
+        className="w-full rounded-md md:rounded-lg bg-gray-50 px-6 md:px-8 py-2 text-sm text-gray-700 placeholder-gray-600 border border-gray-300 focus:border-red-500/20 focus:bg-white focus:outline-none focus:ring focus:ring-red-200"
       />
     </div>
   );

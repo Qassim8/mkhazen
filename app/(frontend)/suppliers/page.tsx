@@ -8,23 +8,25 @@ import ModalContent from "./components/ModalContent";
 
 const Suppliers = () => {
   const statusOption: filterOption[] = [
-    { label: "Active", value: "active" },
-    { label: "In Active", value: "inactive" },
+    { label: "نشط", value: "active" },
+    { label: "غير نشط", value: "inactive" },
   ];
 
   return (
     <main>
       <GenericModal modalContent={<ModalContent />} />
       <PageHeader
-        title="Suppliers"
-        subtitle={`${suppliers?.length} suppliers has been registerd till now`}
-        buttonTitle="Add Supplier"
+        title="الموردين"
+        subtitle={`${suppliers?.length} مورد تم تسجيلهم حتى الان`}
+        buttonTitle="اضف مورد"
       />
-      <div className="frame p-0! mb-8">
+      <div className="frame p-0! my-8">
         <div className="py-5 px-3 flex items-center gap-5">
-          <TableSearchbar placeholder="Search by name" />
+          <div className="grow">
+            <TableSearchbar placeholder="ابحث بالاسم...." />
+          </div>
           <div>
-            <TableFilter label="Select status:" options={statusOption} />
+            <TableFilter label="اختر حالة المورد" options={statusOption} />
           </div>
         </div>
         <SuppliersTable />

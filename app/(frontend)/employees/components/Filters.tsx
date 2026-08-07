@@ -1,30 +1,29 @@
 import TableFilter, { filterOption } from "@/components/shared/TableFilter";
-import { categories, suppliers } from "@/data/data";
 
 const Filters = () => {
   const departOption: filterOption[] = [
-    { label: "Sales", value: "sales" },
-    { label: "Warehouse", value: "warehouse" },
-    { label: "Management", value: "management" },
+    { label: "المبيعات", value: "sales" },
+    { label: "المخازن", value: "warehouse" },
+    { label: "اداري", value: "management" },
   ];
 
   const shiftOption: filterOption[] = [
-    { label: "Morning", value: "morning" },
-    { label: "Night", value: "night" },
-    { label: "Flexible", value: "flexible" },
+    { label: "صباحي", value: "morning" },
+    { label: "مسائي", value: "night" },
+    { label: "مرنs", value: "flexible" },
   ];
 
   const statusOption: filterOption[] = [
-    { label: "Active", value: "active" },
-    { label: "In Active", value: "inactive" },
+    { label: "نشط", value: "active" },
+    { label: "غير نشط", value: "inactive" },
   ];
 
   return (
     <div>
-      <div className="py-5 flex items-center gap-5">
-        <TableFilter label="Select Time:" options={departOption} />
-        <TableFilter label="Select Category:" options={shiftOption} />
-        <TableFilter label="Select Supplier:" options={statusOption} />
+      <div className="py-5 flex items-center gap-2">
+        <TableFilter label="القسم" options={departOption} />
+        <TableFilter label="الدوام" options={shiftOption} />
+        <TableFilter label="الحالة" options={statusOption} />
       </div>
     </div>
   );

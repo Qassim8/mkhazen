@@ -53,9 +53,9 @@ const Movement = () => {
 
   return (
     <div>
-      <div className="flex flex-col gap-2 pb-3">
-        <p className="text-sm text-gray-500">Timeline</p>
-        <h2 className="font-semibold text-gray-900">Today&apos;s movements</h2>
+      <div className="flex flex-col gap-1 pb-3">
+        <p className="text-sm text-gray-500">الجدول الزمني</p>
+        <h2 className="font-semibold text-gray-900">تحركات اليوم</h2>
       </div>
       <div className="flex flex-col gap-4">
         {moves.map(({ id, product, type, qty, responsable }, index) => {

@@ -11,36 +11,36 @@ import PageHeader from "@/components/shared/PageHeader";
 const Dashboard = () => {
   const products = [
     {
-      title: "Mechanical Keyboard",
-      category: "Electronics",
+      title: "جلابية قطن منقطه",
+      category: "جلابية",
       totalQty: 38,
       recentQty: 5,
       status: "low stock",
     },
     {
-      title: "Smart Watch",
-      category: "Electronics",
+      title: "شبشب جلد بني",
+      category: "احذية",
       totalQty: 20,
       recentQty: 0,
       status: "out of stock",
     },
     {
-      title: "Air Max, Shoe",
-      category: "Cloths",
+      title: "شال العريس مشكل - بني اساسي",
+      category: "شالات",
       totalQty: 40,
       recentQty: 7,
       status: "low stock",
     },
     {
-      title: "Dior Sauvage",
-      category: "Beauty",
+      title: "عطر العود الملكي - عبد الصمد القرشي",
+      category: "عطور",
       totalQty: 20,
       recentQty: 2,
       status: "low stock",
     },
     {
-      title: "IPhone 16 Pro Max, Golden",
-      category: "Electronics",
+      title: "عصا سوداء صغيرة",
+      category: "عصي",
       totalQty: 50,
       recentQty: 0,
       status: "out of stock",
@@ -54,7 +54,7 @@ const Dashboard = () => {
         subtitle="
           اطلع على اخر المستجدات في متجرك اليوم"
       />
-      <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <section className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-5">
         {/* Stats cards */}
         {statsData.map((stat) => (
           <StatsCard
@@ -68,8 +68,8 @@ const Dashboard = () => {
           />
         ))}
       </section>
-      <section className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-        <div className="col-span-2">
+      <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="md:col-span-2">
           <AreaChartComponent />
         </div>
         <div className="col-span-1">
@@ -117,7 +117,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        <div className="col-span-2 frame">
+        <div className="md:col-span-2 frame">
           <div className="flex justify-between items-center mb-5">
             <div className="flex flex-col gap-2">
               <p className="text-sm text-gray-500">بحاجة للشراء</p>
@@ -140,9 +140,11 @@ const Dashboard = () => {
                 className={`pt-2 pb-3 flex justify-between items-center ${index !== products.length - 1 ? "border-b border-b-gray-200" : ""}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-16 w-16 rounded-2xl bg-slate-400/30"></div>
+                  <div className="h-10 md:h-16 w-10 md:w-16 rounded-2xl bg-slate-400/30"></div>
                   <div>
-                    <h2 className="font-semibold">{product.title}</h2>
+                    <h2 className="text-sm md:text-base font-semibold">
+                      {product.title}
+                    </h2>
                     <p className="text-gray-500 text-sm">{product.category}</p>
                   </div>
                 </div>
@@ -152,9 +154,11 @@ const Dashboard = () => {
                     <span>{product.totalQty}</span>
                   </p>
                   <div
-                    className={`py-1 px-3 text-sm rounded-full ${product.recentQty ? "text-amber-500 bg-amber-400/15" : "text-(--primary-red) bg-(--primary-red)/15"}`}
+                    className={`py-1 px-3 text-xs md:text-sm rounded-full ${product.recentQty ? "text-amber-500 bg-amber-400/15" : "text-(--primary-red) bg-(--primary-red)/15"}`}
                   >
-                    {product.status}
+                    {product.status === "out of stock"
+                      ? "نفذت الكمية"
+                      : "كمية قليلة"}
                   </div>
                 </div>
               </Link>

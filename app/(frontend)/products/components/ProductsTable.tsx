@@ -19,7 +19,7 @@ const ProductsTable = () => {
       header: "Product",
       cell: (info) => (
         <div className="flex items-center gap-3">
-          <div className="relative w-20 h-20 flex justify-center items-center">
+          <div className="relative w-16 md:w-20 h-16 md:h-20 flex justify-center items-center">
             <Image
               src={info.row.original.image}
               alt={info.getValue()}

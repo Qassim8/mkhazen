@@ -11,19 +11,21 @@ const StatsCard = ({
 }: StatsCardProps) => {
   return (
     <div className="frame hover:scale-[1.05]">
-      <div className="flex justify-between mb-4">
-        <div className="space-y-2">
+      <div className="flex flex-col md:flex-row justify-between gap-3 mb-2 md:mb-4">
+        <div className="space-y-0.5 md:space-y-2">
           <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-          <p className="text-4xl font-semibold text-gray-900 my-3">{value}</p>
+          <p className="text-3xl md:text-4xl font-semibold text-gray-900 my-3">
+            {value}
+          </p>
         </div>
         <div
           style={{ backgroundColor: `${iconBg}` }}
-          className={`text-xl flex h-11 w-11 items-center justify-center rounded-xl text-white bg-[${iconBg}] shadow-md`}
+          className={`order-first md:order-last text-base md:text-xl flex h-9 md:h-11 w-9 md:w-11 items-center justify-center rounded-lg md:rounded-xl text-white bg-[${iconBg}] shadow-md`}
         >
           <Icon />
         </div>
       </div>
-      <div className="mt-4">
+      <div className="mt-2 md:mt-4">
         <p className="flex items-center gap-2">
           {statType === "increase" ? (
             <span className="text-green-600 flex items-center gap-1 text-xs py-0.5 px-2 font-semibold rounded-full bg-green-100/70">

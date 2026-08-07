@@ -2,21 +2,38 @@
 
 import { usePathname } from "next/navigation";
 
+const pageNames: Record<string, string> = {
+  "/": "لوحة التحكم",
+  "/categories": "الفئات",
+  "/products": "المنتجات",
+  "/suppliers": "الموردون",
+  "/orders": "الطلبات",
+  "/inventory": "المخزون",
+  "/employees": "الموظفون",
+  "/reports": "التقارير",
+  "/settings": "الإعدادات",
+  "/pos": "نقطة البيع",
+};
+
 const PageName = () => {
   const pathname = usePathname();
 
-  if (pathname === "/") {
-    return <div>Dashboard</div>;
+  if (!pathname) {
+    return <div>لوحة التحكم</div>;
   }
 
-  return (
-    <div>
-      {pathname
-        .slice(1)
-        .replace("-", " ")
-        .replace(/\b\w/g, (l) => l.toUpperCase())}
-    </div>
-  );
+  if (pageNames[pathname]) {
+    return <div>{pageNames[pathname]}</div>;
+  }
+
+  const segments = pathname.split("/").filter(Boolean);
+  const firstSegment = segments[0];
+
+  if (firstSegment && pageNames[`/${firstSegment}`]) {
+    return <div>{pageNames[`/${firstSegment}`]}</div>;
+  }
+
+  return <div>{pathname.slice(1).replace(/-/g, " ")}</div>;
 };
 
 export default PageName;

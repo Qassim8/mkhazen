@@ -11,12 +11,9 @@ import PageHeader from "@/components/shared/PageHeader";
 const Reports = () => {
   return (
     <main>
-      <PageHeader
-        title="Reports"
-        subtitle="insights and analytics across your inventory"
-      />
+      <PageHeader title="التقارير" subtitle="رؤى وتحليلات شاملة لمتجرك" />
       <Filters />
-      <section className="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+      <section className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
         {/* Stats cards */}
         {reportsData.map((stat) => (
           <StatsCard
@@ -31,11 +28,11 @@ const Reports = () => {
         ))}
       </section>
       <RevenueChart />
-      <div className="grid md:grid-cols-2 gap-5 py-10">
+      <div className="grid md:grid-cols-2 gap-5 py-8">
         <TopProductsChart />
         <CategoryChart />
       </div>
-      <div className="grid md:grid-cols-2 gap-5 max-h-[80vh] pb-10">
+      <div className="grid md:grid-cols-2 gap-5 max-h-[80vh] pb-8">
         <div className="col-span-1">
           <InventoryChart />
         </div>

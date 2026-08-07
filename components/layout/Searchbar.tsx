@@ -7,7 +7,7 @@ const Searchbar = () => {
       <input
         type="text"
         placeholder="ابحث عن منتج......"
-        className="w-72 rounded-xl bg-gray-50 px-8 py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500 focus:bg-white focus:outline-none focus:ring focus:ring-red-200"
+        className="w-48 md:w-72 rounded-lg md:rounded-xl bg-gray-50 px-8 py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500 focus:bg-white focus:outline-none focus:ring focus:ring-red-200"
       />
     </div>
   );

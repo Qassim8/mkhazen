@@ -22,9 +22,9 @@ const data = [
 const TopProductsChart = () => {
   return (
     <section className="frame max-h-[60vh]">
-      <div className="flex flex-col gap-2 pb-3">
-        <p className="text-sm text-gray-500">By units sold this month</p>
-        <h2 className="font-semibold text-gray-900">Top products</h2>
+      <div className="flex flex-col gap-1 pb-3">
+        <p className="text-sm text-gray-500">المباع حسب الوحدة</p>
+        <h2 className="font-semibold text-gray-900">المنتجات الاعلى</h2>
       </div>
       <div>
         <BarChart
@@ -36,7 +36,7 @@ const TopProductsChart = () => {
           }}
           data={data}
           layout="vertical"
-          margin={{ top: 0, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 0, right: 30, left: -30, bottom: 5 }}
         >
           <XAxis
             type="number"

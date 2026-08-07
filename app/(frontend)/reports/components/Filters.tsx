@@ -3,10 +3,10 @@ import { categories, suppliers } from "@/data/data";
 
 const Filters = () => {
   const timeOption: filterOption[] = [
-    { label: "Last Week", value: "week" },
-    { label: "Last Month", value: "month" },
-    { label: "Last 6 Months", value: "half" },
-    { label: "Last Year", value: "year" },
+    { label: "اسبوع", value: "week" },
+    { label: "شهر", value: "month" },
+    { label: "6 اشهر", value: "half" },
+    { label: "سنة", value: "year" },
   ];
 
   const categoriesOption: filterOption[] = categories.map(({ title }) => ({
@@ -20,10 +20,10 @@ const Filters = () => {
   }));
   return (
     <div>
-      <div className="pb-3 flex items-center gap-5">
-        <TableFilter label="Select Time:" options={timeOption} />
-        <TableFilter label="Select Category:" options={categoriesOption} />
-        <TableFilter label="Select Supplier:" options={supplierOption} />
+      <div className="pb-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+        <TableFilter label="الفترة:" options={timeOption} />
+        <TableFilter label="الصنف" options={categoriesOption} />
+        <TableFilter label="المورد" options={supplierOption} />
       </div>
     </div>
   );

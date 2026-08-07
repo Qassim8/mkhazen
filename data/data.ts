@@ -127,45 +127,31 @@ export const reportsData: StatsCardProps[] = [
 export const categories: Category[] = [
   {
     id: 1,
-    icon: LuCpu,
+    icon: "/images/jlabya.png",
     color: "#1151b8",
-    title: "Electronics",
+    title: "جلاليب",
     products: 230,
   },
   {
     id: 2,
-    icon: LuShirt,
+    icon: "/images/shoes.png",
     color: "var(--primary-red)",
-    title: "Cloths",
+    title: "احذية",
     products: 370,
   },
   {
     id: 3,
-    icon: LuSofa,
+    icon: "/images/qomash.png",
     color: "#e09626",
-    title: "Furniture",
+    title: "قماش",
     products: 80,
   },
   {
     id: 4,
-    icon: LuWrench,
+    icon: "/images/stik.png",
     color: "#57575a",
-    title: "Tools",
+    title: "عصي",
     products: 150,
-  },
-  {
-    id: 5,
-    icon: LuSparkles,
-    color: "var(--primary-pink)",
-    title: "Beauty",
-    products: 230,
-  },
-  {
-    id: 6,
-    icon: LuBookOpen,
-    color: "#3bcb3b",
-    title: "Libarary",
-    products: 100,
   },
 ];
 

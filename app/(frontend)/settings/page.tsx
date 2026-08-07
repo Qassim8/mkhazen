@@ -9,9 +9,9 @@ import Password from "./components/Password";
 
 // 1. تعريف التبويبات (Tabs)
 const tabs = [
-  { id: "personal", title: "Personal Info", icon: LuUserRound },
-  { id: "company", title: "Company Info", icon: LuBuilding2 },
-  { id: "password", title: "Password Setting", icon: LuLock },
+  { id: "personal", title: "المعلومات الشخصية", icon: LuUserRound },
+  { id: "company", title: "معلومات العمل", icon: LuBuilding2 },
+  { id: "password", title: "اعدادات كلمة السر", icon: LuLock },
 ];
 
 export default function SettingsPage() {
@@ -20,8 +20,8 @@ export default function SettingsPage() {
   return (
     <main>
       <PageHeader
-        title="Settings"
-        subtitle="aanage your account, workspace and preferences"
+        title="الاعدادات"
+        subtitle="إدارة حسابك ومساحة العمل وتفضيلاتك"
       />
       <div className="space-y-5">
         <div className="flex justify-between border-b border-gray-200 bg-white p-2 rounded-xl custom-shadow gap-2 overflow-x-auto">
@@ -46,7 +46,7 @@ export default function SettingsPage() {
           })}
         </div>
 
-        <div className="p-6 bg-white rounded-3xl border border-gray-200 custom-shadow min-h-75">
+        <div className="mb-5 p-6 bg-white rounded-3xl border border-gray-200 custom-shadow min-h-75">
           {activeTab === "personal" && <PersonalInfo />}
 
           {activeTab === "company" && <CompanyInfo />}

@@ -9,11 +9,11 @@ const Categories = () => {
     <main>
       <GenericModal modalContent={<ModalContent />} />
       <PageHeader
-        title="Categories"
-        subtitle={`You have ${categories?.length} main categories`}
-        buttonTitle="Add Category"
+        title="الاصناف"
+        subtitle={`لديك ${categories?.length} من الاصناف`}
+        buttonTitle="اضف صنف"
       />
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 my-8">
         {categories.map(({ id, color, icon, title, products }) => (
           <Card
             key={id}
