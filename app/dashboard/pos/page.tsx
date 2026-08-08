@@ -6,11 +6,12 @@ import Card from "./components/Card";
 import CartList from "./components/CartList";
 import { LuList, LuShoppingCart } from "react-icons/lu";
 import Image from "next/image";
+import { Product } from "@/types/types";
 
 export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<Product[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function POSPage() {
     }
   };
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
       if (existing) {
@@ -130,7 +131,7 @@ export default function POSPage() {
               <button
                 key={id}
                 type="button"
-                onClick={() => setSelectedCategory(id)}
+                onClick={() => setSelectedCategory(id as string)}
                 className={`flex min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
                   selectedCategory === id
                     ? "border-(--primary-red) bg-(--primary-red)/10 text-(--primary-red)"
@@ -164,7 +165,7 @@ export default function POSPage() {
       </div>
 
       {/* الطرف الأيسر: السلة وحسابات الكاشير (ثابتة بارتفاع الشاشة) */}
-      <div className="w-full lg:w-[400px] h-full flex flex-col shrink-0">
+      <div className="w-full lg:w-100 h-full flex flex-col shrink-0">
         <div
           className={`
             fixed inset-y-0 right-0 z-40 w-[88%] max-w-sm bg-white shadow-2xl transition-transform duration-200 ease-out
