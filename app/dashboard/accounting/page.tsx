@@ -88,10 +88,7 @@ export default function AccountingDashboardPage() {
 
       {/* نموذج إنشاء القيد */}
       {newMovement && (
-        <div
-          className="fixed inset-0 h-screen z-50 flex items-center justify-center bg-black/25 backdrop-blur-[1px]"
-          onClick={hideNewMovement}
-        >
+        <div className="fixed inset-0 h-screen z-50 flex items-center justify-center bg-black/25 backdrop-blur-[1px]">
           <div className="w-full max-w-2xl">
             <NewMovement />
           </div>

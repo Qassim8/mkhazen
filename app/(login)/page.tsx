@@ -21,7 +21,6 @@ export default function LoginPage() {
     try {
       console.log("إرسال البيانات إلى الـ Server Action:", formData);
       // هنا مستقبلاً ستستدعي الـ loginAction(formData) الخاص ببريسما والكوكيز
-      alert("جاري التحقق من الحساب والانتقال للوحة التحكم...");
     } catch (error) {
       alert("خطأ في بيانات الدخول!");
     } finally {
@@ -60,7 +59,6 @@ export default function LoginPage() {
               <input
                 type="email"
                 name="email"
-                required
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="name@store.com"
@@ -79,7 +77,6 @@ export default function LoginPage() {
               <input
                 type={showPassword ? "text" : "password"}
                 name="password"
-                required
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
