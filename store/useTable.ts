@@ -12,6 +12,9 @@ type tableState = {
   onCancel: () => void;
   sidebarOpen: boolean;
   sidebarToggler: (open?: boolean) => void;
+  newMovement: boolean;
+  showNewMovement: () => void;
+  hideNewMovement: () => void;
 };
 
 export const useTable = create<tableState>((set) => ({
@@ -32,4 +35,7 @@ export const useTable = create<tableState>((set) => ({
     set((state) => ({
       sidebarOpen: typeof open === "boolean" ? open : !state.sidebarOpen,
     })),
+  newMovement: false,
+  showNewMovement: () => set({ newMovement: true }),
+  hideNewMovement: () => set({ newMovement: false }),
 }));

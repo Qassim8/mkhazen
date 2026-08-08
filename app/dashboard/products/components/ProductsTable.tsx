@@ -16,7 +16,7 @@ const ProductsTable = () => {
 
   const columns = [
     columnHelper.accessor("name", {
-      header: "Product",
+      header: "المنتج",
       cell: (info) => (
         <div className="flex items-center gap-3">
           <div className="relative w-16 md:w-20 h-16 md:h-20 flex justify-center items-center">
@@ -32,7 +32,7 @@ const ProductsTable = () => {
       ),
     }),
     columnHelper.accessor("sku", {
-      header: "SKU",
+      header: "الرمز",
       cell: (info) => (
         <span className="font-mono text-xs uppercase text-gray-500">
           {info.getValue()}
@@ -40,23 +40,23 @@ const ProductsTable = () => {
       ),
     }),
     columnHelper.accessor("category", {
-      header: "Category",
+      header: "الصنف",
       cell: (info) => (
         <span className="font-medium text-gray-800">{info.getValue()}</span>
       ),
     }),
     columnHelper.accessor("supplier", {
-      header: "Supplier",
+      header: "المورد",
       cell: (info) => <span className="text-gray-600">{info.getValue()}</span>,
     }),
     columnHelper.accessor("qty", {
-      header: "Qty",
+      header: "الكمية",
       cell: (info) => (
         <span className="font-semibold text-gray-900">{info.getValue()}</span>
       ),
     }),
     columnHelper.accessor("price", {
-      header: "Price",
+      header: "السعر",
       cell: (info) => (
         <span className="font-medium text-gray-900">
           ${info.getValue().toFixed(2)}
@@ -64,24 +64,35 @@ const ProductsTable = () => {
       ),
     }),
     columnHelper.accessor("status", {
-      header: "Status",
+      header: "الحالة",
       cell: (info) => {
         const status = info.getValue();
         const isLowStock = status === "Low stock";
+        const outOfStock = status === "Out of stock";
         return (
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
               isLowStock
                 ? "bg-amber-100/70 text-amber-800"
-                : "bg-emerald-100/70 text-emerald-800"
+                : outOfStock
+                  ? "bg-red-100/70 text-red-800"
+                  : "bg-emerald-100/70 text-emerald-800"
             }`}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                isLowStock ? "bg-amber-500" : "bg-emerald-500"
+                isLowStock
+                  ? "bg-amber-500"
+                  : outOfStock
+                    ? "bg-red-500"
+                    : "bg-emerald-500"
               }`}
             />
-            {status}
+            {status === "In stock"
+              ? "متوفر"
+              : status === "Out of stock"
+                ? "نفذ"
+                : "على وشك النفاذ"}
           </span>
         );
       },

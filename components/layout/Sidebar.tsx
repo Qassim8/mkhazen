@@ -4,6 +4,7 @@ import { useTable } from "@/store/useTable";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LuCalculator,
   LuFileChartColumn,
   LuFolderTree,
   LuLayers,
@@ -18,16 +19,17 @@ import {
 } from "react-icons/lu";
 
 const links = [
-  { href: "/", label: "لوحة التحكم", icon: LuLayoutDashboard },
-  { href: "/products", label: "المنتجات", icon: LuPackage2 },
-  { href: "/categories", label: "الاصناف", icon: LuFolderTree },
-  { href: "/orders", label: "الطلبيات", icon: LuTruck },
-  { href: "/pos", label: "نقطة البيع", icon: LuStore },
-  { href: "/suppliers", label: "الموردين", icon: LuPackageCheck },
-  { href: "/inventory", label: "المخازن", icon: LuLayers },
-  { href: "/reports", label: "التقارير", icon: LuFileChartColumn },
-  { href: "/employees", label: "الموظفين", icon: LuUsers },
-  { href: "/settings", label: "الاعدادات", icon: LuSettings },
+  { href: "/dashboard", label: "لوحة التحكم", icon: LuLayoutDashboard },
+  { href: "/dashboard/products", label: "المنتجات", icon: LuPackage2 },
+  { href: "/dashboard/categories", label: "الفئات", icon: LuFolderTree },
+  { href: "/dashboard/employees", label: "الموظفين", icon: LuUsers },
+  { href: "/dashboard/suppliers", label: "الموردين", icon: LuPackageCheck },
+  { href: "/dashboard/orders", label: "الطلبيات", icon: LuTruck },
+  { href: "/dashboard/pos", label: "نقطة البيع", icon: LuStore },
+  { href: "/dashboard/inventory", label: "المخازن", icon: LuLayers },
+  { href: "/dashboard/accounting", label: "الحسابات", icon: LuCalculator },
+  { href: "/dashboard/reports", label: "التقارير", icon: LuFileChartColumn },
+  { href: "/dashboard/settings", label: "الاعدادات", icon: LuSettings },
 ];
 
 export function Sidebar() {
@@ -87,7 +89,7 @@ export function Sidebar() {
                 className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition ${
                   active
                     ? "bg-(--primary-red)/15 text-(--primary-red)"
-                    : "text-gray-700 hover:bg-red-50 hover:text-(--primary-red)"
+                    : "text-gray-700 hover:bg-(--primary-red)/10 hover:text-(--primary-red)"
                 }`}
               >
                 <Icon className="h-4 w-4" />

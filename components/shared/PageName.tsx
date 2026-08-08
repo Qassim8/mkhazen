@@ -3,16 +3,18 @@
 import { usePathname } from "next/navigation";
 
 const pageNames: Record<string, string> = {
-  "/": "لوحة التحكم",
-  "/categories": "الفئات",
-  "/products": "المنتجات",
-  "/suppliers": "الموردون",
-  "/orders": "الطلبات",
-  "/inventory": "المخزون",
-  "/employees": "الموظفون",
-  "/reports": "التقارير",
-  "/settings": "الإعدادات",
-  "/pos": "نقطة البيع",
+  "/dashboard": "لوحة التحكم",
+  "/dashboard/categories": "الفئات",
+  "/dashboard/products": "المنتجات",
+  "/dashboard/suppliers": "الموردون",
+  "/dashboard/orders": "الطلبات",
+  "/dashboard/inventory": "المخزون",
+  "/dashboard/employees": "الموظفون",
+  "/dashboard/reports": "التقارير",
+  "/dashboard/settings": "الإعدادات",
+  "/dashboard/pos": "نقطة البيع",
+  "/dashboard/accounting": "الحسابات",
+  "/dashboard/accounting/accounts": ` الحسابات ${`>`} الشجرة المحاسبية`,
 };
 
 const PageName = () => {

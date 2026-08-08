@@ -79,3 +79,43 @@ export type Order = {
   orderDate: Date;
   status: "Processing" | "Shipped" | "Delivered" | "Cancelled";
 };
+
+export type AccountType =
+  | "ASSET"
+  | "LIABILITY"
+  | "EQUITY"
+  | "REVENUE"
+  | "EXPENSE";
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  balance: number;
+  parentId?: string;
+}
+
+export interface JournalEntryLine {
+  accountId: string;
+  accountName: string;
+  debit: number; // مدين
+  credit: number; // دائن
+}
+
+export interface JournalEntry {
+  id: string;
+  date: string;
+  description: string;
+  reference?: string; // رقم الفاتورة أو القيد
+  lines: JournalEntryLine[];
+}
+
+export interface FormattedTransaction {
+  id: string;
+  date: string;
+  description: string;
+  debitAccount: string; // الحساب الأخذ (مدين)
+  creditAccount: string; // الحساب المعطي (دائن)
+  amount: number;
+}

@@ -23,7 +23,7 @@ export default function Table<TData>({ columns, data }: TableProps<TData>) {
   return (
     <div className="w-full overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse">
+        <table className="w-full text-start text-sm border-collapse">
           {/* Header */}
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
