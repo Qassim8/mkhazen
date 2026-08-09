@@ -126,7 +126,7 @@ const Dashboard = () => {
               </h2>
             </div>
             <Link
-              href="/products"
+              href="/dashboard/products"
               className="text-(--primary-red) transition-colors duration-300 hover:text-(--primary-red-hover)"
             >
               ادر منتجاتك
@@ -154,7 +154,7 @@ const Dashboard = () => {
                     <span>{product.totalQty}</span>
                   </p>
                   <div
-                    className={`py-1 px-3 text-xs md:text-sm rounded-full ${product.recentQty ? "text-amber-500 bg-amber-400/15" : "text-(--primary-red) bg-(--primary-red)/15"}`}
+                    className={`py-1 px-3 text-xs md:text-sm rounded-full ${product.recentQty ? "text-amber-500 bg-amber-400/15" : "text-red-500 bg-red-500/15"}`}
                   >
                     {product.status === "out of stock"
                       ? "نفذت الكمية"

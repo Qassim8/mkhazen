@@ -11,12 +11,6 @@ import {
 } from "@/types/types";
 // icons
 import {
-  LuBookOpen,
-  LuCpu,
-  LuShirt,
-  LuSofa,
-  LuSparkles,
-  LuWrench,
   LuBoxes,
   LuDollarSign,
   LuRefreshCcw,
@@ -25,10 +19,10 @@ import {
 } from "react-icons/lu";
 
 export const actions = [
-  { name: "اضف منتج", href: "/products/new" },
-  { name: "عملية بيع", href: "/pos" },
-  { name: "التعديل على المخزن", href: "/warehouse" },
-  { name: "توليد تقرير", href: "/reports" },
+  { name: "اضف منتج", href: "/dashboard/products/new" },
+  { name: "عملية بيع", href: "/dashboard/pos" },
+  { name: "التعديل على المخزن", href: "/dashboard/warehouse" },
+  { name: "توليد تقرير", href: "/dashboard/reports" },
 ];
 
 export const activities = [

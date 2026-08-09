@@ -1,5 +1,5 @@
 "use client";
 
 export const redirectToNewProductPage = () => {
-  window.location.href = "/products/new";
+  window.location.href = "/dashboard/products/new";
 };
