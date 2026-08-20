@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Sidebar } from "@/components/layout/Sidebar";
 import Navbar from "@/components/layout/Navbar";
+import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 
 export const metadata: Metadata = {
   title: "Matjrey - ERP Mini Dashboard",
@@ -19,6 +20,7 @@ export default function RootLayout({
         <Navbar />
         <main className="container mt-5">{children}</main>
       </div>
+      <DeleteConfirmationModal />
     </div>
   );
 }

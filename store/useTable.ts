@@ -1,5 +1,8 @@
 import { create } from "zustand";
 
+type DeleteRowId = string | number;
+type DeleteFunction = (rowId: DeleteRowId) => void | Promise<void>;
+
 type tableState = {
   openMenuId: string | null;
   setOpenMenuId: (id: string | null) => void;
@@ -8,8 +11,15 @@ type tableState = {
   openModal: () => void;
   closeModal: () => void;
   deleteConfirmation: boolean;
-  showDeleteConfirmation: () => void;
-  onCancel: () => void;
+  deleteRowId: DeleteRowId | null;
+  deleteItemName: string | null;
+  deleteFunction: DeleteFunction | null;
+  showDeleteConfirmation: (
+    rowId: DeleteRowId,
+    deleteFunction: DeleteFunction,
+    itemName?: string,
+  ) => void;
+  hideDeleteConfirmation: () => void;
   sidebarOpen: boolean;
   sidebarToggler: (open?: boolean) => void;
   newMovement: boolean;
@@ -28,8 +38,23 @@ export const useTable = create<tableState>((set) => ({
   openModal: () => set({ isOpen: true }),
   closeModal: () => set({ isOpen: false }),
   deleteConfirmation: false,
-  showDeleteConfirmation: () => set({ deleteConfirmation: true }),
-  onCancel: () => set({ deleteConfirmation: false }),
+  deleteRowId: null,
+  deleteItemName: null,
+  deleteFunction: null,
+  showDeleteConfirmation: (rowId, deleteFunction, itemName) =>
+    set({
+      deleteConfirmation: true,
+      deleteRowId: rowId,
+      deleteFunction,
+      deleteItemName: itemName ?? null,
+    }),
+  hideDeleteConfirmation: () =>
+    set({
+      deleteConfirmation: false,
+      deleteRowId: null,
+      deleteFunction: null,
+      deleteItemName: null,
+    }),
   sidebarOpen: false,
   sidebarToggler: (open) =>
     set((state) => ({

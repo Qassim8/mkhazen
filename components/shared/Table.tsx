@@ -29,12 +29,12 @@ export default function Table<TData>({ columns, data }: TableProps<TData>) {
             {table.getHeaderGroups().map((headerGroup) => (
               <tr
                 key={headerGroup.id}
-                className="border-t border-gray-200 bg-gray-100/50"
+                className="border-t border-gray-200 bg-gray-100/50 text-start"
               >
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-6 py-3.5 font-medium text-gray-500 tracking-wide"
+                    className="px-6 py-3.5 font-medium text-gray-500 tracking-wide text-start"
                   >
                     {header.isPlaceholder
                       ? null

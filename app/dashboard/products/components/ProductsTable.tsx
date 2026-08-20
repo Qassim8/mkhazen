@@ -5,14 +5,18 @@ import { useTable } from "@/store/useTable";
 import { Product } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import Image from "next/image";
-import { FiMoreHorizontal } from "react-icons/fi";
+import { LuEye, LuSquarePen, LuTrash2 } from "react-icons/lu";
 
 const columnHelper = createColumnHelper<Product>();
 
+const deleteProduct = async (productId: string | number) => {
+  console.log("حذف المنتج:", productId);
+};
+
 const ProductsTable = () => {
-  const openMenu = useTable((state) => state.openMenuId);
-  const setOpenMenuId = useTable((state) => state.setOpenMenuId);
-  const toggleOpenMenu = useTable((state) => state.toggleOpenMenu);
+  const showDeleteConfirmation = useTable(
+    (state) => state.showDeleteConfirmation,
+  );
 
   const columns = [
     columnHelper.accessor("name", {
@@ -100,48 +104,38 @@ const ProductsTable = () => {
     columnHelper.display({
       id: "actions",
       cell: ({ row }) => {
-        const isOpen = openMenu === row.id;
         return (
-          <div className="relative">
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
+              aria-label="عرض المنتج"
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              onClick={() => toggleOpenMenu(row.id)}
+              onClick={() => undefined}
             >
-              <FiMoreHorizontal className="h-5 w-5" />
+              <LuEye className="h-5 w-5" />
             </button>
-
-            {isOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => {
-                    setOpenMenuId(null);
-                  }}
-                >
-                  View
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => {
-                    setOpenMenuId(null);
-                  }}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                  onClick={() => {
-                    setOpenMenuId(null);
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              aria-label="تعديل المنتج"
+              className="rounded-lg p-1 text-blue-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              onClick={() => undefined}
+            >
+              <LuSquarePen className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="حذف المنتج"
+              className="rounded-lg p-1 text-red-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              onClick={() =>
+                showDeleteConfirmation(
+                  row.original.id ?? row.id,
+                  deleteProduct,
+                  row.original.name,
+                )
+              }
+            >
+              <LuTrash2 className="h-5 w-5" />
+            </button>
           </div>
         );
       },

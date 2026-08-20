@@ -47,6 +47,7 @@ export type Employee = {
   phone: string;
   email: string;
   job: string;
+  salary: number;
   department: string;
   address?: string;
   shift: "Morning" | "Night" | "Flexible";
