@@ -9,7 +9,7 @@ const pageNames: Record<string, string> = {
   "/dashboard/suppliers": "الموردون",
   "/dashboard/orders": "الطلبات",
   "/dashboard/inventory": "المخزون",
-  "/dashboard/employees": "الموظفون",
+  "/dashboard/employees": "الموظفين",
   "/dashboard/reports": "التقارير",
   "/dashboard/settings": "الإعدادات",
   "/dashboard/pos": "نقطة البيع",

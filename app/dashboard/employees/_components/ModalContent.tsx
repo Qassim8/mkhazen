@@ -1,19 +1,23 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import {
   createEmployeeSchema,
   CreateEmployeeInput,
 } from "@/lib/validations/employee.schemas";
+import { creatEmployee } from "../services/employees.services";
+import { useModalStore } from "@/store/useModalStore";
 
-interface ModalContentProps {
-  onSubmitSuccess?: () => void;
-}
+export default function ModalContent() {
+  const router = useRouter();
+  const closeModal = useModalStore((state) => state.closeModal);
 
-export default function ModalContent({ onSubmitSuccess }: ModalContentProps) {
   const {
     register,
+    watch,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
@@ -21,100 +25,104 @@ export default function ModalContent({ onSubmitSuccess }: ModalContentProps) {
     resolver: zodResolver(createEmployeeSchema),
     defaultValues: {
       name: "",
-      phone: "",
       email: "",
-      position: "tailor",
+      phone: "",
+      position: "cashier",
       shift: "morning",
-      status: "active",
+      isActive: "TRUE",
     },
   });
 
-  const onSubmit = async (data: CreateEmployeeInput) => {
+  const role = watch("position");
+
+  const onSubmit: SubmitHandler<CreateEmployeeInput> = async (data) => {
     try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "فشل في إضافة الموظف");
-      }
-
+      await creatEmployee(data);
+      toast.success("تم إضافة الموظف بنجاح");
       reset();
-      if (onSubmitSuccess) onSubmitSuccess();
-    } catch (err: any) {
-      console.error(err.message);
+      router.refresh();
+      closeModal();
+    } catch (error: any) {
+      console.error("فشل في حفظ بيانات الموظف:", error);
+
+      const errorMessage =
+        typeof error?.message === "string" ? error.message : "";
+
+      const message =
+        errorMessage.includes("duplicate key") ||
+        errorMessage.includes("E11000")
+          ? "البريد الإلكتروني مُسجّل بالفعل في النظام"
+          : errorMessage || "حدث خطأ أثناء إضافة الموظف";
+
+      toast.error(message);
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       <div>
-        <h3 className="text-lg font-bold text-gray-950">إضافة موظف جديد</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="text-sm text-gray-500">
           يرجى ملء جميع الحقول المطلوبة بعناية قبل حفظ بيانات الموظف الجديد.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {/* الاسم الكامل */}
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             الاسم الكامل <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
+            disabled={isSubmitting}
             {...register("name")}
             placeholder="مثال: أحمد رأفت"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
           />
           {errors.name && (
             <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>
           )}
         </div>
 
-        {/* رقم الهاتف */}
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             رقم الهاتف <span className="text-red-500">*</span>
           </label>
           <input
             type="tel"
+            disabled={isSubmitting}
             {...register("phone")}
             placeholder="+249..."
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
           />
           {errors.phone && (
             <p className="mt-1 text-xs text-red-500">{errors.phone.message}</p>
           )}
         </div>
 
-        {/* البريد الإلكتروني */}
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             البريد الإلكتروني <span className="text-red-500">*</span>
           </label>
           <input
             type="email"
+            disabled={isSubmitting}
             {...register("email")}
             placeholder="name@store.com"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
           />
           {errors.email && (
             <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>
           )}
         </div>
 
-        {/* المسمى الوظيفي (Position) */}
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             الوظيفة <span className="text-red-500">*</span>
           </label>
           <select
+            disabled={isSubmitting}
             {...register("position")}
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
           >
             <option value="tailor">خياط (Tailor)</option>
             <option value="cashier">كاشير (Cashier)</option>
@@ -127,14 +135,56 @@ export default function ModalContent({ onSubmitSuccess }: ModalContentProps) {
           )}
         </div>
 
-        {/* الدوام (Shift) */}
+        {role !== "tailor" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+              الراتب الأساسي
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              disabled={isSubmitting}
+              {...register("salary", { valueAsNumber: true })}
+              placeholder="0.00"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
+            />
+            {errors.salary && (
+              <p className="mt-1 text-xs text-red-500">
+                {errors.salary.message}
+              </p>
+            )}
+          </div>
+        )}
+
+        {role === "tailor" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+              نسبة العمولة (%)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              disabled={isSubmitting}
+              {...register("commissionRate", { valueAsNumber: true })}
+              placeholder="مثال: 5.0"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
+            />
+            {errors.commissionRate && (
+              <p className="mt-1 text-xs text-red-500">
+                {errors.commissionRate.message}
+              </p>
+            )}
+          </div>
+        )}
+
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             الدوام <span className="text-red-500">*</span>
           </label>
           <select
+            disabled={isSubmitting}
             {...register("shift")}
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none"
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
           >
             <option value="morning">صباحي</option>
             <option value="night">مسائي</option>
@@ -145,26 +195,32 @@ export default function ModalContent({ onSubmitSuccess }: ModalContentProps) {
           )}
         </div>
 
-        {/* حالة الحساب (Status) */}
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            حالة الحساب
+        <div className="flex items-center pt-6">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              disabled={isSubmitting}
+              {...register("isActive")}
+              className="h-4 w-4 rounded border-gray-300 text-(--primary-red) focus:ring-(--primary-red)"
+            />
+            حساب نشط (Is Active)
           </label>
-          <select
-            {...register("status")}
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none"
-          >
-            <option value="active">نشط</option>
-            <option value="inactive">غير نشط</option>
-          </select>
         </div>
       </div>
 
-      <div className="flex items-center justify-end border-t border-gray-100 pt-5">
+      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={closeModal}
+          className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+        >
+          إلغاء
+        </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? "جاري الحفظ..." : "حفظ البيانات"}
         </button>

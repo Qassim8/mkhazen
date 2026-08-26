@@ -1,39 +1,69 @@
-import { BASE_URL } from "@/lib/constants";
-import { EmployeeQueryParams } from "@/lib/validations/employee.schemas";
+// src/app/dashboard/employees/services/employees.services.ts
+import { serverFetch } from "@/lib/api-client";
+import { AdminResetPasswordInput } from "@/lib/validations/auth.schemas";
+import {
+  CreateEmployeeInput,
+  EmployeeQueryParams,
+  UpdateEmployeeInput,
+} from "@/lib/validations/employee.schemas";
+
+export interface EmployeesResponse {
+  data: any[];
+  meta: {
+    totalCount: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+  };
+}
 
 export const getEmployees = async (params: EmployeeQueryParams) => {
-  try {
-    const searchParams = new URLSearchParams();
-    if (params.search) searchParams.set("search", params.search);
-    if (params.page) searchParams.set("page", String(params.page));
-    if (params.limit) searchParams.set("limit", String(params.limit));
-    if (params.position) searchParams.set("position", params.position);
-    if (params.shift) searchParams.set("shift", params.shift);
-    if (params.status) searchParams.set("status", params.status);
+  return serverFetch<EmployeesResponse>("/api/users", {
+    method: "GET",
+    params,
+    next: { tags: ["employees-list"] },
+  });
+};
 
-    const res = await fetch(
-      `${BASE_URL}/api/users?${searchParams.toString()}`,
-      {
-        next: { tags: ["employees-list"] },
-      },
-    );
+export const creatEmployee = async (data: CreateEmployeeInput) => {
+  return serverFetch<{ message: string; data: any }>("/api/users", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+};
 
-    if (!res.ok) throw new Error("فشل في جلب البيانات");
-    return res.json();
-  } catch (err) {
-    console.log(err);
-  }
+export const updateEmployee = async (id: string, data: UpdateEmployeeInput) => {
+  const isTailor = data.position === "tailor";
+
+  const payload = {
+    ...data,
+    isActive: Boolean(data.isActive),
+    salary: !isTailor ? Number(data.salary ?? 0) : 0,
+    commissionRate: isTailor ? Number(data.commissionRate ?? 0) : 0,
+  };
+
+  return serverFetch<{ message: string; data: any }>(`/api/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 };
 
 export const deleteEmployee = async (rowId: string | number) => {
-  const res = await fetch(`${BASE_URL}/api/users/${rowId}`, {
+  return serverFetch<{ message: string; data: any }>(`/api/users/${rowId}`, {
     method: "DELETE",
   });
+};
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "فشل في حذف الموظف");
-  }
-
-  return res.json();
+export const resetEmployeePassword = async (
+  id: string,
+  data: AdminResetPasswordInput,
+) => {
+  // استدعاء نقطة النهاية المجهزة مسبقاً للتحديث
+  return serverFetch<{ message: string }>(`/api/users/${id}`, {
+    method: "PUT", // أو PUT حسب المتبع لديك في API التحديث
+    body: JSON.stringify({
+      password: data.password,
+      resetRequested: false,
+    }),
+  });
 };

@@ -1,22 +1,21 @@
 "use client";
 
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LuChevronRight, LuChevronLeft } from "react-icons/lu";
 
-interface PaginationProps {
+interface MetaProps {
+  page: number;
+  limit: number;
+  total: number;
   totalPages: number;
-  currentPage: number;
 }
 
-export default function Pagination({
-  totalPages,
-  currentPage,
-}: PaginationProps) {
+export default function Pagination({ meta }: { meta?: MetaProps }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  if (totalPages <= 1) return null;
+  if (!meta || meta.totalPages <= 1) return null;
 
   const createPageURL = (pageNumber: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -24,80 +23,49 @@ export default function Pagination({
     return `${pathname}?${params.toString()}`;
   };
 
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return;
-    router.push(createPageURL(page));
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= meta.totalPages) {
+      router.push(createPageURL(newPage));
+    }
   };
 
   return (
-    <div className="flex items-center justify-between border-t border-gray-100 bg-white px-4 py-3 sm:px-6 mt-4">
-      <div className="flex flex-1 justify-between sm:hidden">
-        <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          السابق
-        </button>
-        <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="relative mr-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          التالي
-        </button>
+    <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4 text-sm">
+      <div className="text-gray-500">
+        عرض{" "}
+        <span className="font-semibold text-gray-800">
+          {(meta.page - 1) * meta.limit + 1}
+        </span>{" "}
+        إلى{" "}
+        <span className="font-semibold text-gray-800">
+          {Math.min(meta.page * meta.limit, meta.total)}
+        </span>{" "}
+        من أصل <span className="font-semibold text-gray-800">{meta.total}</span>{" "}
+        عنصر
       </div>
 
-      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-gray-700">
-            عرض الصفحة <span className="font-semibold">{currentPage}</span> من{" "}
-            <span className="font-semibold">{totalPages}</span> صفحات
-          </p>
-        </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => handlePageChange(meta.page - 1)}
+          disabled={meta.page <= 1}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <LuChevronRight className="h-5 w-5" />
+        </button>
 
-        <div>
-          <nav
-            className="isolate inline-flex -space-x-px space-x-reverse rounded-md shadow-sm"
-            aria-label="Pagination"
-          >
-            {/* زر السابق */}
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1}
-              className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 disabled:opacity-40"
-            >
-              <FiChevronRight className="h-5 w-5" />
-            </button>
+        <span className="px-3 font-semibold text-gray-700">
+          {meta.page} / {meta.totalPages}
+        </span>
 
-            {/* أرقام الصفحات */}
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-              const isCurrent = page === currentPage;
-              return (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
-                    isCurrent
-                      ? "z-10 bg-primary-600 text-white focus-visible:outline-2"
-                      : "text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {page}
-                </button>
-              );
-            })}
-
-            {/* زر التالي */}
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages}
-              className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 disabled:opacity-40"
-            >
-              <FiChevronLeft className="h-5 w-5" />
-            </button>
-          </nav>
-        </div>
+        <button
+          type="button"
+          onClick={() => handlePageChange(meta.page + 1)}
+          disabled={meta.page >= meta.totalPages}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <LuChevronLeft className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );

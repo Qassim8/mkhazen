@@ -1,16 +1,13 @@
 import TableSearchbar from "@/components/shared/TableSearchbar";
-import Filters from "./components/Filters";
-import ProductsTable from "./components/ProductsTable";
+import Filters from "./_components/Filters";
+import ProductsTable from "./_components/ProductsTable";
 import PageHeader from "@/components/shared/PageHeader";
 import { categories, products } from "@/data/data";
-import GenericModal from "@/components/ui/AddNewModal";
-import ModalContent from "./components/ModalContent";
-import { redirectToNewProductPage } from "./components/RedirectFunc";
+import { redirectToNewProductPage } from "./_components/RedirectFunc";
 
 const Products = () => {
   return (
     <main>
-      <GenericModal modalContent={<ModalContent />} />
       <PageHeader
         title="المنتجات"
         subtitle={`${products?.length} منتج من اصل ${categories?.length} صنف`}

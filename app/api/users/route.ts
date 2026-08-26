@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-// src/app/api/employees/route.ts
 import { NextResponse } from "next/server";
 import {
   employeeQuerySchema,
@@ -7,10 +6,20 @@ import {
 } from "@/lib/validations/employee.schemas";
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { getSession } from "@/lib/auth";
 
-// GET: جلب الموظفين مفلترين تلقائياً بـ MAIN_BRANCH_ID
+// GET: جلب الموظفين مفلترين
 export async function GET(request: Request) {
   try {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
+      return NextResponse.json(
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const parsedQuery = employeeQuerySchema.safeParse(
       Object.fromEntries(searchParams),
@@ -26,11 +35,11 @@ export async function GET(request: Request) {
       );
     }
 
-    const { page, limit, search, position, shift, status } = parsedQuery.data;
+    const { page, limit, search, position, shift, isActive, resetRequested } =
+      parsedQuery.data;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // الحقن التلقائي للفرع الرئيسي
     let query = supabaseAdmin
       .from("users")
       .select("*", { count: "exact" })
@@ -44,7 +53,10 @@ export async function GET(request: Request) {
 
     if (position) query = query.eq("position", position);
     if (shift) query = query.eq("shift", shift);
-    if (status) query = query.eq("status", status);
+    if (isActive) query = query.eq("isActive", isActive);
+    if (resetRequested) {
+      query = query.eq("resetRequested", "TRUE");
+    }
 
     const { data, count, error } = await query
       .order("createdAt", { ascending: false })
@@ -70,9 +82,17 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: إضافة موظف مع ربطه تلقائياً بالفرع الرئيسي
+// POST: إضافة موظف
 export async function POST(request: Request) {
   try {
+    const user = await getSession();
+
+    if (!user || user.role !== "admin") {
+      return NextResponse.json(
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
+      );
+    }
     const body = await request.json();
     const validation = createEmployeeSchema.safeParse(body);
 
@@ -86,8 +106,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { position, email, salary, commissionRate } = validation.data;
-
+    const { position, salary, commissionRate } = validation.data;
     const isTailor = position === "tailor";
 
     const finalSalary = isTailor ? 0 : salary || 0;
@@ -115,6 +134,9 @@ export async function POST(request: Request) {
 
     if (error)
       return NextResponse.json({ message: error.message }, { status: 400 });
+
+    revalidateTag("employees-list", "default");
+    revalidatePath("/dashboard/employees");
 
     return NextResponse.json(
       { message: "تمت إضافة الموظف بنجاح", data },

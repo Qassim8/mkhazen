@@ -1,25 +1,79 @@
-import { categories } from "@/data/data";
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
+import { categorySchema } from "@/lib/validations/category.schemas";
+import { revalidateTag } from "next/cache";
+import { getSession } from "@/lib/auth";
 
-export const GET = async () => {
-  return NextResponse.json(categories);
-};
+// 1️⃣ جلب جميع الفئات
+export async function GET() {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("categories")
+      .select("*")
+      .order("createdAt", { ascending: false });
 
-export const POST = async (request: Request) => {
-  const { color, title, icon, products } = await request.json();
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
 
-  const newCategory = {
-    id: categories.length + 1,
-    color,
-    title,
-    icon,
-    products,
-  };
+    return NextResponse.json({ data }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { message: "خطأ في السيرفر أثناء جلب الفئات", error: err.message },
+      { status: 500 },
+    );
+  }
+}
 
-  categories.push(newCategory);
+export async function POST(request: Request) {
+  try {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
+      return NextResponse.json(
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
+      );
+    }
 
-  return new NextResponse(JSON.stringify(newCategory), {
-    headers: { "Content-Type": "application/json" },
-    status: 201,
-  });
-};
+    const body = await request.json();
+    const validation = categorySchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          message: "بيانات الفئة غير صالحة",
+          errors: validation.error.flatten().fieldErrors,
+        },
+        { status: 422 },
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("categories")
+      .insert([
+        {
+          name: validation.data.name,
+          description: validation.data.description || null,
+          imageUrl: validation.data.imageUrl || null,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 400 });
+    }
+
+    revalidateTag("categories-list", "default");
+
+    return NextResponse.json(
+      { message: "تمت إضافة الفئة بنجاح", data },
+      { status: 201 },
+    );
+  } catch (err: any) {
+    return NextResponse.json(
+      { message: "خطأ في السيرفر أثناء إضافة الفئة", error: err.message },
+      { status: 500 },
+    );
+  }
+}

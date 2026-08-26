@@ -1,5 +1,5 @@
 import AreaChartComponent from "./components/BarChart";
-import Filters from "../products/components/Filters";
+import Filters from "../products/_components/Filters";
 import Movement from "./components/Movement";
 import MovementTable from "./components/MovementsTable";
 import PageHeader from "@/components/shared/PageHeader";

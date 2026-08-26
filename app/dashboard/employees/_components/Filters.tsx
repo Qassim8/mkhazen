@@ -11,26 +11,25 @@ const Filters = () => {
   // فترات العمل (shift)
   const shiftOptions: filterOption[] = [
     { label: "صباحي", value: "morning" },
-    { label: "مسائي", value: "evening" },
+    { label: "مسائي", value: "night" },
     { label: "دوام كامل", value: "full_time" },
   ];
 
   // الحالة (status)
   const statusOptions: filterOption[] = [
-    { label: "نشط", value: "active" },
-    { label: "غير نشط", value: "inactive" },
+    { label: "نشط", value: "TRUE" },
+    { label: "غير نشط", value: "FALSE" },
   ];
 
   return (
     <div className="py-5 flex items-center gap-2">
-      {/* ⚠️ أهم خطوة: حدد paramKey المطابق للـ Query Params في الـ API */}
       <TableFilter
         label="الوظيفة"
         paramKey="position"
         options={positionOptions}
       />
       <TableFilter label="فترة العمل" paramKey="shift" options={shiftOptions} />
-      <TableFilter label="الحالة" paramKey="status" options={statusOptions} />
+      <TableFilter label="الحالة" paramKey="isActive" options={statusOptions} />
     </div>
   );
 };

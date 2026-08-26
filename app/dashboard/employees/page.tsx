@@ -1,13 +1,5 @@
-import React from "react";
-import EmployeesTable from "./_components/EmployeesTable";
-import TableSearchbar from "@/components/shared/TableSearchbar";
-import Filters from "./_components/Filters";
-import PageHeader from "@/components/shared/PageHeader";
-import GenericModal from "@/components/ui/AddNewModal";
-import ModalContent from "./_components/ModalContent";
 import { getEmployees } from "./services/employees.services";
-import { employees } from "@/data/data";
-import { ResetFilters } from "@/components/shared/ResetFilters";
+import EmployeesPageClient from "./_components/EmployeesPageClient";
 
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | undefined }>;
@@ -15,32 +7,27 @@ type PageProps = {
 
 const Employees = async ({ searchParams }: PageProps) => {
   const query = await searchParams;
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const isResetFilter =
+    query.resetRequested === "true" || query.filter === "resetRequested";
+
   const { data, meta } = await getEmployees({
-    page: Number(query.page) || 1,
-    limit: Number(query.limit) || 10,
+    page,
+    limit,
     search: query.search || "",
     position: query.position as any,
     shift: query.shift as any,
-    status: query.status as any,
+    isActive: query.isActive as any,
+    resetRequested: isResetFilter,
   });
 
   return (
-    <main>
-      <GenericModal modalContent={<ModalContent />} />
-      <PageHeader
-        title="الموظفين"
-        subtitle="ادر جميع موظفيك"
-        buttonTitle="اضف موظف"
-      />
-      <div className="frame p-0! h-full mb-8">
-        <div className="flex flex-col md:flex-row items-center md:gap-5 p-3 md:p-5">
-          <TableSearchbar placeholder="ابحث بالاسم او الوظيفة...." />
-          <Filters />
-          <ResetFilters />
-        </div>
-        <EmployeesTable initialData={data} />
-      </div>
-    </main>
+    <EmployeesPageClient
+      data={data}
+      meta={meta}
+      isResetFilter={isResetFilter}
+    />
   );
 };
 

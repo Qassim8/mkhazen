@@ -12,22 +12,22 @@ export function ResetFilters() {
   const hasFilters =
     searchParams.has("position") ||
     searchParams.has("shift") ||
-    searchParams.has("status") ||
+    searchParams.has("isActive") ||
     searchParams.has("search");
 
   if (!hasFilters) return null;
 
   const handleReset = () => {
-    replace(pathname); // العودة للرابط الأساسي بدون أي Query Params
+    replace(pathname);
   };
 
   return (
     <button
       onClick={handleReset}
-      className="flex items-center gap-1.5 text-xs bg-red-600 hover:text-red-800 transition-colors px-4 py-2.5 rounded border border-red-200 text-red-50"
+      className="flex items-center gap-1.5 text-sm text-white bg-slate-800 hover:bg-slate-900 transition-colors px-4 py-2.5 rounded-lg cursor-pointer"
     >
       <LuRotateCcw className="w-3.5 h-3.5" />
-      إعادة ضبط
+      حذف الفلاتر
     </button>
   );
 }

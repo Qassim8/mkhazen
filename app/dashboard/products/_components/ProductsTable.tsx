@@ -1,7 +1,7 @@
 "use client";
 import Table from "@/components/shared/Table";
 import { products } from "@/data/data";
-import { useTable } from "@/store/useTable";
+import { useModalStore } from "@/store/useModalStore";
 import { Product } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import Image from "next/image";
@@ -14,9 +14,7 @@ const deleteProduct = async (productId: string | number) => {
 };
 
 const ProductsTable = () => {
-  const showDeleteConfirmation = useTable(
-    (state) => state.showDeleteConfirmation,
-  );
+  const showDeleteConfirmation = useModalStore((state) => state.openModal);
 
   const columns = [
     columnHelper.accessor("name", {

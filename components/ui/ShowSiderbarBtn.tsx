@@ -1,10 +1,10 @@
 "use client";
-import { useTable } from "@/store/useTable";
+import { useUIStore } from "@/store/useUIStore";
 import { GoSidebarCollapse, GoSidebarExpand } from "react-icons/go";
 
 const ShowSiderbarBtn = () => {
-  const sidebarOpen = useTable((state) => state.sidebarOpen);
-  const sidebarToggler = useTable((state) => state.sidebarToggler);
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
+  const sidebarToggler = useUIStore((state) => state.sidebarToggler);
 
   return (
     <button

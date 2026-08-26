@@ -21,7 +21,6 @@ const TableFilter = ({ label, paramKey = "filter", options }: filterProps) => {
   const handleFilterChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
 
-    // إعادة الترقيم للصفحة الأولى عند الفلترة
     params.set("page", "1");
 
     if (value) {

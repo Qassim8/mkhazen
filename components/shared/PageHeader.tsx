@@ -1,5 +1,4 @@
 "use client";
-import { useTable } from "@/store/useTable";
 import { LuPlus } from "react-icons/lu";
 
 type HeaderProps = {
@@ -15,7 +14,6 @@ const PageHeader = ({
   buttonTitle,
   redirect,
 }: HeaderProps) => {
-  const openModal = useTable((state) => state.openModal);
   return (
     <header className="pt-3 pb-7 flex justify-between items-center">
       <div>
@@ -24,8 +22,8 @@ const PageHeader = ({
       </div>
       {buttonTitle && (
         <button
-          className="flex items-center justify-center gap-2 py-2 px-4 text-white bg-(--primary-red) hover:bg-(--primary-red-hover) rounded-lg md:rounded-xl transition-colors duration-300 cursor-pointer"
-          onClick={redirect || openModal}
+          className="flex items-center justify-center gap-2 py-2 px-4 text-white bg-(--primary-red) hover:bg-(--primary-red-hover) rounded-lg transition-colors duration-300 cursor-pointer"
+          onClick={redirect}
         >
           <span className="text-xs md:text-sm">{buttonTitle}</span>
           <LuPlus />

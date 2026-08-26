@@ -34,7 +34,7 @@ const TableSearchbar = ({
       }
 
       replace(`${pathname}?${params.toString()}`);
-    }, 1500);
+    }, 500);
   };
 
   return (

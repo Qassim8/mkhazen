@@ -1,7 +1,8 @@
 "use client";
 import Table from "@/components/shared/Table";
 import { orders } from "@/data/data";
-import { useTable } from "@/store/useTable";
+import { useModalStore } from "@/store/useModalStore";
+import { useUIStore } from "@/store/useUIStore";
 import { Order } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import {
@@ -17,10 +18,8 @@ import {
 const columnHelper = createColumnHelper<Order>();
 
 const OrdersTable = () => {
-  const toggleMenu = useTable((state) => state.toggleOpenMenu);
-  const showDeleteConfirmation = useTable(
-    (state) => state.showDeleteConfirmation,
-  );
+  const toggleMenu = useUIStore((state) => state.toggleOpenMenu);
+  const showDeleteConfirmation = useModalStore((state) => state.openModal);
 
   const deleteOrder = async (orderId: string | number) => {
     console.log("حذف الطلب:", orderId);
@@ -165,11 +164,7 @@ const OrdersTable = () => {
               aria-label="حذف الطلب"
               className="rounded-lg p-1 text-red-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               onClick={() =>
-                showDeleteConfirmation(
-                  row.original.id,
-                  deleteOrder,
-                  row.original.customerName,
-                )
+                showDeleteConfirmation("DELETE_CONFIRM", row.original)
               }
             >
               <LuTrash2 className="h-5 w-5" />

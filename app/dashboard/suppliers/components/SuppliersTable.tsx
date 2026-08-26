@@ -1,7 +1,8 @@
 "use client";
 import Table from "@/components/shared/Table";
 import { suppliers } from "@/data/data";
-import { useTable } from "@/store/useTable";
+import { useModalStore } from "@/store/useModalStore";
+import { useUIStore } from "@/store/useUIStore";
 import { Supplier } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import { LuEye, LuMail, LuPhone, LuSquarePen, LuTrash2 } from "react-icons/lu";
@@ -9,10 +10,8 @@ import { LuEye, LuMail, LuPhone, LuSquarePen, LuTrash2 } from "react-icons/lu";
 const columnHelper = createColumnHelper<Supplier>();
 
 const SuppliersTable = () => {
-  const toggleOpenMenu = useTable((state) => state.toggleOpenMenu);
-  const showDeleteConfirmation = useTable(
-    (state) => state.showDeleteConfirmation,
-  );
+  const toggleOpenMenu = useUIStore((state) => state.toggleOpenMenu);
+  const showDeleteConfirmation = useModalStore((state) => state.openModal);
 
   const deleteSupplier = async (supplierId: string | number) => {
     console.log("حذف المورد:", supplierId);
@@ -141,11 +140,7 @@ const SuppliersTable = () => {
               aria-label="حذف المورد"
               className="rounded-lg p-1 text-red-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               onClick={() =>
-                showDeleteConfirmation(
-                  row.original.id ?? row.id,
-                  deleteSupplier,
-                  row.original.companyName,
-                )
+                showDeleteConfirmation("DELETE_CONFIRM", row.original)
               }
             >
               <LuTrash2 className="h-5 w-5" />

@@ -1,7 +1,7 @@
 "use client";
 import Table from "@/components/shared/Table";
 import { movements } from "@/data/data";
-import { useTable } from "@/store/useTable";
+import { useTable } from "@/store/useUIStore";
 import { Movement } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";
 import {

@@ -1,5 +1,5 @@
 "use client";
-import { useTable } from "@/store/useTable";
+import { useTable } from "@/store/useUIStore";
 import { FormattedTransaction } from "@/types/types";
 import React, { useState } from "react";
 

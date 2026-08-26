@@ -9,49 +9,83 @@ export type StatsCardProps = {
   statType: "increase" | "decrease" | "neutral";
 };
 
-export type Category = {
-  id: number | string;
-  icon: string;
-  color: string;
-  title: string;
-  products: number;
-};
-
-export type Product = {
-  id?: string;
+export interface Category {
+  id: string;
   name: string;
-  image: string;
-  images?: string[];
-  sku?: string;
-  category?: string;
-  supplier?: string;
-  qty?: number;
-  price: number;
-  status?: "In stock" | "Low stock" | "Out of stock";
-};
+  description?: string | null;
+  imageUrl?: string | null;
+  productsCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+export type CreateCategoryInput = Omit<
+  Category,
+  "id" | "createdAt" | "updatedAt"
+>;
+export type UpdateCategoryInput = Partial<CreateCategoryInput>;
 
-export type Supplier = {
-  id?: string;
-  companyName: string;
-  contact: string[];
-  phone: string[];
-  email: string[];
-  location: string[];
-  products?: number | 0;
-  status: "active" | "inactive";
-};
+export interface Supplier {
+  id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  contactPerson?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku?: string | null;
+  barcode?: string | null;
+  description?: string | null;
+
+  images: string[]; // مصفوفة روابط الصور
+  sizes: string[]; // مصفوفة المقاسات المتوفرة
+
+  purchasePrice: number;
+  sellingPrice: number;
+  minSellingPrice?: number | null;
+
+  stockQuantity: number;
+  minStockLevel?: number | null;
+
+  purchaseUnit: string;
+  sellingUnit: string;
+
+  categoryId?: string | null;
+  supplierId?: string | null;
+
+  category?: { id: string; name: string } | null;
+  supplier?: { id: string; name: string } | null;
+
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProductFormInput = Omit<
+  Product,
+  "id" | "createdAt" | "updatedAt" | "category" | "supplier"
+>;
 
 export type Employee = {
   id: string;
   name: string;
   phone: string;
   email: string;
-  job: string;
+  position: "system_manager" | "tailor" | "cashier";
   salary: number;
-  department: string;
+  commissionRate: number;
   address?: string;
-  shift: "Morning" | "Night" | "Flexible";
+  shift: "morning" | "night" | "full_time";
+  role: "admin" | "tailor" | "cashier";
   status: "active" | "inactive";
+  isActive: "TRUE" | "FALSE" | boolean;
+  resetRequested: boolean;
 };
 
 export type Movement = {

@@ -8,7 +8,7 @@ import {
 } from "react-icons/lu";
 import NewMovement from "./components/NewMovement";
 
-import { useTable } from "@/store/useTable";
+import { useTable } from "@/store/useUIStore";
 import AccountingTable from "./components/AccountingTable";
 
 export default function AccountingDashboardPage() {
