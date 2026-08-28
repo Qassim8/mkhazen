@@ -1,17 +1,80 @@
 import TableSearchbar from "@/components/shared/TableSearchbar";
 import Filters from "./_components/Filters";
-import ProductsTable from "./_components/ProductsTable";
 import PageHeader from "@/components/shared/PageHeader";
-import { categories, products } from "@/data/data";
+import ProductsTable from "./_components/ProductsTable";
+import Pagination from "@/components/shared/Pagination"; // تأكد من مسار المكون لديك
 import { redirectToNewProductPage } from "./_components/RedirectFunc";
+import { getProducts } from "./services/products.services";
+import { getCategories } from "../categories/services/categories.services";
+import { getSuppliers } from "../suppliers/service/supplier.services";
 
-const Products = () => {
+interface ProductsPageProps {
+  searchParams: Promise<{
+    search?: string;
+    sortBy?: string;
+    status?: string;
+    page?: string;
+    limit?: string;
+  }>;
+}
+
+const Products = async ({ searchParams }: ProductsPageProps) => {
+  const resolvedSearchParams = await searchParams;
+
+  const page = Number(resolvedSearchParams.page) || 1;
+  const limit = Number(resolvedSearchParams.limit) || 10;
+  const search = resolvedSearchParams.search || "";
+  const sortBy = resolvedSearchParams.sortBy || "";
+  const status = resolvedSearchParams.status || "";
+
+  const response = await getProducts({
+    search,
+    page,
+    limit,
+  });
+
+  const products = response?.data || [];
+  const meta = response?.meta || {
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  };
+
+  const categories = await getCategories();
+  const { data: suppliers } = await getSuppliers();
+
+  // useEffect(() => {
+  //   let barcodeBuffer = "";
+  //   let timeoutId: NodeJS.Timeout;
+
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     // قارئ الباركود يكتب بسرعة عالية جداً
+  //     if (e.key === "Enter") {
+  //       if (barcodeBuffer.trim()) {
+  //         console.log("الباركود الممسوح:", barcodeBuffer);
+  //         // نفّذ عملية البحث أو الإضافة لسلّة المبيعات هنا
+  //         handleSearchByBarcode(barcodeBuffer);
+  //         barcodeBuffer = "";
+  //       }
+  //     } else if (e.key.length === 1) {
+  //       // استلام الحروف والأرقام
+  //       barcodeBuffer += e.key;
+  //       clearTimeout(timeoutId);
+  //       timeoutId = setTimeout(() => (barcodeBuffer = ""), 100); // إعادة ضبط إذا أبطأ المستخدم (طباعة يدوية)
+  //     }
+  //   };
+
+  //   window.addEventListener("keydown", handleKeyDown);
+  //   return () => window.removeEventListener("keydown", handleKeyDown);
+  // }, []);
+
   return (
     <main>
       <PageHeader
         title="المنتجات"
-        subtitle={`${products?.length} منتج من اصل ${categories?.length} صنف`}
-        buttonTitle="اضف منتج"
+        subtitle={`${meta.total} منتج مسجل في النظام`}
+        buttonTitle="أضف منتج"
         redirect={redirectToNewProductPage}
       />
       <section className="frame p-0! my-8">
@@ -19,7 +82,15 @@ const Products = () => {
           <TableSearchbar placeholder="ابحث عبر الاسم او الكود....." />
           <Filters />
         </div>
-        <ProductsTable />
+
+        <ProductsTable
+          products={products}
+          categories={categories}
+          suppliers={suppliers}
+        />
+
+        {/* ربط مكون الـ Pagination */}
+        <Pagination meta={meta} />
       </section>
     </main>
   );

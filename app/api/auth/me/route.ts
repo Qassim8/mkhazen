@@ -69,7 +69,7 @@ export async function PUT(req: Request) {
     }
 
     // إجبار Next.js على إلغاء كاش البيانات وإعادة تنشيط الصفحات
-    revalidateTag("employee-info");
+    revalidateTag("employee-info", "default");
     revalidatePath("/dashboard", "layout");
 
     return NextResponse.json({ message: "تم تحديث بيانات الحساب بنجاح" });

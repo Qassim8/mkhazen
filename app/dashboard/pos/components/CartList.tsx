@@ -24,7 +24,7 @@ export default function CartList({ cart, setCart, onClose }: CartListProps) {
 
   const subtotal = cart.reduce((sum, p) => sum + p.price * (p.qty || 1), 0);
   const tax = subtotal * 0.14; // الضريبة القياسية 14%
-  const total = subtotal + tax;
+  const total = subtotal;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col justify-between overflow-hidden">
@@ -90,19 +90,19 @@ export default function CartList({ cart, setCart, onClose }: CartListProps) {
       <div className="shrink-0 space-y-4 pt-3 border-t border-gray-100">
         <div className="rounded-2xl border border-gray-200 bg-gray-50/50 p-4 space-y-2.5">
           <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
-            <span>إجمالي قطع البضاعة</span>
+            <span>إجمالي العناصر</span>
             <span>
-              {cart.reduce((sum, item) => sum + (item.qty || 1), 0)} قطعة
+              {cart.reduce((sum, item) => sum + (item.qty || 1), 0)} من العناصر
             </span>
           </div>
-          <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
+          {/* <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
             <span>الإجمالي الأولي</span>
             <span>${subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
+          </div> */}
+          {/* <div className="flex items-center justify-between text-xs text-gray-500 font-semibold">
             <span>الضريبة المضافة (14%)</span>
             <span>${tax.toFixed(2)}</span>
-          </div>
+          </div> */}
           <div className="flex items-center justify-between border-t border-gray-200 pt-2.5 text-sm font-black text-gray-900">
             <span>المبلغ الكلي المطلوب</span>
             <span className="text-(--primary-red) text-base">

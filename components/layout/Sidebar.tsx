@@ -63,7 +63,7 @@ const menuItems: MenuItem[] = [
         roles: ["admin"],
       },
       {
-        href: "/dashboard/purchases",
+        href: "/dashboard/orders",
         label: "المشتريات والتوريد",
         icon: LuShoppingCart,
         roles: ["admin"],
@@ -81,12 +81,6 @@ const menuItems: MenuItem[] = [
     label: "الموظفين",
     icon: LuUsers,
     roles: ["admin"],
-  },
-  {
-    href: "/dashboard/orders",
-    label: "الطلبيات",
-    icon: LuTruck,
-    roles: ["admin", "tailor"],
   },
   {
     href: "/dashboard/pos",
@@ -130,7 +124,8 @@ export function Sidebar() {
     pathname.startsWith("/dashboard/products") ||
     pathname.startsWith("/dashboard/categories") ||
     pathname.startsWith("/dashboard/purchases") ||
-    pathname.startsWith("/dashboard/suppliers");
+    pathname.startsWith("/dashboard/suppliers") ||
+    pathname.startsWith("/dashboard/orders");
 
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState<boolean>(
     isProductsChildActive,
@@ -187,7 +182,7 @@ export function Sidebar() {
 
       <aside
         className={`fixed top-0 right-0 z-40 flex h-full w-60 flex-col overflow-y-auto border-e border-gray-200 bg-white p-5 transition-transform duration-300 ease-in-out md:sticky md:h-screen ${
-          sidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
+          sidebarOpen ? "translate-x-5" : "translate-x-70 md:translate-x-0"
         }`}
       >
         <div className="mb-4 flex items-center justify-between md:hidden">

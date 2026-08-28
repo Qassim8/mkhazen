@@ -1,10 +1,16 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useModalStore } from "@/store/useModalStore";
 import { IoClose } from "react-icons/io5";
 
-export default function AddNewModal() {
+type AddNewModalProps = {
+  modalContent?: ReactNode;
+};
+
+export default function AddNewModal({ modalContent }: AddNewModalProps) {
   const { data, closeModal } = useModalStore();
+  const content = modalContent ?? data.content;
 
   return (
     <div
@@ -24,7 +30,7 @@ export default function AddNewModal() {
         </button>
       </div>
 
-      <div className="mt-2">{data.content}</div>
+      <div className="mt-2">{content}</div>
     </div>
   );
 }

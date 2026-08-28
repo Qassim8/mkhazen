@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { updateEmployeeSchema } from "@/lib/validations/employee.schemas";
+import { updateEmployeeSchema } from "@/app/dashboard/employees/schemas/employee.schemas";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 

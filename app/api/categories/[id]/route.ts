@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { categorySchema } from "@/lib/validations/category.schemas";
+import { categorySchema } from "@/app/dashboard/categories/schemas/category.schemas";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 

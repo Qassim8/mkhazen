@@ -8,7 +8,7 @@ import { useModalStore } from "@/store/useModalStore";
 import {
   updateEmployeeSchema,
   UpdateEmployeeInput,
-} from "@/lib/validations/employee.schemas";
+} from "@/app/dashboard/employees/schemas/employee.schemas";
 import { updateEmployee } from "../services/employees.services";
 import { Employee } from "@/types/types";
 
@@ -34,7 +34,14 @@ export default function UpdateModalContent({
       phone: initialData.phone,
       email: initialData.email,
       position: initialData.position,
-      shift: initialData.shift,
+      shift:
+        initialData.shift === "Morning"
+          ? "morning"
+          : initialData.shift === "Night"
+            ? "night"
+            : initialData.shift === "Flexible"
+              ? "full_time"
+              : (initialData.shift ?? "morning"),
       isActive:
         initialData.isActive === "TRUE" || initialData.isActive === true,
       salary: initialData.salary ?? 0,

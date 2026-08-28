@@ -1,7 +1,11 @@
 "use server";
 
 import { serverFetch } from "@/lib/api-client";
-import { Product, ProductFormInput } from "@/types/types";
+import {
+  CreateProductFormInput,
+  Product,
+  UpdateProductFormInput,
+} from "../schemas/product.schemas";
 
 export interface ProductsResponse {
   data: Product[];
@@ -22,6 +26,8 @@ export interface GetProductsParams {
   search?: string;
   categoryId?: string;
   supplierId?: string;
+  sortBy?: string;
+  status?: string;
   page?: number;
   limit?: number;
 }
@@ -43,7 +49,7 @@ export async function getProductById(id: string): Promise<ProductResponse> {
 }
 
 export async function createProduct(
-  payload: ProductFormInput,
+  payload: CreateProductFormInput,
 ): Promise<ProductResponse> {
   return serverFetch<ProductResponse>("/api/products", {
     method: "POST",
@@ -53,7 +59,7 @@ export async function createProduct(
 
 export async function updateProduct(
   id: string,
-  payload: Partial<ProductFormInput>,
+  payload: Partial<UpdateProductFormInput>,
 ): Promise<ProductResponse> {
   return serverFetch<ProductResponse>(`/api/products/${id}`, {
     method: "PUT",

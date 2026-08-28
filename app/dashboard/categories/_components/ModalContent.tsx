@@ -11,7 +11,7 @@ import { LuUpload, LuLoader, LuImage } from "react-icons/lu";
 import {
   categorySchema,
   CategoryInput,
-} from "@/lib/validations/category.schemas";
+} from "@/app/dashboard/categories/schemas/category.schemas";
 import { Category } from "@/types/types";
 import {
   createCategory,
@@ -98,7 +98,7 @@ export default function ModalContent({ categoryToEdit }: ModalContentProps) {
       };
 
       if (isEditing && categoryToEdit) {
-        await updateCategory(categoryToEdit.id, formattedData);
+        await updateCategory(String(categoryToEdit.id), formattedData);
         toast.success("تم تعديل الفئة بنجاح");
       } else {
         await createCategory(formattedData);

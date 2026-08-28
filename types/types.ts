@@ -12,81 +12,81 @@ export type StatsCardProps = {
 export interface Category {
   id: string;
   name: string;
+  title?: string;
+  icon?: string;
+  color?: string;
   description?: string | null;
   imageUrl?: string | null;
   productsCount?: number;
+  products?: number;
   createdAt?: string;
   updatedAt?: string;
-}
-export type CreateCategoryInput = Omit<
-  Category,
-  "id" | "createdAt" | "updatedAt"
->;
-export type UpdateCategoryInput = Partial<CreateCategoryInput>;
-
-export interface Supplier {
-  id: string;
-  name: string;
-  phone?: string | null;
-  email?: string | null;
-  address?: string | null;
-  contactPerson?: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Product {
   id: string;
   name: string;
+  image?: string;
   sku?: string | null;
   barcode?: string | null;
-  description?: string | null;
-
-  images: string[]; // مصفوفة روابط الصور
-  sizes: string[]; // مصفوفة المقاسات المتوفرة
-
-  purchasePrice: number;
-  sellingPrice: number;
-  minSellingPrice?: number | null;
-
-  stockQuantity: number;
-  minStockLevel?: number | null;
-
-  purchaseUnit: string;
-  sellingUnit: string;
-
+  category?: string | null;
   categoryId?: string | null;
+  supplier?: string | null;
   supplierId?: string | null;
-
-  category?: { id: string; name: string } | null;
-  supplier?: { id: string; name: string } | null;
-
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  qty?: number;
+  price?: number;
+  status?: "In stock" | "Low stock" | "Out of stock" | string;
+  purchasePrice?: number;
+  sellingPrice?: number;
+  stockQuantity?: number;
+  minStockLevel?: number | null;
+  purchaseUnit?: string | null;
+  sellingUnit?: string | null;
+  conversionFactor?: number | null;
+  length?: string | null;
+  width?: string | null;
+  minSellingPrice?: number | null;
+  sizes?: string[];
+  images?: string[];
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export type ProductFormInput = Omit<
-  Product,
-  "id" | "createdAt" | "updatedAt" | "category" | "supplier"
->;
-
-export type Employee = {
+export interface Employee {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  position: "system_manager" | "tailor" | "cashier";
-  salary: number;
-  commissionRate: number;
+  phone?: string;
+  email?: string;
+  position?: "system_manager" | "tailor" | "cashier";
+  salary?: number;
+  commissionRate?: number;
   address?: string;
-  shift: "morning" | "night" | "full_time";
-  role: "admin" | "tailor" | "cashier";
-  status: "active" | "inactive";
-  isActive: "TRUE" | "FALSE" | boolean;
-  resetRequested: boolean;
-};
+  shift?: "morning" | "night" | "full_time" | "Morning" | "Night" | "Flexible";
+  role?: "admin" | "tailor" | "cashier";
+  status?: "active" | "inactive";
+  isActive?: "TRUE" | "FALSE" | boolean;
+  resetRequested?: boolean;
+  job?: string;
+  department?: string;
+}
+
+export interface Supplier {
+  id: string;
+  name?: string;
+  companyName?: string;
+  email?: string | string[] | null;
+  phone?: string | string[] | null;
+  address?: string | null;
+  location?: string[];
+  contactPerson?: string | null;
+  contact?: string[];
+  products?: number;
+  status?: "active" | "inactive";
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export type Movement = {
   id?: string;

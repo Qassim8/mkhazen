@@ -64,3 +64,19 @@ export const updateEmployeeSchema = baseEmployeeSchema.partial();
 export type EmployeeQueryParams = z.infer<typeof employeeQuerySchema>;
 export type CreateEmployeeInput = z.input<typeof createEmployeeSchema>;
 export type UpdateEmployeeInput = z.input<typeof updateEmployeeSchema>;
+
+export type Employee = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  position: "system_manager" | "tailor" | "cashier";
+  salary: number;
+  commissionRate: number;
+  address?: string;
+  shift: "morning" | "night" | "full_time";
+  role: "admin" | "tailor" | "cashier";
+  status: "active" | "inactive";
+  isActive: "TRUE" | "FALSE" | boolean;
+  resetRequested: boolean;
+};

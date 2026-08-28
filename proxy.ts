@@ -28,8 +28,6 @@ export async function proxy(req: NextRequest) {
   if (session) {
     const userRole = (session.role || "").toLowerCase();
 
-    console.log(userRole);
-
     // 2. توجيه من صفحة اللوجن
     if (isAuthPage) {
       if (!session.isPasswordChanged) {

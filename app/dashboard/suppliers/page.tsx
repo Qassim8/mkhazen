@@ -1,38 +1,36 @@
-import TableFilter, { filterOption } from "@/components/shared/TableFilter";
-import SuppliersTable from "./components/SuppliersTable";
-import TableSearchbar from "@/components/shared/TableSearchbar";
-import PageHeader from "@/components/shared/PageHeader";
-import { suppliers } from "@/data/data";
-import GenericModal from "@/components/ui/AddNewModal";
-import ModalContent from "./components/ModalContent";
+import SuppliersPageClient from "./_components/SuppliersPageClient";
+import { getSuppliers } from "./service/supplier.services";
 
-const Suppliers = () => {
-  const statusOption: filterOption[] = [
-    { label: "نشط", value: "active" },
-    { label: "غير نشط", value: "inactive" },
-  ];
+interface SuppliersPageProps {
+  searchParams: Promise<{
+    search?: string;
+    status?: string;
+    page?: string;
+    limit?: string;
+  }>;
+}
+
+export default async function SuppliersPage({
+  searchParams,
+}: SuppliersPageProps) {
+  const resolvedSearchParams = await searchParams;
+
+  const page = Number(resolvedSearchParams.page) || 1;
+  const limit = Number(resolvedSearchParams.limit) || 10;
+  const search = resolvedSearchParams.search || "";
+  const status = resolvedSearchParams.status || "";
+
+  const response = await getSuppliers({
+    search,
+    status: status === "active" || status === "inactive" ? status : undefined,
+    page,
+    limit,
+  });
 
   return (
-    <main>
-      <GenericModal modalContent={<ModalContent />} />
-      <PageHeader
-        title="الموردين"
-        subtitle={`${suppliers?.length} مورد تم تسجيلهم حتى الان`}
-        buttonTitle="اضف مورد"
-      />
-      <div className="frame p-0! my-8">
-        <div className="py-5 px-3 flex items-center gap-5">
-          <div className="grow">
-            <TableSearchbar placeholder="ابحث بالاسم...." />
-          </div>
-          <div>
-            <TableFilter label="اختر حالة المورد" options={statusOption} />
-          </div>
-        </div>
-        <SuppliersTable />
-      </div>
-    </main>
+    <SuppliersPageClient
+      initialData={response?.data || []}
+      meta={response?.meta || { total: 0, page: 1, limit: 10, totalPages: 1 }}
+    />
   );
-};
-
-export default Suppliers;
+}

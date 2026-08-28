@@ -24,7 +24,7 @@ const Card = ({ category }: CardProps) => {
             <Image
               fill
               src={category.imageUrl}
-              alt={category.name}
+              alt={category.name ?? "Category image"}
               className="object-cover"
             />
           ) : (

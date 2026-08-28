@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { revalidateTag, revalidatePath } from "next/cache";
-import { productSchema } from "@/lib/validations/product.schemas";
+import { getSession } from "@/lib/auth";
+import { updateProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
 
-type Params = {
+interface RouteParams {
   params: Promise<{ id: string }>;
-};
+}
 
-// 1. جلب تفاصيل منتج محدد
-export async function GET(_request: Request, { params }: Params) {
+// 1. جلب تفاصيل منتج معين (متاح للجميع)
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -34,38 +35,42 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ data }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر", error: err.message },
+      { message: "خطأ في السيرفر أثناء جلب تفاصيل المنتج", error: err.message },
       { status: 500 },
     );
   }
 }
 
-// 2. تعديل بيانات المنتج
-export async function PUT(request: Request, { params }: Params) {
+export async function PUT(request: Request, { params }: RouteParams) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { message: "غير مصرح لك بإجراء التعديل." },
+        { status: 401 },
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
 
-    const validation = productSchema.partial().safeParse(body);
+    //  استخدام schema التعديل وليس الإضافة
+    const validation = updateProductSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
         {
-          message: "بيانات التعديل غير صالحة",
+          message: "بيانات التعديل غير صحيحة",
           errors: validation.error.flatten().fieldErrors,
         },
         { status: 422 },
       );
     }
 
-    const updatePayload = {
-      ...validation.data,
-      updatedAt: new Date().toISOString(),
-    };
-
+    //  التأكد من عدم تمرير حقول خطرة في payload
     const { data, error } = await supabaseAdmin
       .from("products")
-      .update(updatePayload)
+      .update(validation.data)
       .eq("id", id)
       .select(
         `
@@ -77,43 +82,41 @@ export async function PUT(request: Request, { params }: Params) {
       .single();
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
+      return NextResponse.json(
+        { message: `فشل تعديل المنتج: ${error.message}` },
+        { status: 400 },
+      );
     }
 
     revalidateTag("products-list", "default");
     revalidatePath("/dashboard/products");
 
     return NextResponse.json(
-      { message: "تم تعديل المنتج بنجاح", data },
+      { message: "تم تحديث بيانات المنتج بنجاح", data },
       { status: 200 },
     );
   } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء التعديل", error: err.message },
+      { message: "خطأ في السيرفر أثناء تعديل المنتج", error: err.message },
       { status: 500 },
     );
   }
 }
 
-// 3. حذف المنتج (مع حذف صورته من Storage إن وجدت)
-export async function DELETE(_request: Request, { params }: Params) {
+// 3. حذف منتج (محمي للأدمن فقط)
+export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const { id } = await params;
+    const session = await getSession();
+    await supabase.auth.getSession();
 
-    // جلب صورة المنتج لحذفها من الـ Storage
-    const { data: product } = await supabaseAdmin
-      .from("products")
-      .select("imageUrl")
-      .eq("id", id)
-      .single();
-
-    if (product?.imageUrl) {
-      const urlParts = product.imageUrl.split("/products/");
-      if (urlParts.length > 1) {
-        const filePath = `products/${urlParts[1]}`;
-        await supabaseAdmin.storage.from("products").remove([filePath]);
-      }
+    if (!session) {
+      return NextResponse.json(
+        { message: "غير مصرح لك بحذف هذا المنتج." },
+        { status: 401 },
+      );
     }
+
+    const { id } = await params;
 
     const { error } = await supabaseAdmin
       .from("products")
@@ -121,7 +124,10 @@ export async function DELETE(_request: Request, { params }: Params) {
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
+      return NextResponse.json(
+        { message: `تعذر حذف المنتج: ${error.message}` },
+        { status: 400 },
+      );
     }
 
     revalidateTag("products-list", "default");
@@ -133,7 +139,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     );
   } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء الحذف", error: err.message },
+      { message: "خطأ في السيرفر أثناء حذف المنتج", error: err.message },
       { status: 500 },
     );
   }

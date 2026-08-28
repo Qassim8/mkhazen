@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   createEmployeeSchema,
   CreateEmployeeInput,
-} from "@/lib/validations/employee.schemas";
+} from "@/app/dashboard/employees/schemas/employee.schemas";
 import { creatEmployee } from "../services/employees.services";
 import { useModalStore } from "@/store/useModalStore";
 

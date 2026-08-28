@@ -50,3 +50,27 @@ button {
 .custom-shadow {
   @apply shadow-[0_4px_8px_rgba(0,0,0,0.05)]!;
 }
+
+@media print {
+  /* إخفاء كل ما في الصفحة */
+  body * {
+    visibility: hidden;
+  }
+
+  /* إظهار منطقة الباركود فقط وما بداخلها */
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  /* ضبط موقع الباركود في أعلى الصفحة المطبوعة */
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}

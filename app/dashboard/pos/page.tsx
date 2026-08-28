@@ -139,8 +139,8 @@ export default function POSPage() {
                 }`}
               >
                 <Image
-                  src={icon}
-                  alt={title}
+                  src={icon ?? "/images/placeholder.png"}
+                  alt={title ?? "Category"}
                   width={16}
                   height={16}
                   className="object-contain"
@@ -168,7 +168,7 @@ export default function POSPage() {
       <div className="w-full lg:w-100 h-full flex flex-col shrink-0">
         <div
           className={`
-            fixed inset-y-0 right-0 z-40 w-[88%] max-w-sm bg-white shadow-2xl transition-transform duration-200 ease-out
+            fixed inset-y-0 right-0 w-[88%] max-w-sm bg-white shadow-2xl transition-transform duration-200 ease-out
             lg:static lg:w-full lg:max-w-none lg:shadow-none lg:translate-x-0
             ${isCartOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}
           `}

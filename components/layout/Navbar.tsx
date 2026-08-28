@@ -16,6 +16,7 @@ import { getMe, logout } from "@/app/(login)/services/auth.services";
 import PageName from "../shared/PageName";
 import { useRouter } from "next/navigation";
 import NotificationDropdown from "./NotificationsDropdown";
+import { useUIStore } from "@/store/useUIStore";
 
 interface UserProfile {
   name: string;
@@ -23,15 +24,12 @@ interface UserProfile {
   role: string;
 }
 
-export default function Navbar({
-  sidebarToggler,
-}: {
-  sidebarToggler: (v: boolean) => void;
-}) {
+export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const sidebarToggler = useUIStore((state) => state.sidebarToggler);
   const router = useRouter();
 
   const fetchUserData = () => {
@@ -41,10 +39,8 @@ export default function Navbar({
   };
 
   useEffect(() => {
-    // جلب البيانات أول مرة
     fetchUserData();
 
-    // 2. الاستماع لحدث التحديث عند تغيير الاسم من الإعدادات
     const handleUserUpdate = () => {
       fetchUserData();
     };

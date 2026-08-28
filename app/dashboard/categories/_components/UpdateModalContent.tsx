@@ -12,7 +12,7 @@ import { useModalStore } from "@/store/useModalStore";
 import {
   categorySchema,
   CategoryInput,
-} from "@/lib/validations/category.schemas";
+} from "@/app/dashboard/categories/schemas/category.schemas";
 import { updateCategory } from "../services/categories.services";
 import { Category } from "@/types/types";
 import { uploadImage } from "@/lib/storage";
@@ -89,7 +89,7 @@ export default function UpdateModalContent({
         imageUrl: data.imageUrl ?? undefined,
       };
 
-      await updateCategory(initialData.id, formattedData);
+      await updateCategory(String(initialData.id), formattedData);
       toast.success(`تم تحديث صنف "${initialData.name}" بنجاح`);
 
       closeModal();
@@ -119,7 +119,7 @@ export default function UpdateModalContent({
               {previewImage ? (
                 <Image
                   src={previewImage}
-                  alt={initialData.name}
+                  alt={initialData.name ?? "Category image"}
                   fill
                   className="object-cover"
                 />

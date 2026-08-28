@@ -121,28 +121,32 @@ export const reportsData: StatsCardProps[] = [
 // Categories
 export const categories: Category[] = [
   {
-    id: 1,
+    id: "1",
+    name: "جلاليب",
     icon: "/images/jlabya.png",
     color: "#1151b8",
     title: "جلاليب",
     products: 230,
   },
   {
-    id: 2,
+    id: "2",
+    name: "احذية",
     icon: "/images/shoes.png",
     color: "var(--primary-red)",
     title: "احذية",
     products: 370,
   },
   {
-    id: 3,
+    id: "3",
+    name: "قماش",
     icon: "/images/qomash.png",
     color: "#e09626",
     title: "قماش",
     products: 80,
   },
   {
-    id: 4,
+    id: "4",
+    name: "عصي",
     icon: "/images/stik.png",
     color: "#57575a",
     title: "عصي",

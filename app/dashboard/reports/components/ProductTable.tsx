@@ -37,11 +37,16 @@ const ProductTable = () => {
 
     columnHelper.accessor("price", {
       header: "Revenue",
-      cell: (info) => (
-        <span className="font-mono font-bold text-gray-900">
-          ${(info.getValue() * (info.row.original.qty ?? 1)).toFixed(2)}
-        </span>
-      ),
+      cell: (info) => {
+        const unitPrice = Number(info.getValue() ?? 0);
+        const qty = Number(info.row.original.qty ?? 1);
+
+        return (
+          <span className="font-mono font-bold text-gray-900">
+            ${(unitPrice * qty).toFixed(2)}
+          </span>
+        );
+      },
     }),
   ];
 

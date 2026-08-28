@@ -10,13 +10,13 @@ const Filters = () => {
   ];
 
   const categoriesOption: filterOption[] = categories.map(({ title }) => ({
-    label: title,
-    value: title.toLowerCase(),
+    label: title ?? "غير محدد",
+    value: (title ?? "غير محدد").toLowerCase(),
   }));
 
   const supplierOption: filterOption[] = suppliers.map(({ companyName }) => ({
-    label: companyName,
-    value: companyName.toLowerCase(),
+    label: companyName ?? "غير محدد",
+    value: (companyName ?? "غير محدد").toLowerCase(),
   }));
   return (
     <div>

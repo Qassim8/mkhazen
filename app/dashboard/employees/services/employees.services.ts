@@ -5,7 +5,7 @@ import {
   CreateEmployeeInput,
   EmployeeQueryParams,
   UpdateEmployeeInput,
-} from "@/lib/validations/employee.schemas";
+} from "@/app/dashboard/employees/schemas/employee.schemas";
 
 export interface EmployeesResponse {
   data: any[];

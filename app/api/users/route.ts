@@ -3,13 +3,12 @@ import { NextResponse } from "next/server";
 import {
   employeeQuerySchema,
   createEmployeeSchema,
-} from "@/lib/validations/employee.schemas";
+} from "@/app/dashboard/employees/schemas/employee.schemas";
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 
-// GET: جلب الموظفين مفلترين
 export async function GET(request: Request) {
   try {
     const user = await getSession();
