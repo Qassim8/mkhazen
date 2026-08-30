@@ -1,6 +1,6 @@
 import { serverFetch } from "@/lib/api-client";
 import { BASE_URL } from "@/lib/constants";
-import { Category } from "@/types/types";
+import { Category } from "../schemas/category.schemas";
 
 export async function getCategories(): Promise<Category[]> {
   const res = await fetch(`${BASE_URL}/api/categories`, {

@@ -1,55 +1,40 @@
 import imageCompression from "browser-image-compression";
-import { supabase } from "@/lib/supabase";
-
-const BUCKET_NAME = "store-assets";
 
 export async function uploadImage(
   file: File,
   folder: "products" | "categories" = "products",
 ): Promise<string> {
   if (!file) {
-    throw new Error("الملف المحدد غير صالِح لعملية الرفع.");
+    throw new Error("الملف المحدد غير صالح لعملية الرفع.");
   }
-
-  // 1️⃣ استخراج الامتداد الأصلي وتوليد اسم آمن تماماً (بدون مسافات أو أقواس)
-  const extension = file.name.split(".").pop()?.toLowerCase() || "png";
-  const safeFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${extension}`;
-  const filePath = `${folder}/${safeFileName}`;
 
   let fileBody: File | Blob = file;
 
-  // 2️⃣ محاولة الضغط
   try {
-    const options = {
+    fileBody = await imageCompression(file, {
       maxSizeMB: 0.4,
       maxWidthOrHeight: 1200,
       useWebWorker: false,
-    };
-    // imageCompression تُرجع Blob وهذا كافٍ جداً للرفع
-    fileBody = await imageCompression(file, options);
-  } catch (compressError) {
-    console.warn("فشل الضغط، سيتم رفع الملف الأصلي:", compressError);
-    fileBody = file; // التراجع واستخدام الملف الأصلي
-  }
-
-  // 3️⃣ الرفع إلى Supabase باستخدام الاسم الآمن
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, fileBody, {
-      contentType: fileBody.type || file.type,
-      upsert: true,
     });
-
-  if (uploadError) {
-    throw new Error(`فشل رفع الصورة: ${uploadError.message}`);
+  } catch (error) {
+    console.warn("فشل الضغط، سيتم رفع الملف الأصلي:", error);
   }
 
-  // 4️⃣ استخراج الرابط العام
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+  const formData = new FormData();
 
-  if (!data?.publicUrl) {
-    throw new Error("تعذر الحصول على رابط الصورة العام بعد الرفع.");
+  formData.append("file", fileBody, file.name);
+  formData.append("folder", folder);
+
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.message || "فشل رفع الصورة");
   }
 
-  return data.publicUrl;
+  return data.url;
 }

@@ -12,9 +12,9 @@ import { useModalStore } from "@/store/useModalStore";
 import {
   categorySchema,
   CategoryInput,
+  Category,
 } from "@/app/dashboard/categories/schemas/category.schemas";
 import { updateCategory } from "../services/categories.services";
-import { Category } from "@/types/types";
 import { uploadImage } from "@/lib/storage";
 
 interface UpdateCategoryModalContentProps {

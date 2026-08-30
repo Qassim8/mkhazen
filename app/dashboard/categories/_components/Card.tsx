@@ -3,11 +3,11 @@
 import Image from "next/image";
 import { LuTrash2, LuPackage, LuSquarePen } from "react-icons/lu";
 
-import { Category } from "@/types/types";
 import { deleteCategory } from "../services/categories.services";
 import { useModalStore } from "@/store/useModalStore";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import UpdateModalContent from "./UpdateModalContent";
+import { Category } from "../schemas/category.schemas";
 
 interface CardProps {
   category: Category;

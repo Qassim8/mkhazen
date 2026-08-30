@@ -1,10 +1,10 @@
 "use client";
 
 import PageHeader from "@/components/shared/PageHeader";
-import { Category } from "@/types/types";
 import ModalContent from "./ModalContent";
 import Card from "./Card";
 import { useModalStore } from "@/store/useModalStore";
+import { Category } from "../schemas/category.schemas";
 
 interface CategoriesProps {
   initialCategories: Category[];

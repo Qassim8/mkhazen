@@ -11,8 +11,8 @@ import { LuUpload, LuLoader, LuImage } from "react-icons/lu";
 import {
   categorySchema,
   CategoryInput,
+  Category,
 } from "@/app/dashboard/categories/schemas/category.schemas";
-import { Category } from "@/types/types";
 import {
   createCategory,
   updateCategory,
