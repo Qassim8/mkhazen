@@ -29,7 +29,7 @@ export interface Supplier {
 export const createSupplierSchema = z.object({
   name: z.string().min(2, "اسم المورد مطلوب (حرفين على الأقل)"),
   email: z.string().email("يرجى إدخال بريد إلكتروني صحيح"),
-  phone: z.string().min(6, "يرجى إدخال رقم هاتف صحيح"),
+  phone: z.string().min(4, "يرجى إدخال رقم هاتف صحيح"),
   address: stringOptional,
   contactPerson: stringOptional,
   isActive: z.boolean().default(true),

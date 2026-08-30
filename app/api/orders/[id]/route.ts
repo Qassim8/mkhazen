@@ -98,7 +98,9 @@ export async function PATCH(
     if (status) updateData.status = status;
     if (expectedDate !== undefined) updateData.expected_date = expectedDate;
     if (notes !== undefined) updateData.notes = notes;
-    if (supplierId) updateData.supplier_id = supplierId;
+    if (supplierId !== undefined) {
+      updateData.supplier_id = supplierId || null;
+    }
 
     const { data, error } = await supabaseAdmin
       .from("purchase_orders")

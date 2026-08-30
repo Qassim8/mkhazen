@@ -122,9 +122,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+
+    // معالجة صريحة للـ supplierId قبل الـ Validation
+    if (body.supplierId === "") {
+      body.supplierId = null;
+    }
+
     const validation = createPurchaseOrderSchema.safeParse(body);
 
     if (!validation.success) {
+      console.error("Zod Validation Error:", validation.error.flatten());
       return NextResponse.json(
         {
           message: "خطأ في البيانات المدخلة",
@@ -137,7 +144,6 @@ export async function POST(request: Request) {
     const { supplierId, orderNumber, expectedDate, notes, items } =
       validation.data;
 
-    // 1. حساب الإجمالي الكلي للطلب مع إعداد البنود
     let calculatedTotal = 0;
     const formattedItems = items.map((item) => {
       const itemSubtotal = item.quantity * item.unitCost;
@@ -150,19 +156,17 @@ export async function POST(request: Request) {
       };
     });
 
-    // 2. توليد رقم طلب أوتوماتيكي إذا لم يُمرر رقم محدد
     const finalOrderNumber =
-      orderNumber || `PO-${Date.now().toString().slice(-6)}`;
+      orderNumber || `ORD-${Date.now().toString().slice(-6)}`;
 
-    // 3. إدراج رأس طلب الشراء (Order Header)
     const { data: newOrder, error: orderError } = await supabaseAdmin
       .from("purchase_orders")
       .insert([
         {
           order_number: finalOrderNumber,
-          supplier_id: supplierId,
+          supplier_id: supplierId || null,
           status: "DRAFT",
-          expected_date: expectedDate || null,
+          expected_date: expectedDate || new Date().toISOString().split("T")[0],
           total_amount: calculatedTotal,
           notes: notes || null,
         },
@@ -171,13 +175,13 @@ export async function POST(request: Request) {
       .single();
 
     if (orderError) {
+      console.error("Supabase Order Error:", orderError);
       return NextResponse.json(
         { message: orderError.message },
         { status: 400 },
       );
     }
 
-    // 4. إدراج بنود الفاتورة المربوطة بـ Purchase Order ID
     const itemsToInsert = formattedItems.map((item) => ({
       ...item,
       purchase_order_id: newOrder.id,
@@ -188,11 +192,12 @@ export async function POST(request: Request) {
       .insert(itemsToInsert);
 
     if (itemsError) {
-      // التراجع عن إنشاء الرأس في حال فشل إضافة البنود
+      console.error("Supabase Items Error:", itemsError);
       await supabaseAdmin
         .from("purchase_orders")
         .delete()
         .eq("id", newOrder.id);
+
       return NextResponse.json(
         { message: itemsError.message },
         { status: 400 },
@@ -207,6 +212,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (err: unknown) {
+    console.error("Server Error:", err);
     return NextResponse.json(
       {
         message: "خطأ في معالجة الطلب",

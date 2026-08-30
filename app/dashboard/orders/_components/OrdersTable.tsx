@@ -12,9 +12,10 @@ import {
   LuUser,
 } from "react-icons/lu";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
-import OrderModalContent from "./OrderModalContent";
 import { PurchaseOrder } from "../schemas/orders.schemas";
 import { deletePurchaseOrder } from "../services/order.services";
+import OrderDetailsModalContent from "./OrderDetailsModal";
+import UpdateOrderModalContent from "./UpdateOrderModal";
 
 const columnHelper = createColumnHelper<PurchaseOrder>();
 
@@ -51,7 +52,10 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
       header: "عدد المواد",
       cell: (info) => {
         const items = info.getValue() || [];
-        const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+        const totalItems = items.reduce(
+          (acc, item) => acc + (item.quantity || 0),
+          0,
+        );
         return (
           <div className="flex items-center gap-1.5 text-gray-700 text-sm">
             <LuPackage className="h-4 w-4 text-gray-400" />
@@ -65,7 +69,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
       header: "الإجمالي",
       cell: (info) => (
         <span className="font-mono font-bold text-gray-900">
-          ${(info.getValue() || 0).toFixed(2)}
+          {(info.getValue() || 0).toLocaleString()} ريال
         </span>
       ),
     }),
@@ -141,15 +145,17 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
 
         return (
           <div className="flex items-center justify-center gap-2">
+            {/* زر المشاهدة متوفر لكافة الحالات */}
             <button
               type="button"
               aria-label="عرض التفاصيل"
+              title="عرض التفاصيل"
               className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
               onClick={() =>
                 openModal("VIEW", {
                   title: `تفاصيل الطلب ${row.original.orderNumber}`,
                   content: (
-                    <OrderModalContent initialOrder={row.original} isReadOnly />
+                    <OrderDetailsModalContent initialData={row.original} />
                   ),
                 })
               }
@@ -157,17 +163,19 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
               <LuEye className="h-5 w-5" />
             </button>
 
-            {isDraft && (
+            {/* أزرار التعديل والحذف متاحة فقط في حالة المسودة DRAFT */}
+            {isDraft ? (
               <>
                 <button
                   type="button"
                   aria-label="تعديل الطلب"
+                  title="تعديل الطلب"
                   className="rounded-lg p-1 text-blue-500 transition-colors hover:bg-blue-50 hover:text-blue-700"
                   onClick={() =>
                     openModal("UPDATE", {
                       title: "تعديل بيانات طلب الشراء",
                       content: (
-                        <OrderModalContent initialOrder={row.original} />
+                        <UpdateOrderModalContent initialOrder={row.original} />
                       ),
                     })
                   }
@@ -178,6 +186,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
                 <button
                   type="button"
                   aria-label="حذف الطلب"
+                  title="حذف الطلب"
                   className="rounded-lg p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
                   onClick={() =>
                     openModal("DELETE_CONFIRM", {
@@ -187,6 +196,27 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
                       content: <DeleteConfirmationModal />,
                     })
                   }
+                >
+                  <LuTrash2 className="h-5 w-5" />
+                </button>
+              </>
+            ) : (
+              /* أزرار معطلة بصرياً مع توضيح للمستخدم */
+              <>
+                <button
+                  type="button"
+                  disabled
+                  title="لا يمكن تعديل الطلبات المعتمدة أو المستلمة"
+                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed"
+                >
+                  <LuSquarePen className="h-5 w-5" />
+                </button>
+
+                <button
+                  type="button"
+                  disabled
+                  title="لا يمكن حذف الطلبات المعتمدة أو المستلمة"
+                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed"
                 >
                   <LuTrash2 className="h-5 w-5" />
                 </button>

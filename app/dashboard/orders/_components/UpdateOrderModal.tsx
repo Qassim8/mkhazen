@@ -15,7 +15,7 @@ import {
 } from "../schemas/orders.schemas";
 import { getSuppliers } from "../../suppliers/service/supplier.services";
 import { getProducts } from "../../products/services/products.services";
-import { createPurchaseOrder } from "../services/order.services";
+import { updatePurchaseOrder } from "../services/order.services";
 
 export interface Option {
   id: string;
@@ -35,7 +35,7 @@ interface Props {
   initialOrder?: PurchaseOrder;
 }
 
-export default function OrderModalContent({ initialOrder }: Props) {
+export default function UpdateOrderModalContent({ initialOrder }: Props) {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
 
@@ -55,13 +55,15 @@ export default function OrderModalContent({ initialOrder }: Props) {
 
   const defaultToday = new Date().toISOString().split("T")[0];
 
-  // ✅ 1. استخراج الأدوات المطلوبة من useForm
+  // ✅ 1. إعداد النموذج وتضمين الحقول
   const form = useForm<CreatePurchaseOrderInput>({
     resolver: zodResolver(createPurchaseOrderSchema),
     defaultValues: {
       supplierId: initialOrder?.supplierId || "",
       orderNumber: initialOrder?.orderNumber || "",
-      expectedDate: initialOrder?.expectedDate || defaultToday,
+      expectedDate: initialOrder?.expectedDate
+        ? new Date(initialOrder.expectedDate).toISOString().split("T")[0]
+        : defaultToday,
       notes: initialOrder?.notes || "",
       items: purchaseItems.map((item) => ({
         productId: item.productId,
@@ -77,7 +79,7 @@ export default function OrderModalContent({ initialOrder }: Props) {
     formState: { errors, isSubmitting },
   } = form;
 
-  // ✅ 2. مزامنة State السلة مع React Hook Form فور تغيير المنتجات
+  // ✅ 2. مزامنة عناصر السلة مع React Hook Form
   useEffect(() => {
     const formattedItems = purchaseItems.map((item) => ({
       productId: item.productId,
@@ -138,25 +140,28 @@ export default function OrderModalContent({ initialOrder }: Props) {
   };
 
   const onSubmit = async (data: CreatePurchaseOrderInput) => {
-    console.log(" تم تفعيل onSubmit بنجاح! البيانات:", data);
-
-    const payload = {
-      ...data,
-      supplierId: data.supplierId === "" ? null : data.supplierId,
-    };
-
     try {
-      await createPurchaseOrder(payload);
+      const updatePayload = {
+        supplierId: data.supplierId === "" ? null : data.supplierId,
+        expectedDate: data.expectedDate,
+        notes: data.notes,
+        items: data.items,
+      };
 
-      toast.success(
-        initialOrder
-          ? "تم تحديث طلب الشراء بنجاح"
-          : "تم إضافة طلب الشراء بنجاح",
+      await updatePurchaseOrder(
+        initialOrder?.id || "",
+        updatePayload,
       );
+
+      toast.success("تم تحديث طلب الشراء بنجاح");
       closeModal();
       router.refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ غير متوقع أثناء التحديث",
+      );
     }
   };
 
@@ -178,7 +183,7 @@ export default function OrderModalContent({ initialOrder }: Props) {
     >
       <div>
         <p className="text-sm text-gray-500">
-          يرجى تحديد تفاصيل الطلب وااختيار العناصر المطلوبة بعناية قبل الحفظ.
+          يرجى تحديد تفاصيل الطلب واختيار العناصر المطلوبة بعناية قبل الحفظ.
         </p>
       </div>
 
@@ -295,11 +300,7 @@ export default function OrderModalContent({ initialOrder }: Props) {
           disabled={isSubmitting}
           className="flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting
-            ? "جاري الحفظ..."
-            : initialOrder
-              ? "تحديث طلب الشراء"
-              : "اعتماد طلب الشراء"}
+          {isSubmitting ? "جاري الحفظ..." : "تحديث طلب الشراء"}
         </button>
       </div>
     </form>

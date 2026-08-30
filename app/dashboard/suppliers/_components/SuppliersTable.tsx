@@ -6,7 +6,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { LuEye, LuMail, LuPhone, LuSquarePen, LuTrash2 } from "react-icons/lu";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import { deleteSupplier } from "../service/supplier.services";
-import ModalContent from "./ModalContent";
+import SupplierUpdateModal from "./SupplierUpdateModal";
 import SupplierViewContent from "./SupplierDetails";
 import { Supplier } from "../schemas/supplier.schemas";
 
@@ -110,7 +110,7 @@ const SuppliersTable = ({ initialData }: SuppliersTableProps) => {
             onClick={() =>
               openModal("UPDATE", {
                 title: "تعديل بيانات المورد",
-                content: <ModalContent />,
+                content: <SupplierUpdateModal initialData={row.original} />,
               })
             }
           >

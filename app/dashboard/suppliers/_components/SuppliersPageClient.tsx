@@ -7,7 +7,7 @@ import TableSearchbar from "@/components/shared/TableSearchbar";
 import { useModalStore } from "@/store/useModalStore";
 import { Supplier } from "../schemas/supplier.schemas";
 import SuppliersTable from "./SuppliersTable";
-import ModalContent from "./ModalContent";
+import SupplierModalContent from "./SupplierModalContent";
 
 interface SuppliersPageClientProps {
   initialData: Supplier[];
@@ -34,7 +34,7 @@ export default function SuppliersPageClient({
         redirect={() =>
           openModal("CREATE", {
             title: "إضافة مورد جديد",
-            content: <ModalContent />,
+            content: <SupplierModalContent />,
           })
         }
       />

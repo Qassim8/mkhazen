@@ -6,7 +6,7 @@ import SelectOrAddModal from "../_components/SelectOrAddModal";
 import ModalContent from "../../categories/_components/ModalContent";
 import { useModalStore } from "@/store/useModalStore";
 import { Category } from "../../categories/schemas/category.schemas";
-import CreateSupplierModalContent from "../../suppliers/_components/ModalContent";
+import CreateSupplierModalContent from "../../suppliers/_components/SupplierModalContent";
 
 interface BasicInfoFormProps {
   register: UseFormRegister<ProductFormInputType>;
