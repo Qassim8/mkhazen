@@ -1,21 +1,19 @@
-// src/lib/supabase.ts
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-
-// المفتاح السري الخاص بالسيرفر (لا يظهر للفرونت إند أبداً)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("بيانات Supabase مفقودة من ملف .env.local");
+if (!supabaseUrl || !supabasePublishableKey) {
+  throw new Error("بيانات Supabase العامة مفقودة");
 }
 
-// 1. العميل العادي (يحترم سياسات RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+if (!supabaseServiceKey) {
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY مفقود");
+}
 
-// 2. عميل الأدمن (يتخطى RLS بأمان داخل السيرفر فقط)
-export const supabaseAdmin = createClient(
-  supabaseUrl,
-  supabaseServiceKey || supabaseAnonKey,
-);
+// العميل العادي
+export const supabase = createClient(supabaseUrl, supabasePublishableKey);
+
+// عميل الأدمن - Server Only
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
