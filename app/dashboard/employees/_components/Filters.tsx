@@ -38,8 +38,16 @@ const Filters = () => {
           paramKey="position"
           options={positionOptions}
         />
-        <TableFilter label="فترة العمل" paramKey="shift" options={shiftOptions} />
-        <TableFilter label="الحالة" paramKey="isActive" options={statusOptions} />
+        <TableFilter
+          label="فترة العمل"
+          paramKey="shift"
+          options={shiftOptions}
+        />
+        <TableFilter
+          label="الحالة"
+          paramKey="isActive"
+          options={statusOptions}
+        />
       </div>
     </Suspense>
   );

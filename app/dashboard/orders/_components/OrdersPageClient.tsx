@@ -72,9 +72,7 @@ export default function OrdersPageClient({ orders, meta }: Props) {
           </div>
         </Suspense>
         <OrdersTable orders={orders} />
-        <Suspense
-          fallback={<div className="h-16 animate-pulse bg-gray-50" />}
-        >
+        <Suspense fallback={<div className="h-16 animate-pulse bg-gray-50" />}>
           <Pagination
             meta={{
               total: meta.totalCount,

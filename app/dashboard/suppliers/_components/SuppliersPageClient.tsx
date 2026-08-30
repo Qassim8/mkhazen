@@ -67,9 +67,7 @@ export default function SuppliersPageClient({
         </Suspense>
 
         <SuppliersTable initialData={initialData} />
-        <Suspense
-          fallback={<div className="h-16 animate-pulse bg-gray-50" />}
-        >
+        <Suspense fallback={<div className="h-16 animate-pulse bg-gray-50" />}>
           <Pagination meta={meta} />
         </Suspense>
       </div>
