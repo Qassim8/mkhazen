@@ -78,10 +78,20 @@ const Products = async ({ searchParams }: ProductsPageProps) => {
         redirect={redirectToNewProductPage}
       />
       <section className="frame p-0! my-8">
-        <div className="py-5 px-3 flex flex-col md:flex-row md:items-center gap-3">
-          <TableSearchbar placeholder="ابحث عبر الاسم او الكود....." />
-          <Filters />
-        </div>
+        <Suspense
+          fallback={
+            <div className="flex h-16 items-center gap-3 px-3 py-5 md:flex-row">
+              <div className="h-10 flex-1 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-100" />
+            </div>
+          }
+        >
+          <div className="py-5 px-3 flex flex-col md:flex-row md:items-center gap-3">
+            <TableSearchbar placeholder="ابحث عبر الاسم او الكود....." />
+            <Filters />
+          </div>
+        </Suspense>
 
         <ProductsTable
           products={products}
@@ -89,8 +99,11 @@ const Products = async ({ searchParams }: ProductsPageProps) => {
           suppliers={suppliers}
         />
 
-        {/* ربط مكون الـ Pagination */}
-        <Pagination meta={meta} />
+        <Suspense
+          fallback={<div className="h-16 animate-pulse bg-gray-50" />}
+        >
+          <Pagination meta={meta} />
+        </Suspense>
       </section>
     </main>
   );

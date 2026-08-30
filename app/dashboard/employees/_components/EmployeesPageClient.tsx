@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import PageHeader from "@/components/shared/PageHeader";
 import TableSearchbar from "@/components/shared/TableSearchbar";
 import Filters from "./Filters";
@@ -61,15 +62,29 @@ const EmployeesPageClient = ({ data, meta, isResetFilter }: PageProps) => {
         </div>
       )}
       <div className="frame p-0! h-full mb-8">
-        <div className="flex flex-col md:flex-row items-center md:gap-5 px-3 py-1.5 md:px-5">
-          <TableSearchbar placeholder="ابحث بالاسم أو الإيميل..." />
-          <Filters />
-          <ResetFilters />
-        </div>
+        <Suspense
+          fallback={
+            <div className="flex h-14 items-center gap-3 px-3 py-1.5 md:px-5">
+              <div className="h-10 flex-1 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-28 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-20 animate-pulse rounded-lg bg-gray-100" />
+            </div>
+          }
+        >
+          <div className="flex flex-col md:flex-row items-center md:gap-5 px-3 py-1.5 md:px-5">
+            <TableSearchbar placeholder="ابحث بالاسم أو الإيميل..." />
+            <Filters />
+            <ResetFilters />
+          </div>
+        </Suspense>
 
         <EmployeesTable initialData={data} />
 
-        <Pagination meta={meta} />
+        <Suspense
+          fallback={<div className="h-16 animate-pulse bg-gray-50" />}
+        >
+          <Pagination meta={meta} />
+        </Suspense>
       </div>
     </main>
   );

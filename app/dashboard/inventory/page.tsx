@@ -5,6 +5,7 @@ import MovementTable from "./components/MovementsTable";
 import PageHeader from "@/components/shared/PageHeader";
 import GenericModal from "@/components/ui/AddNewModal";
 import ModalContent from "./components/ModalContent";
+import { Suspense } from "react";
 
 const Warehouse = () => {
   return (
@@ -23,11 +24,16 @@ const Warehouse = () => {
           <Movement />
         </div>
       </div>
-      <div className="frame my-8 p-0! ">
+      <div className="frame my-8 p-0!">
         <div className="p-5">
-          <Filters />
+          <Suspense fallback={null}>
+            <Filters />
+          </Suspense>
         </div>
-        <MovementTable />
+
+        <Suspense fallback={null}>
+          <MovementTable />
+        </Suspense>
       </div>
     </main>
   );

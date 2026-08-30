@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import PageHeader from "@/components/shared/PageHeader";
 import Pagination from "@/components/shared/Pagination";
 import TableFilter from "@/components/shared/TableFilter";
@@ -40,24 +41,37 @@ export default function SuppliersPageClient({
       />
 
       <div className="frame p-0! my-8">
-        <div className="py-5 px-3 flex flex-col md:flex-row md:items-center gap-3">
-          <div className="grow">
-            <TableSearchbar placeholder="ابحث باسم المورد أو الهاتف أو البريد..." />
+        <Suspense
+          fallback={
+            <div className="flex h-16 items-center gap-3 px-3 py-5 md:flex-row">
+              <div className="h-10 flex-1 animate-pulse rounded-lg bg-gray-100" />
+              <div className="h-10 w-36 animate-pulse rounded-lg bg-gray-100" />
+            </div>
+          }
+        >
+          <div className="py-5 px-3 flex flex-col md:flex-row md:items-center gap-3">
+            <div className="grow">
+              <TableSearchbar placeholder="ابحث باسم المورد أو الهاتف أو البريد..." />
+            </div>
+            <div>
+              <TableFilter
+                label="اختر حالة المورد"
+                paramKey="status"
+                options={[
+                  { label: "نشط", value: "active" },
+                  { label: "غير نشط", value: "inactive" },
+                ]}
+              />
+            </div>
           </div>
-          <div>
-            <TableFilter
-              label="اختر حالة المورد"
-              paramKey="status"
-              options={[
-                { label: "نشط", value: "active" },
-                { label: "غير نشط", value: "inactive" },
-              ]}
-            />
-          </div>
-        </div>
+        </Suspense>
 
         <SuppliersTable initialData={initialData} />
-        <Pagination meta={meta} />
+        <Suspense
+          fallback={<div className="h-16 animate-pulse bg-gray-50" />}
+        >
+          <Pagination meta={meta} />
+        </Suspense>
       </div>
     </main>
   );

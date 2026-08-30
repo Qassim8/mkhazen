@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import TableFilter, { filterOption } from "@/components/shared/TableFilter";
 
 const Filters = () => {
@@ -15,18 +16,27 @@ const Filters = () => {
   ];
 
   return (
-    <div className="flex md:items-center gap-2">
-      <TableFilter
-        label="الترتيب حسب:"
-        paramKey="sortBy"
-        options={sortOption}
-      />
-      <TableFilter
-        label="حالة المخزون:"
-        paramKey="status"
-        options={statusOption}
-      />
-    </div>
+    <Suspense
+      fallback={
+        <div className="flex items-center gap-2 md:items-center">
+          <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-100" />
+        </div>
+      }
+    >
+      <div className="flex md:items-center gap-2">
+        <TableFilter
+          label="الترتيب حسب:"
+          paramKey="sortBy"
+          options={sortOption}
+        />
+        <TableFilter
+          label="حالة المخزون:"
+          paramKey="status"
+          options={statusOption}
+        />
+      </div>
+    </Suspense>
   );
 };
 

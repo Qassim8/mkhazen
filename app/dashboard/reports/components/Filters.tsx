@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import TableFilter, { filterOption } from "@/components/shared/TableFilter";
 import { categories, suppliers } from "@/data/data";
 
@@ -19,13 +20,23 @@ const Filters = () => {
     value: (companyName ?? "غير محدد").toLowerCase(),
   }));
   return (
-    <div>
-      <div className="pb-3 grid grid-cols-2 md:grid-cols-3 gap-3">
-        <TableFilter label="الفترة:" options={timeOption} />
-        <TableFilter label="الصنف" options={categoriesOption} />
-        <TableFilter label="المورد" options={supplierOption} />
+    <Suspense
+      fallback={
+        <div className="pb-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+        </div>
+      }
+    >
+      <div>
+        <div className="pb-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+          <TableFilter label="الفترة:" options={timeOption} />
+          <TableFilter label="الصنف" options={categoriesOption} />
+          <TableFilter label="المورد" options={supplierOption} />
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 };
 
