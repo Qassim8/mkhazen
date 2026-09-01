@@ -6,7 +6,7 @@ import { LuTrash2, LuPackage, LuSquarePen } from "react-icons/lu";
 import { deleteCategory } from "../services/categories.services";
 import { useModalStore } from "@/store/useModalStore";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
-import UpdateModalContent from "./UpdateModalContent";
+import ModalContent from "./CategoriesModalContent";
 import { Category } from "../schemas/category.schemas";
 
 interface CardProps {
@@ -45,8 +45,8 @@ const Card = ({ category }: CardProps) => {
         <button
           onClick={() =>
             openModal("UPDATE", {
-              title: "تعديل بيانات الصنف",
-              content: <UpdateModalContent initialData={category} />,
+              title: "تعديل بيانات الفئة",
+              content: <ModalContent initialData={category} />,
             })
           }
           className="text-sm font-medium flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-gray-700 hover:text-blue-600 transition"

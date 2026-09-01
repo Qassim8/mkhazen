@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const PurchaseOrderStatusEnum = z.enum([
+  "DIRECT",
   "DRAFT",
   "APPROVED",
   "RECEIVED",
@@ -10,37 +11,37 @@ export const PurchaseOrderStatusEnum = z.enum([
 export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusEnum>;
 
 export const purchaseOrderItemSchema = z.object({
-  productId: z.string().min(1, "يرجى اختيار المنتج"),
+  productId: z.string().min(1, "يرجى تحديد المنتج"),
   quantity: z.number().min(1, "الكمية يجب أن تكون 1 على الأقل"),
-  unitCost: z.number().min(0, "التكلفة لا يمكن أن تكون بالسالب"),
-  subtotal: z.number().optional(),
+  unitCost: z.number().min(0, "سعر الوحدة يجب أن يكون 0 أو أكثر"),
 });
 
 export const createPurchaseOrderSchema = z.object({
-  supplierId: z
-    .string()
-    .uuid("يرجى اختيار مورد صالح")
-    .or(z.literal(""))
-    .nullable()
-    .optional(),
+  supplierId: z.string().optional().nullable(),
   orderNumber: z.string().optional(),
+  orderDate: z.string().min(1, "يرجى تحديد تاريخ الشراء"),
   expectedDate: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  notes: z.string().optional(),
+  status: z.enum(["DRAFT", "DIRECT"]).default("DRAFT"),
+  deliveryCost: z
+    .number()
+    .min(0, "تكلفة الشحن لا يمكن أن تكون سالبة")
+    .default(0),
   items: z
     .array(purchaseOrderItemSchema)
-    .min(1, "يجب إضافة منتج واحد على الأقل لجدول الفاتورة"),
+    .min(1, "يرجى إضافة منتج واحد على الأقل للطلب"),
 });
 
 export const updatePurchaseOrderSchema = createPurchaseOrderSchema
+  .omit({ status: true })
   .partial()
   .extend({
     id: z.string().uuid("معرف الطلب غير صالح"),
-    status: PurchaseOrderStatusEnum.optional(),
   });
 
 export const updatePurchaseOrderStatusSchema = z.object({
   id: z.string().uuid("معرف الطلب غير صالح"),
-  status: PurchaseOrderStatusEnum,
+  status: z.enum(["APPROVED", "RECEIVED", "CANCELLED"]),
 });
 
 export type PurchaseOrderItemInput = z.infer<typeof purchaseOrderItemSchema>;
@@ -74,6 +75,7 @@ export interface PurchaseOrder {
   status: PurchaseOrderStatus;
   orderDate: string;
   expectedDate?: string | null;
+  deliveryCost?: number;
   totalAmount: number;
   notes?: string | null;
   items?: PurchaseOrderItem[];
@@ -85,7 +87,7 @@ export const purchaseQuerySchema = z.object({
   page: z.coerce.number().default(1),
   limit: z.coerce.number().default(10),
   search: z.string().optional(),
-  status: PurchaseOrderStatusEnum.optional(),
+  status: PurchaseOrderStatusEnum.or(z.literal("ALL")).optional(),
   supplierId: z.string().uuid().optional(),
 });
 

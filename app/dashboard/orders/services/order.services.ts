@@ -8,6 +8,8 @@ import {
   UpdatePurchaseOrderInput,
 } from "../schemas/orders.schemas";
 
+const API_BASE_URL = "/api/orders";
+
 export interface PurchasesResponse {
   data: PurchaseOrder[];
   meta: {
@@ -25,70 +27,64 @@ export interface PurchaseOrderResponse {
 
 export interface GetPurchasesParams {
   search?: string;
-  status?: PurchaseOrderStatus;
+  status?: PurchaseOrderStatus | "ALL";
   supplierId?: string;
   sort?: "date_desc" | "date_asc" | "total_desc" | "total_asc";
   page?: number;
   limit?: number;
 }
 
-// 1. جلب قائمة طلبات الشراء مع البحث والفلترة
 export async function getPurchaseOrders(
   params?: GetPurchasesParams,
 ): Promise<PurchasesResponse> {
-  return serverFetch<PurchasesResponse>("/api/orders", {
+  return serverFetch<PurchasesResponse>(`${API_BASE_URL}`, {
     method: "GET",
     params,
     next: { tags: ["purchases-list"] },
   });
 }
 
-// 2. جلب تفاصيل طلب شراء عبر الـ ID
 export async function getPurchaseOrderById(
   id: string,
 ): Promise<PurchaseOrderResponse> {
-  return serverFetch<PurchaseOrderResponse>(`/api/orders/${id}`, {
+  return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}/${id}`, {
     method: "GET",
   });
 }
 
-// 3. إنشاء طلب شراء جديد
 export async function createPurchaseOrder(
   payload: CreatePurchaseOrderInput,
 ): Promise<PurchaseOrderResponse> {
-  return serverFetch<PurchaseOrderResponse>("/api/orders", {
+  return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-// 4. تعديل طلب الشراء أو تحديث بياناته
 export async function updatePurchaseOrder(
   id: string,
   payload: Partial<UpdatePurchaseOrderInput>,
 ): Promise<PurchaseOrderResponse> {
-  return serverFetch<PurchaseOrderResponse>(`/api/orders/${id}`, {
+  return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
 
-// 5. تحديث حالة طلب الشراء فقط (DRAFT, APPROVED, CANCELLED, etc.)
+export async function deletePurchaseOrder(
+  id: string,
+): Promise<{ message: string }> {
+  return serverFetch<{ message: string }>(`${API_BASE_URL}/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export async function updatePurchaseOrderStatus(
   id: string,
   status: PurchaseOrderStatus,
 ): Promise<PurchaseOrderResponse> {
-  return serverFetch<PurchaseOrderResponse>(`/api/orders/${id}`, {
+  return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
-  });
-}
-
-// 6. حذف طلب الشراء (للمسودات فقط)
-export async function deletePurchaseOrder(
-  id: string,
-): Promise<{ message: string }> {
-  return serverFetch<{ message: string }>(`/api/orders/${id}`, {
-    method: "DELETE",
   });
 }

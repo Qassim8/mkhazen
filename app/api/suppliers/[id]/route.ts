@@ -68,11 +68,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
       );
     }
 
+    // بناء الكائن للتحديث
     const updatePayload = {
-      ...validation.data,
-      updatedAt: new Date().toISOString(),
+      name: validation.data.name,
+      phone: validation.data.phone,
+      email: validation.data.email,
       address: validation.data.address ?? null,
       contactPerson: validation.data.contactPerson ?? null,
+      isActive: validation.data.isActive,
+      updatedAt: new Date().toISOString(),
     };
 
     const { data, error } = await supabaseAdmin
@@ -123,6 +127,17 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       .eq("id", id);
 
     if (error) {
+      // 23503 هو رمز الخطأ لتقييد المفتاح الأجنبي (Foreign Key Constraint) في Postgres
+      if (error.code === "23503") {
+        return NextResponse.json(
+          {
+            message:
+              "لا يمكن حذف هذا المورد لوجود عمليات شراء أو منتجات مرتبطة به. يفضل تعديل حالته إلى (غير نشط) بدلاً من الحذف.",
+          },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json(
         { message: `تعذر حذف المورد: ${error.message}` },
         { status: 400 },

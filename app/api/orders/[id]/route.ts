@@ -3,10 +3,15 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { updatePurchaseOrderSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
+import {
+  calculatePurchaseTotal,
+  canDeletePurchaseOrder,
+  canEditPurchaseOrder,
+  fetchPurchaseOrderById,
+} from "../_lib/purchase-order";
 
-// GET: جلب تفاصيل طلب شراء واحد
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -19,25 +24,7 @@ export async function GET(
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("purchase_orders")
-      .select(
-        `
-        *,
-        suppliers (id, name),
-        purchase_order_items (
-          id,
-          productId:product_id,
-          quantity,
-          unitCost:unit_cost,
-          subtotal,
-          receivedQuantity:received_quantity,
-          products (id, name, barcode)
-        )
-      `,
-      )
-      .eq("id", id)
-      .single();
+    const { data, error } = await fetchPurchaseOrderById(id);
 
     if (error || !data) {
       return NextResponse.json(
@@ -58,7 +45,6 @@ export async function GET(
   }
 }
 
-// PATCH: تعديل الطلب أو تغيير الحالة
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -73,7 +59,33 @@ export async function PATCH(
       );
     }
 
+    const { data: existingOrder, error: fetchError } = await supabaseAdmin
+      .from("purchase_orders")
+      .select("status")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existingOrder) {
+      return NextResponse.json(
+        { message: "طلب الشراء غير موجود" },
+        { status: 404 },
+      );
+    }
+
+    if (!canEditPurchaseOrder(existingOrder.status)) {
+      return NextResponse.json(
+        {
+          message:
+            "لا يمكن تعديل الطلب إلا وهو مسودة. الشراء المباشر والمعتمد والمستلم غير قابل للتعديل.",
+        },
+        { status: 400 },
+      );
+    }
+
     const body = await request.json();
+    if (body.supplierId === "") body.supplierId = null;
+    if (body.expectedDate === "") body.expectedDate = null;
+
     const validation = updatePurchaseOrderSchema.safeParse({
       ...body,
       id,
@@ -89,20 +101,48 @@ export async function PATCH(
       );
     }
 
-    const { status, expectedDate, notes, supplierId, items } = validation.data;
+    const { expectedDate, notes, supplierId, items, orderDate, deliveryCost } =
+      validation.data;
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
-    if (status) updateData.status = status;
+    if (orderDate !== undefined) updateData.order_date = orderDate;
     if (expectedDate !== undefined) updateData.expected_date = expectedDate;
     if (notes !== undefined) updateData.notes = notes;
-    if (supplierId !== undefined) {
-      updateData.supplier_id = supplierId || null;
+    if (supplierId !== undefined) updateData.supplier_id = supplierId || null;
+    if (deliveryCost !== undefined) updateData.delivery_cost = deliveryCost;
+
+    if (items) {
+      const shipping =
+        deliveryCost !== undefined
+          ? Number(deliveryCost)
+          : Number(
+              (
+                await supabaseAdmin
+                  .from("purchase_orders")
+                  .select("delivery_cost")
+                  .eq("id", id)
+                  .single()
+              ).data?.delivery_cost || 0,
+            );
+      updateData.total_amount = calculatePurchaseTotal(items, shipping);
+    } else if (deliveryCost !== undefined) {
+      const { data: currentItems } = await supabaseAdmin
+        .from("purchase_order_items")
+        .select("quantity, unit_cost")
+        .eq("purchase_order_id", id);
+      updateData.total_amount = calculatePurchaseTotal(
+        (currentItems || []).map((item) => ({
+          quantity: Number(item.quantity),
+          unitCost: Number(item.unit_cost),
+        })),
+        Number(deliveryCost),
+      );
     }
 
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("purchase_orders")
       .update(updateData)
       .eq("id", id)
@@ -114,16 +154,10 @@ export async function PATCH(
     }
 
     if (items) {
-      const { error: deleteItemsError } = await supabaseAdmin
+      await supabaseAdmin
         .from("purchase_order_items")
         .delete()
         .eq("purchase_order_id", id);
-      if (deleteItemsError) {
-        return NextResponse.json(
-          { message: deleteItemsError.message },
-          { status: 400 },
-        );
-      }
 
       const { error: insertItemsError } = await supabaseAdmin
         .from("purchase_order_items")
@@ -134,8 +168,10 @@ export async function PATCH(
             quantity: item.quantity,
             unit_cost: item.unitCost,
             subtotal: item.quantity * item.unitCost,
+            received_quantity: 0,
           })),
         );
+
       if (insertItemsError) {
         return NextResponse.json(
           { message: insertItemsError.message },
@@ -147,8 +183,13 @@ export async function PATCH(
     revalidateTag("purchases-list", "default");
     revalidatePath("/dashboard/orders");
 
+    const { data: mapped } = await fetchPurchaseOrderById(id);
+
     return NextResponse.json(
-      { message: "تم تحديث طلب الشراء بنجاح", data },
+      {
+        message: "تم تحديث طلب الشراء بنجاح",
+        data: mapped,
+      },
       { status: 200 },
     );
   } catch (err: unknown) {
@@ -162,9 +203,8 @@ export async function PATCH(
   }
 }
 
-// DELETE: حذف طلب الشراء (للمسودات DRAFT فقط)
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -177,7 +217,6 @@ export async function DELETE(
       );
     }
 
-    // التأكد من حالة الطلب قبل الحذف
     const { data: existingOrder } = await supabaseAdmin
       .from("purchase_orders")
       .select("status")
@@ -191,9 +230,12 @@ export async function DELETE(
       );
     }
 
-    if (existingOrder.status !== "DRAFT") {
+    if (!canDeletePurchaseOrder(existingOrder.status)) {
       return NextResponse.json(
-        { message: "لا يمكن حذف طلب شراء معتمد أو مستلم، يمكنك الغاؤه فقط" },
+        {
+          message:
+            "لا يمكن حذف الطلب إلا وهو مسودة. بعد الموافقة أو الشراء المباشر لا يمكن الحذف.",
+        },
         { status: 400 },
       );
     }
@@ -206,6 +248,7 @@ export async function DELETE(
     if (error) {
       return NextResponse.json({ message: error.message }, { status: 400 });
     }
+
     revalidateTag("purchases-list", "default");
     revalidatePath("/dashboard/orders");
 

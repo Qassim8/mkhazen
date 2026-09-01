@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { revalidateTag, revalidatePath } from "next/cache";
-import { productSchema } from "@/app/dashboard/products/schemas/product.schemas";
+import { createProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
 import { getSession } from "@/lib/auth";
 
+// 1. جلب المنتجات مع المتغيرات والفئة والمورد
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -19,11 +20,30 @@ export async function GET(request: Request) {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    let query = supabaseAdmin.from("products").select(
+    // إذا كان البحث نصياً يحتوي على SKU أو Barcode، نجلب معرفات الـ templates أولاً
+    let matchingTemplateIdsFromVariants: string[] = [];
+    if (search) {
+      const { data: variantMatches } = await supabaseAdmin
+        .from("product_variants")
+        .select("templateId")
+        .or(
+          `sku.ilike.%${search}%,barcode.ilike.%${search}%,packBarcode.ilike.%${search}%`,
+        );
+
+      if (variantMatches && variantMatches.length > 0) {
+        matchingTemplateIdsFromVariants = [
+          ...new Set(variantMatches.map((v) => v.templateId)),
+        ];
+      }
+    }
+
+    // بناء الاستعلام الرئيسي
+    let query = supabaseAdmin.from("product_templates").select(
       `
         *,
         category:categories(id, name),
-        supplier:suppliers(id, name)
+        supplier:suppliers(id, name),
+        variants:product_variants(*)
       `,
       { count: "exact" },
     );
@@ -36,20 +56,42 @@ export async function GET(request: Request) {
 
     // 2. البحث النصي
     if (search) {
-      query = query.or(
-        `name.ilike.%${search}%,sku.ilike.%${search}%,barcode.ilike.%${search}%`,
-      );
+      if (matchingTemplateIdsFromVariants.length > 0) {
+        query = query.or(
+          `name.ilike.%${search}%,id.in.(${matchingTemplateIdsFromVariants.join(",")})`,
+        );
+      } else {
+        query = query.ilike("name", `%${search}%`);
+      }
     }
 
     // 3. فلترة الفئة والمورد
     if (categoryId) query = query.eq("categoryId", categoryId);
     if (supplierId) query = query.eq("supplierId", supplierId);
 
-    // 4. فلترة حالة المخزون (Status Filter)
-    if (status === "outstock") {
-      query = query.lte("stockQuantity", 0);
-    } else if (status === "instock") {
-      query = query.gt("stockQuantity", 0);
+    // 4. فلترة حالة المخزون
+    if (status === "outstock" || status === "instock") {
+      const { data: filteredVariants } = await supabaseAdmin
+        .from("product_variants")
+        .select("templateId")
+        .filter("stockQuantity", status === "outstock" ? "lte" : "gt", 0);
+
+      const templateIds = [
+        ...new Set(filteredVariants?.map((v) => v.templateId) || []),
+      ];
+
+      if (templateIds.length > 0) {
+        query = query.in("id", templateIds);
+      } else {
+        // إذا لم توجد أي نتيجة تطابق الشرط
+        return NextResponse.json(
+          {
+            data: [],
+            meta: { total: 0, page, limit, totalPages: 0 },
+          },
+          { status: 200 },
+        );
+      }
     }
 
     // تطبيق الـ Pagination
@@ -87,7 +129,7 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. إنشاء منتج جديد (محمي للأدمن فقط)
+// 2. إنشاء منتج جديد مع متغيراته
 export async function POST(request: Request) {
   try {
     const session = await getSession();
@@ -101,26 +143,23 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    // تنظيف القيم الفارغة مثل "" إلى null في الـ body مباشرة
-    Object.keys(body).forEach((key) => {
-      if (body[key] === "") {
-        body[key] = null;
+    // تنظيف القيم النصية الفارغة "" إلى null
+    if (body) {
+      Object.keys(body).forEach((key) => {
+        if (body[key] === "") body[key] = null;
+      });
+      if (Array.isArray(body.variants)) {
+        body.variants = body.variants.map((v: any) => {
+          Object.keys(v).forEach((k) => {
+            if (v[k] === "") v[k] = null;
+          });
+          return v;
+        });
       }
-    });
-
-    // توليد SKU تلقائي عند عدم إدخاله
-    if (!body.sku) {
-      body.sku = `PROD-${Date.now().toString().slice(-6)}`;
     }
 
-    // توليد باركود تلقائي عند عدم إدخاله
-    if (!body.barcode) {
-      body.barcode = Math.floor(
-        100000000000 + Math.random() * 900000000000,
-      ).toString();
-    }
-
-    const validation = productSchema.safeParse(body);
+    // التحقق من صحة البيانات باستخدام Schema
+    const validation = createProductSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -132,9 +171,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from("products")
-      .insert([validation.data])
+    const { variants, ...templateData } = validation.data;
+
+    // 1. إضافة المنتج الرئيسي (Product Template)
+    const { data: template, error: templateError } = await supabaseAdmin
+      .from("product_templates")
+      .insert([templateData])
       .select(
         `
         *,
@@ -144,9 +186,52 @@ export async function POST(request: Request) {
       )
       .single();
 
-    if (error) {
+    if (templateError || !template) {
       return NextResponse.json(
-        { message: `فشل إنشاء المنتج: ${error.message}` },
+        { message: `فشل إنشاء المنتج الأساسي: ${templateError?.message}` },
+        { status: 400 },
+      );
+    }
+
+    // 2. إعداد المتغيرات
+    const isSingleProduct = !template.hasVariants;
+    const preparedVariants = variants.map((variant, idx) => ({
+      templateId: template.id,
+      sku: variant.sku || `SKU-${Date.now().toString().slice(-6)}-${idx + 1}`,
+      barcode:
+        variant.barcode ||
+        Math.floor(100000000000 + Math.random() * 900000000000).toString(),
+      packBarcode: variant.packBarcode || null,
+      colorName: variant.colorName || null,
+      colorCode: variant.colorCode || null,
+      size: variant.size || null,
+      length: variant.length ?? null,
+      width: variant.width ?? null,
+      purchasePrice: variant.purchasePrice,
+      sellingPrice: variant.sellingPrice,
+      minSellingPrice: variant.minSellingPrice ?? null,
+      stockQuantity: variant.stockQuantity,
+      minStockLevel: variant.minStockLevel,
+      images: variant.images || [],
+      isDefault: isSingleProduct ? true : (variant.isDefault ?? idx === 0),
+      isActive: variant.isActive ?? true,
+    }));
+
+    // 3. إدراج المتغيرات في قاعدة البيانات
+    const { data: insertedVariants, error: variantsError } = await supabaseAdmin
+      .from("product_variants")
+      .insert(preparedVariants)
+      .select();
+
+    if (variantsError) {
+      // Rollback
+      await supabaseAdmin
+        .from("product_templates")
+        .delete()
+        .eq("id", template.id);
+
+      return NextResponse.json(
+        { message: `فشل إنشاء متغيرات المنتج: ${variantsError.message}` },
         { status: 400 },
       );
     }
@@ -155,7 +240,13 @@ export async function POST(request: Request) {
     revalidatePath("/dashboard/products");
 
     return NextResponse.json(
-      { message: "تم إضافة المنتج بنجاح", data },
+      {
+        message: "تم إضافة المنتج بنجاح",
+        data: {
+          ...template,
+          variants: insertedVariants,
+        },
+      },
       { status: 201 },
     );
   } catch (err: any) {

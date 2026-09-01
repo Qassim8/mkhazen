@@ -1,7 +1,7 @@
 "use client";
 
 import PageHeader from "@/components/shared/PageHeader";
-import ModalContent from "./ModalContent";
+import ModalContent from "./CategoriesModalContent";
 import Card from "./Card";
 import { useModalStore } from "@/store/useModalStore";
 import { Category } from "../schemas/category.schemas";

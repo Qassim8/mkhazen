@@ -1,13 +1,16 @@
 import { serverFetch } from "@/lib/api-client";
-import { BASE_URL } from "@/lib/constants";
 import { Category } from "../schemas/category.schemas";
 
-export async function getCategories(): Promise<Category[]> {
-  const res = await fetch(`${BASE_URL}/api/categories`, {
+export interface CategoriesResponse {
+  message?: string;
+  data: Category;
+}
+
+export async function getCategories(): Promise<CategoriesResponse> {
+  return serverFetch<CategoriesResponse>(`/api/categories`, {
+    method: "GET",
     next: { tags: ["categories-list"] },
   });
-  const json = await res.json();
-  return json.data;
 }
 
 export async function createCategory(data: {

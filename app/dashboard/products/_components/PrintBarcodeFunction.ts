@@ -1,6 +1,7 @@
 export const printBarcodeOnly = (
   barcodeValue: string | null | undefined,
   productName: string,
+  price,
 ) => {
   const printWindow = window.open("", "_blank", "width=400,height=400");
   if (!printWindow) {
@@ -58,6 +59,7 @@ export const printBarcodeOnly = (
       <body>
         <div class="title">${escapeHtml(productName)}</div>
         ${barcodeElem}
+        ${price ? `<div class="price">${price} ر.س</div>` : ""}
         <script>
           window.onload = function () {
             window.print();

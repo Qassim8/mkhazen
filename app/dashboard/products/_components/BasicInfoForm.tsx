@@ -3,7 +3,7 @@
 import { UseFormRegister, FieldErrors } from "react-hook-form";
 import { ProductFormInputType } from "../schemas/product.schemas";
 import SelectOrAddModal from "../_components/SelectOrAddModal";
-import ModalContent from "../../categories/_components/ModalContent";
+import ModalContent from "../../categories/_components/CategoriesModalContent";
 import { useModalStore } from "@/store/useModalStore";
 import { Category } from "../../categories/schemas/category.schemas";
 import CreateSupplierModalContent from "../../suppliers/_components/SupplierModalContent";
@@ -14,7 +14,6 @@ interface BasicInfoFormProps {
   categories: Category[];
   suppliers: { id: string; name: string }[];
   loadingOptions: boolean;
-  onAddSupplierModal?: () => void;
 }
 
 export default function BasicInfoForm({
@@ -38,58 +37,12 @@ export default function BasicInfoForm({
         </label>
         <input
           {...register("name")}
-          placeholder="مثال: جلابية كتان كويتي أبيض فاخر"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium"
+          placeholder="مثال: ثوب أصيل كتان فاخر"
+          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white outline-hidden transition font-medium"
         />
         {errors.name && (
           <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
         )}
-      </div>
-
-      {/* قسم الباركودات و الـ SKU */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            باركود التجزئة (الحبة)
-          </label>
-          <input
-            {...register("barcode")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-              }
-            }}
-            placeholder="امسح باركود الحبة"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            باركود الجملة (الكرتونة)
-          </label>
-          <input
-            {...register("packBarcode")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-              }
-            }}
-            placeholder="امسح باركود الكرتونة"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            رمز الـ SKU (اختياري)
-          </label>
-          <input
-            {...register("sku")}
-            placeholder="توليد تلقائي إن ترك فارغاً"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium"
-          />
-        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -137,7 +90,7 @@ export default function BasicInfoForm({
           {...register("description")}
           rows={3}
           placeholder="تفاصيل المنتج، نوع القماش، بلد التصنيع، إلخ..."
-          className="w-full h-36 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium resize-none"
+          className="w-full h-32 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white outline-hidden transition font-medium resize-none"
         />
       </div>
     </div>

@@ -9,6 +9,8 @@ import { useModalStore } from "@/store/useModalStore";
 import OrdersTable from "./OrdersTable";
 import OrderModalContent from "./OrderModalContent";
 import { PurchaseOrder } from "../schemas/orders.schemas";
+import { Product } from "../../products/schemas/product.schemas";
+import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 interface Props {
   orders: PurchaseOrder[];
@@ -18,20 +20,29 @@ interface Props {
     currentPage: number;
     limit: number;
   };
+  products: Product[];
+  suppliers: Supplier[];
 }
 
-export default function OrdersPageClient({ orders, meta }: Props) {
+export default function OrdersPageClient({
+  orders,
+  meta,
+  products,
+  suppliers,
+}: Props) {
   const openModal = useModalStore((state) => state.openModal);
   return (
     <main dir="rtl">
       <PageHeader
         title="طلبات الشراء"
         subtitle={`${meta.totalCount} طلب مسجل`}
-        buttonTitle="إضافة طلب شراء"
+        buttonTitle="عملية شراء جديدة"
         redirect={() =>
           openModal("CREATE", {
-            title: "إضافة طلب شراء",
-            content: <OrderModalContent />,
+            title: "عملية شراء جديدة",
+            content: (
+              <OrderModalContent products={products} suppliers={suppliers} />
+            ),
           })
         }
       />
@@ -54,7 +65,8 @@ export default function OrdersPageClient({ orders, meta }: Props) {
               paramKey="status"
               options={[
                 { label: "مسودة", value: "DRAFT" },
-                { label: "معتمد", value: "APPROVED" },
+                { label: "تمت الموافقة", value: "APPROVED" },
+                { label: "شراء مباشر", value: "DIRECT" },
                 { label: "مستلم", value: "RECEIVED" },
                 { label: "ملغى", value: "CANCELLED" },
               ]}
@@ -71,7 +83,11 @@ export default function OrdersPageClient({ orders, meta }: Props) {
             />
           </div>
         </Suspense>
-        <OrdersTable orders={orders} />
+        <OrdersTable
+          orders={orders}
+          products={products}
+          suppliers={suppliers}
+        />
         <Suspense fallback={<div className="h-16 animate-pulse bg-gray-50" />}>
           <Pagination
             meta={{

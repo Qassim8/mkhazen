@@ -33,13 +33,14 @@ export default function SelectOrAddModal({
   error,
   required,
 }: SelectOrAddProps) {
+  console.log(options);
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <label className="block text-sm font-semibold text-gray-700">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
-        {options.length > 0 && (
+        {options?.length > 0 && (
           <button
             type="button"
             onClick={onOpenModal}
@@ -54,7 +55,7 @@ export default function SelectOrAddModal({
         <div className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-500">
           <LuLoader className="animate-spin h-4 w-4" /> جاري تحميل البيانات...
         </div>
-      ) : options.length > 0 ? (
+      ) : options?.length > 0 ? (
         <select
           {...register(name)}
           className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium"

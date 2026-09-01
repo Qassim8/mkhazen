@@ -14,7 +14,12 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data, error } = await supabaseAdmin
       .from("categories")
-      .select("*")
+      .select(
+        `
+        *,
+        products:products(count)
+      `,
+      )
       .eq("id", id)
       .single();
 
@@ -25,7 +30,13 @@ export async function GET(_request: Request, { params }: Params) {
       );
     }
 
-    return NextResponse.json({ data }, { status: 200 });
+    const formattedData = {
+      ...data,
+      productsCount: (data as any).products?.[0]?.count ?? 0,
+    };
+    delete (formattedData as any).products;
+
+    return NextResponse.json({ data: formattedData }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json(
       { message: "خطأ في السيرفر", error: err.message },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -9,30 +9,29 @@ import {
   productSchema,
 } from "../schemas/product.schemas";
 import { useRouter } from "next/navigation";
-import { LuSave, LuLoader } from "react-icons/lu";
+import { LuSave, LuLoader, LuPackage, LuLayers } from "react-icons/lu";
 import { createProduct } from "../services/products.services";
 import { uploadImage } from "@/lib/storage";
 import { toast } from "react-hot-toast";
-import { useModalStore } from "@/store/useModalStore";
 
 // Components
 import Images from "./Images";
 import BasicInfoForm from "./BasicInfoForm";
-import PricingAndStockForm from "./PricingAndStockForm";
 import ProductVisibility from "./ProductVisibility";
-// import CreateSupplierForm from "./CreateSupplierForm";
 import UnitConversionSection from "./UnitConversionSection";
-import ProductSizes from "./ProductSizes";
+import ProductVariantsSection from "./ProductVariants";
+import { Category } from "../../categories/schemas/category.schemas";
+import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
-interface Category {
-  id: string;
-  name: string;
-}
+// interface Category {
+//   id: string;
+//   name: string;
+// }
 
-interface Supplier {
-  id: string;
-  name: string;
-}
+// interface Supplier {
+//   id: string;
+//   name: string;
+// }
 
 interface AddProductFormProps {
   initialCategories: Category[];
@@ -44,17 +43,15 @@ export default function AddProductClient({
   initialSuppliers,
 }: AddProductFormProps) {
   const router = useRouter();
-  const { openModal, closeModal } = useModalStore();
-
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  const [categories] = useState<Category[]>(initialCategories);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
 
   const {
     register,
+    control,
     handleSubmit,
     setValue,
     watch,
@@ -63,46 +60,58 @@ export default function AddProductClient({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: "",
-      sku: "",
-      barcode: "",
-      packBarcode: "",
       description: "",
       categoryId: "",
       supplierId: "",
-      purchasePrice: 0,
-      sellingPrice: 0,
-      stockQuantity: 0,
-      minStockLevel: 5,
       purchaseUnit: "قطعة",
       sellingUnit: "قطعة",
-      sizes: [],
+      conversionFactor: 1,
+      hasVariants: false,
       images: [],
       isActive: true,
+      isVisible: true,
+      variants: [
+        {
+          sku: "",
+          barcode: "",
+          packBarcode: "",
+          size: "",
+          colorName: "",
+          colorCode: "#000000",
+          purchasePrice: 0,
+          sellingPrice: 0,
+          minSellingPrice: 0,
+          stockQuantity: 0,
+          minStockLevel: 5,
+          isDefault: true,
+          isActive: true,
+          images: [],
+        },
+      ],
     },
   });
 
-  // Watchers
-  const selectedCategoryId = watch("categoryId") ?? "";
-  const selectedSellingUnit = watch("sellingUnit") ?? "قطعة";
-  const selectedPurchaseUnit = watch("purchaseUnit") ?? "قطعة";
-  const selectedSizes = watch("sizes") ?? [];
+  const hasVariants = watch("hasVariants");
   const currentImages = watch("images") ?? [];
 
-  const selectedCategoryObj = categories.find(
-    (c) => c.id === selectedCategoryId,
-  );
-  const selectedCategoryName = selectedCategoryObj?.name || "";
+  // التبديل بين نوع المنتج (مفرد / متعدد المتغيرات)
+  const toggleHasVariants = (value: boolean) => {
+    setValue("hasVariants", value, { shouldValidate: true });
 
-  useEffect(() => {
-    setValue("sizes", []);
-  }, [selectedCategoryId, setValue]);
+    if (!value) {
+      const currentVariants = watch("variants");
+      const firstVariant = currentVariants?.[0] || {};
 
-  const toggleSize = (size: string) => {
-    const exists = selectedSizes.includes(size);
-    const updated = exists
-      ? selectedSizes.filter((s) => s !== size)
-      : [...selectedSizes, size];
-    setValue("sizes", updated, { shouldValidate: true });
+      setValue("variants", [
+        {
+          ...firstVariant,
+          colorName: null,
+          colorCode: null,
+          size: null,
+          isDefault: true,
+        },
+      ]);
+    }
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,10 +127,9 @@ export default function AddProductClient({
       setValue("images", [...currentImages, ...uploadedUrls].slice(0, 5), {
         shouldValidate: true,
       });
-
       toast.success("تم رفع الصور بنجاح!");
     } catch (error: any) {
-      toast.error(error?.message || serverError || "حدث خطأ أثناء رفع الصور");
+      toast.error(error?.message || "حدث خطأ أثناء رفع الصور");
     } finally {
       setUploadingImages(false);
       e.target.value = "";
@@ -136,32 +144,24 @@ export default function AddProductClient({
     );
   };
 
-  //   const handleAddSupplierModal = () => {
-  //     openModal("CREATE", {
-  //       title: "إنشاء مورد جديد",
-  //       content: (
-  //         <CreateSupplierForm
-  //           onSuccess={(newSupplier) => {
-  //             setSuppliers((prev) => [...prev, newSupplier]);
-  //             setValue("supplierId", newSupplier.id, { shouldValidate: true });
-  //             closeModal();
-  //             toast.success("تم إضافة المورد وتحديده بنجاح");
-  //           }}
-  //         />
-  //       ),
-  //     });
-  //   };
+  const handleCategoryCreated = (newCategory: Category) => {
+    setCategories((prev) => [...prev, newCategory]); // تحديث القائمة فوراً
+    setValue("categoryId", newCategory.id, { shouldValidate: true }); // اختيارها تلقائياً في النموذج
+  };
+
+  const handleSupplierCreated = (newSupplier: Supplier) => {
+    setSuppliers((prev) => [...prev, newSupplier]); // تحديث القائمة فوراً
+    setValue("supplierId", newSupplier.id, { shouldValidate: true }); // اختياره تلقائياً
+  };
 
   const onSubmit = async (data: ProductFormInputType) => {
     try {
       setIsSubmitting(true);
-      setServerError(null);
-
       await createProduct(data as ProductFormOutputType);
       toast.success("تم إضافة المنتج بنجاح");
       router.push("/dashboard/products");
     } catch (err: any) {
-      setServerError(err.message || "حدث خطأ أثناء حفظ المنتج");
+      console.log("Validation Errors:", err?.response?.data || err);
       toast.error(err.message || "حدث خطأ أثناء حفظ المنتج");
     } finally {
       setIsSubmitting(false);
@@ -171,7 +171,7 @@ export default function AddProductClient({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="grid gap-5 lg:grid-cols-2"
+      className="grid gap-6 lg:grid-cols-2"
     >
       {/* العمود الأول */}
       <div className="space-y-6">
@@ -186,30 +186,69 @@ export default function AddProductClient({
           errors={errors}
           categories={categories}
           suppliers={suppliers}
-          loadingOptions={false} // لم نعد بحاجة
+          loadingOptions={false}
         />
       </div>
 
       {/* العمود الثاني */}
       <div className="space-y-6">
+        {/* 🔘 شريط اختيارات نوع المنتج (مفرد / متعدد) */}
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+          <label className="block text-sm font-bold text-gray-900">
+            نوع المنتج
+          </label>
+          <div className="grid grid-cols-2 gap-3 p-1 bg-gray-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => toggleHasVariants(false)}
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold transition ${
+                !hasVariants
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <LuPackage className="h-4 w-4 text-(--primary-red)" />
+              منتج مفرد (بدون خيارات)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleHasVariants(true)}
+              className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold transition ${
+                hasVariants
+                  ? "bg-white text-gray-900 shadow-xs"
+                  : "text-gray-500 hover:text-gray-900"
+              }`}
+            >
+              <LuLayers className="h-4 w-4 text-(--primary-red)" />
+              منتج متعدد الخيارات
+            </button>
+          </div>
+        </div>
+
         <UnitConversionSection
           register={register}
           watch={watch}
           setValue={setValue}
         />
-        <PricingAndStockForm
-          register={register}
-          selectedSellingUnit={selectedSellingUnit}
-          selectedPurchaseUnit={selectedPurchaseUnit}
-        />
 
-        <ProductSizes
-          categoryName={selectedCategoryName}
-          selectedSizes={selectedSizes}
-          onToggleSize={toggleSize}
+        <ProductVariantsSection
+          control={control}
+          register={register}
+          errors={errors}
+          watch={watch}
+          setValue={setValue}
+          categories={categories}
+          hasVariants={hasVariants}
         />
 
         <ProductVisibility register={register} />
+
+        {errors.variants?.root && (
+          <p className="text-xs font-semibold text-red-500">
+            {errors.variants.root.message}
+          </p>
+        )}
 
         <button
           type="submit"

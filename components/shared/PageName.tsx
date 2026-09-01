@@ -7,7 +7,7 @@ const pageNames: Record<string, string> = {
   "/dashboard/categories": "الفئات",
   "/dashboard/products": "المنتجات",
   "/dashboard/suppliers": "الموردون",
-  "/dashboard/orders": "الطلبات",
+  "/dashboard/orders": "المشتريات والتوريد",
   "/dashboard/inventory": "المخزون",
   "/dashboard/employees": "الموظفين",
   "/dashboard/reports": "التقارير",

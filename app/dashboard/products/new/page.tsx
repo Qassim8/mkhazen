@@ -5,10 +5,17 @@ import { getCategories } from "../../categories/services/categories.services";
 import { getSuppliers } from "../../suppliers/service/supplier.services";
 
 export default async function AddProductPage() {
-  const [categories, { data: suppliers }] = await Promise.all([
+  const [categoriesRes, suppliersRes] = await Promise.all([
     getCategories(),
     getSuppliers(),
   ]);
+
+  const categories = Array.isArray(categoriesRes)
+    ? categoriesRes
+    : categoriesRes?.data || [];
+  const suppliers = Array.isArray(suppliersRes)
+    ? suppliersRes
+    : suppliersRes?.data || [];
 
   return (
     <div className="space-y-6 pb-12">

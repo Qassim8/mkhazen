@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import Table from "@/components/shared/Table";
 import { useModalStore } from "@/store/useModalStore";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -13,18 +16,65 @@ import {
 } from "react-icons/lu";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import { PurchaseOrder } from "../schemas/orders.schemas";
-import { deletePurchaseOrder } from "../services/order.services";
+import {
+  deletePurchaseOrder,
+  updatePurchaseOrderStatus,
+} from "../services/order.services";
 import OrderDetailsModalContent from "./OrderDetailsModal";
 import UpdateOrderModalContent from "./UpdateOrderModal";
+import { Product } from "../../products/schemas/product.schemas";
+import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 const columnHelper = createColumnHelper<PurchaseOrder>();
 
+const statusOptions: Record<
+  PurchaseOrder["status"],
+  { value: PurchaseOrder["status"]; label: string }[]
+> = {
+  DRAFT: [
+    { value: "DRAFT", label: "مسودة" },
+    { value: "APPROVED", label: "تمت الموافقة" },
+    { value: "CANCELLED", label: "ملغى" },
+  ],
+  APPROVED: [
+    { value: "APPROVED", label: "تمت الموافقة" },
+    { value: "RECEIVED", label: "مستلم" },
+  ],
+  DIRECT: [{ value: "DIRECT", label: "شراء مباشر" }],
+  RECEIVED: [{ value: "RECEIVED", label: "مستلم" }],
+  CANCELLED: [{ value: "CANCELLED", label: "ملغى" }],
+};
+
 interface OrdersTableProps {
   orders: PurchaseOrder[];
+  products: Product[];
+  suppliers: Supplier[];
 }
 
-const OrdersTable = ({ orders }: OrdersTableProps) => {
+const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
   const openModal = useModalStore((state) => state.openModal);
+  const router = useRouter();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const handleStatusChange = async (
+    orderId: string,
+    currentStatus: PurchaseOrder["status"],
+    newStatus: PurchaseOrder["status"],
+  ) => {
+    if (newStatus === currentStatus) return;
+    try {
+      setUpdatingId(orderId);
+      const result = await updatePurchaseOrderStatus(orderId, newStatus);
+      toast.success(result.message || "تم تحديث حالة الطلب بنجاح");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "حدث خطأ أثناء تغيير الحالة",
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const columns = [
     columnHelper.accessor("orderNumber", {
@@ -75,7 +125,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
     }),
 
     columnHelper.accessor("orderDate", {
-      header: "تاريخ الطلب",
+      header: "تاريخ الشراء",
       cell: (info) => {
         const dateVal = info.getValue();
         return (
@@ -99,10 +149,13 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
       header: "الحالة",
       cell: (info) => {
         const status = info.getValue();
+        const orderId = info.row.original.id;
+        const availableStatuses = statusOptions[status];
 
         const statusStyles: Record<string, string> = {
           DRAFT: "bg-amber-50 text-amber-700 border-amber-200",
           APPROVED: "bg-blue-50 text-blue-700 border-blue-200",
+          DIRECT: "bg-emerald-50 text-emerald-700 border-emerald-200",
           RECEIVED: "bg-emerald-50 text-emerald-700 border-emerald-200",
           CANCELLED: "bg-rose-50 text-rose-700 border-rose-200",
         };
@@ -110,30 +163,45 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
         const dotColors: Record<string, string> = {
           DRAFT: "bg-amber-500",
           APPROVED: "bg-blue-500",
+          DIRECT: "bg-emerald-500",
           RECEIVED: "bg-emerald-500",
           CANCELLED: "bg-rose-500",
         };
 
-        const statusLabels: Record<string, string> = {
-          DRAFT: "مسودة",
-          APPROVED: "معتمد",
-          RECEIVED: "مستلم",
-          CANCELLED: "ملغى",
-        };
-
         return (
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-              statusStyles[status] || statusStyles.DRAFT
-            }`}
-          >
+          <div className="relative inline-block">
             <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                dotColors[status] || dotColors.DRAFT
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                statusStyles[status] || statusStyles.DRAFT
               }`}
-            />
-            {statusLabels[status] || status}
-          </span>
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  dotColors[status] || dotColors.DRAFT
+                }`}
+              />
+              <select
+                value={status}
+                disabled={
+                  updatingId === orderId || availableStatuses.length === 1
+                }
+                onChange={(e) =>
+                  handleStatusChange(
+                    orderId,
+                    status,
+                    e.target.value as PurchaseOrder["status"],
+                  )
+                }
+                className="bg-transparent outline-none cursor-pointer border-none p-0 pr-1 text-xs font-semibold focus:ring-0 disabled:opacity-50"
+              >
+                {availableStatuses.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </div>
         );
       },
     }),
@@ -145,7 +213,6 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
 
         return (
           <div className="flex items-center justify-center gap-2">
-            {/* زر المشاهدة متوفر لكافة الحالات */}
             <button
               type="button"
               aria-label="عرض التفاصيل"
@@ -163,7 +230,6 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
               <LuEye className="h-5 w-5" />
             </button>
 
-            {/* أزرار التعديل والحذف متاحة فقط في حالة المسودة DRAFT */}
             {isDraft ? (
               <>
                 <button
@@ -173,9 +239,13 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
                   className="rounded-lg p-1 text-blue-500 transition-colors hover:bg-blue-50 hover:text-blue-700"
                   onClick={() =>
                     openModal("UPDATE", {
-                      title: "تعديل بيانات طلب الشراء",
+                      title: "تعديل مسودة طلب الشراء",
                       content: (
-                        <UpdateOrderModalContent initialOrder={row.original} />
+                        <UpdateOrderModalContent
+                          suppliers={suppliers}
+                          products={products}
+                          initialOrder={row.original}
+                        />
                       ),
                     })
                   }
@@ -201,22 +271,19 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
                 </button>
               </>
             ) : (
-              /* أزرار معطلة بصرياً مع توضيح للمستخدم */
               <>
                 <button
-                  type="button"
                   disabled
-                  title="لا يمكن تعديل الطلبات المعتمدة أو المستلمة"
-                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed"
+                  title="لا يمكن التعديل بعد الموافقة أو الشراء المباشر"
+                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed!"
                 >
                   <LuSquarePen className="h-5 w-5" />
                 </button>
 
                 <button
-                  type="button"
                   disabled
-                  title="لا يمكن حذف الطلبات المعتمدة أو المستلمة"
-                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed"
+                  title="لا يمكن الحذف بعد الموافقة أو الشراء المباشر"
+                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed!"
                 >
                   <LuTrash2 className="h-5 w-5" />
                 </button>

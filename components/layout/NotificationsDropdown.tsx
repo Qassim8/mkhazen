@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LuBell, LuKey, LuClock, LuBadgeAlert } from "react-icons/lu";
+import { LuBell, LuKey, LuClock, LuBadgeAlert, LuShoppingCart } from "react-icons/lu";
 
 interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: "RESET_PASSWORD" | "LOW_STOCK" | "ORDER_DELAY" | "SYSTEM";
+  type: "RESET_PASSWORD" | "LOW_STOCK" | "ORDER_DELAY" | "PURCHASE_ORDER" | "SYSTEM";
   link: string;
   is_read: boolean;
   created_out: string;
@@ -124,8 +124,8 @@ export default function NotificationsDropdown() {
         return <LuKey className="w-4 h-4 text-amber-600" />;
       case "LOW_STOCK":
         return <LuBadgeAlert className="w-4 h-4 text-red-600" />;
-      case "ORDER_DELAY":
-        return <LuClock className="w-4 h-4 text-orange-600" />;
+      case "PURCHASE_ORDER":
+        return <LuShoppingCart className="w-4 h-4 text-emerald-600" />;
       default:
         return <LuBell className="w-4 h-4 text-blue-600" />;
     }

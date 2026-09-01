@@ -13,15 +13,9 @@ import {
   createPurchaseOrderSchema,
   PurchaseOrder,
 } from "../schemas/orders.schemas";
-import { getSuppliers } from "../../suppliers/service/supplier.services";
-import { getProducts } from "../../products/services/products.services";
 import { createPurchaseOrder } from "../services/order.services";
-
-export interface Option {
-  id: string;
-  name: string;
-  purchasePrice?: number;
-}
+import { Supplier } from "../../suppliers/schemas/supplier.schemas";
+import { Product } from "../../products/schemas/product.schemas";
 
 export interface PurchaseItem {
   id: string;
@@ -33,15 +27,17 @@ export interface PurchaseItem {
 
 interface Props {
   initialOrder?: PurchaseOrder;
+  suppliers: Supplier[];
+  products: Product[];
 }
 
-export default function OrderModalContent({ initialOrder }: Props) {
+export default function OrderModalContent({
+  initialOrder,
+  suppliers,
+  products,
+}: Props) {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
-
-  const [suppliers, setSuppliers] = useState<Option[]>([]);
-  const [products, setProducts] = useState<Option[]>([]);
-  const [loadingData, setLoadingData] = useState<boolean>(true);
 
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>(
     initialOrder?.items?.map((item) => ({
@@ -55,14 +51,20 @@ export default function OrderModalContent({ initialOrder }: Props) {
 
   const defaultToday = new Date().toISOString().split("T")[0];
 
-  // ✅ 1. استخراج الأدوات المطلوبة من useForm
   const form = useForm<CreatePurchaseOrderInput>({
     resolver: zodResolver(createPurchaseOrderSchema),
     defaultValues: {
       supplierId: initialOrder?.supplierId || "",
       orderNumber: initialOrder?.orderNumber || "",
-      expectedDate: initialOrder?.expectedDate || defaultToday,
+      orderDate: initialOrder?.orderDate
+        ? new Date(initialOrder.orderDate).toISOString().split("T")[0]
+        : defaultToday,
+      expectedDate: initialOrder?.expectedDate
+        ? new Date(initialOrder.expectedDate).toISOString().split("T")[0]
+        : "",
       notes: initialOrder?.notes || "",
+      status: "DRAFT",
+      deliveryCost: initialOrder?.deliveryCost || 0,
       items: purchaseItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -74,41 +76,24 @@ export default function OrderModalContent({ initialOrder }: Props) {
   const {
     register,
     setValue,
-    formState: { errors, isSubmitting },
+    watch,
+    handleSubmit,
+    formState: { isSubmitting },
   } = form;
 
-  // ✅ 2. مزامنة State السلة مع React Hook Form فور تغيير المنتجات
+  const deliveryCost = Number(watch("deliveryCost") || 0);
+
   useEffect(() => {
-    const formattedItems = purchaseItems.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitCost: item.costPrice,
-    }));
-    setValue("items", formattedItems, { shouldValidate: true });
+    setValue(
+      "items",
+      purchaseItems.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitCost: item.costPrice,
+      })),
+      { shouldValidate: true },
+    );
   }, [purchaseItems, setValue]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    Promise.all([
-      getSuppliers().then((res) => res?.data || []),
-      getProducts({ limit: 100 }).then((res) => res?.data || []),
-    ])
-      .then(([suppliersData, productsData]) => {
-        if (isMounted) {
-          setSuppliers(suppliersData);
-          setProducts(productsData);
-        }
-      })
-      .catch((err) => console.error(err))
-      .finally(() => {
-        if (isMounted) setLoadingData(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const addToOrder = (productId: string) => {
     if (!productId) return;
@@ -137,61 +122,62 @@ export default function OrderModalContent({ initialOrder }: Props) {
     });
   };
 
-  const onSubmit = async (data: CreatePurchaseOrderInput) => {
-    console.log(" تم تفعيل onSubmit بنجاح! البيانات:", data);
+  const submitWithStatus = (targetStatus: "DRAFT" | "DIRECT") => {
+    setValue("status", targetStatus);
+    handleSubmit(onSubmit, onError)();
+  };
 
+  const onSubmit = async (data: CreatePurchaseOrderInput) => {
     const payload = {
       ...data,
       supplierId: data.supplierId === "" ? null : data.supplierId,
+      expectedDate: data.expectedDate === "" ? null : data.expectedDate,
     };
 
     try {
       await createPurchaseOrder(payload);
-
       toast.success(
-        initialOrder
-          ? "تم تحديث طلب الشراء بنجاح"
-          : "تم إضافة طلب الشراء بنجاح",
+        data.status === "DIRECT"
+          ? "تم الشراء المباشر وزيادة المخزون وتسجيل القيد"
+          : "تم حفظ المسودة وإخطار المالك للموافقة",
       );
       closeModal();
       router.refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "حدث خطأ أثناء الحفظ");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ غير متوقع أثناء حفظ الطلب",
+      );
     }
   };
 
   const onError = (errors: FieldErrors<CreatePurchaseOrderInput>) => {
     if (errors.items) {
       toast.error(
-        errors.items.message || "يرجى إضافة منتج واحد على الأقل للطلب",
+        typeof errors.items.message === "string"
+          ? errors.items.message
+          : "يرجى إضافة منتج واحد على الأقل لحفظ الطلب",
       );
+    } else if (errors.orderDate) {
+      toast.error(errors.orderDate.message || "يرجى تحديد تاريخ الشراء");
     } else {
       toast.error("يرجى التأكد من ملء جميع الحقول المطلوبة بشكل صحيح");
     }
   };
 
   return (
-    <form
-      onSubmit={form.handleSubmit(onSubmit, onError)}
-      className="space-y-6"
-      noValidate
-    >
-      <div>
-        <p className="text-sm text-gray-500">
-          يرجى تحديد تفاصيل الطلب وااختيار العناصر المطلوبة بعناية قبل الحفظ.
-        </p>
-      </div>
-
+    <div className="space-y-3">
       <div className="grid gap-6 lg:grid-cols-12 max-h-[65vh] overflow-y-auto p-1">
         <div className="lg:col-span-5 space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              المورد <span className="text-xs text-gray-400">(اختياري)</span>
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
+              المورد
             </label>
             <select
               {...register("supplierId")}
-              disabled={isSubmitting || loadingData}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
+              disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
             >
               <option value="">بدون مورد (اختياري)</option>
               {suppliers.map((s) => (
@@ -200,58 +186,55 @@ export default function OrderModalContent({ initialOrder }: Props) {
                 </option>
               ))}
             </select>
-            {errors.supplierId && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.supplierId.message}
-              </p>
-            )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              إضافة منتج <span className="text-red-500">*</span>
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
+              تاريخ الشراء
+            </label>
+            <input
+              type="date"
+              disabled={isSubmitting}
+              {...register("orderDate")}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
+              تكلفة الشحن
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              disabled={isSubmitting}
+              {...register("deliveryCost", {
+                setValueAs: (value) => (value === "" ? 0 : Number(value)),
+              })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
+              إضافة منتج
             </label>
             <select
-              disabled={isSubmitting || loadingData}
+              disabled={isSubmitting}
               onChange={(e) => {
                 addToOrder(e.target.value);
                 e.target.value = "";
               }}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
             >
-              <option value="">
-                {loadingData
-                  ? "جاري تحميل المنتجات..."
-                  : "اضغط لاختيار منتج وتضمينه..."}
-              </option>
+              <option value="">{"اضغط لاختيار منتج وتضمينه..."}</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </select>
-            {errors.items && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.items.message}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              التاريخ المتوقع للاستلام <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              disabled={isSubmitting}
-              {...register("expectedDate")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
-            />
-            {errors.expectedDate && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.expectedDate.message}
-              </p>
-            )}
           </div>
 
           <div>
@@ -262,14 +245,8 @@ export default function OrderModalContent({ initialOrder }: Props) {
               rows={3}
               disabled={isSubmitting}
               {...register("notes")}
-              placeholder="أي ملاحظات إضافية..."
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60 resize-none"
+              className="w-full h-24 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60 resize-none"
             />
-            {errors.notes && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.notes.message}
-              </p>
-            )}
           </div>
         </div>
 
@@ -277,31 +254,30 @@ export default function OrderModalContent({ initialOrder }: Props) {
           <PurchaseCart
             purchaseItems={purchaseItems}
             setPurchaseItems={setPurchaseItems}
+            deliveryCost={deliveryCost}
           />
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 pt-5">
         <button
           type="button"
           disabled={isSubmitting}
-          onClick={closeModal}
-          className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+          onClick={() => submitWithStatus("DRAFT")}
+          className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
         >
-          إلغاء
+          {isSubmitting ? "جاري الحفظ..." : "حفظ كمسودة (دورة كاملة)"}
         </button>
+
         <button
-          type="submit"
+          type="button"
           disabled={isSubmitting}
-          className="flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => submitWithStatus("DIRECT")}
+          className="rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-(--primary-red)/80 disabled:opacity-60"
         >
-          {isSubmitting
-            ? "جاري الحفظ..."
-            : initialOrder
-              ? "تحديث طلب الشراء"
-              : "اعتماد طلب الشراء"}
+          شراء مباشر (مستلم)
         </button>
       </div>
-    </form>
+    </div>
   );
 }

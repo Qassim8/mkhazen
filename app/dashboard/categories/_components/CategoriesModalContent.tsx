@@ -8,80 +8,84 @@ import toast from "react-hot-toast";
 import Image from "next/image";
 import { LuUpload, LuLoader, LuImage } from "react-icons/lu";
 
-import { useModalStore } from "@/store/useModalStore";
 import {
   categorySchema,
   CategoryInput,
   Category,
 } from "@/app/dashboard/categories/schemas/category.schemas";
-import { updateCategory } from "../services/categories.services";
+import {
+  createCategory,
+  updateCategory,
+} from "../services/categories.services";
+import { useModalStore } from "@/store/useModalStore";
 import { uploadImage } from "@/lib/storage";
 
-interface UpdateCategoryModalContentProps {
-  initialData: Category;
+interface ModalContentProps {
+  categoryToEdit?: Category | null;
+  initialData?: Category;
 }
 
-export default function UpdateModalContent({
+export default function ModalContent({
+  categoryToEdit,
   initialData,
-}: UpdateCategoryModalContentProps) {
+}: ModalContentProps) {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
 
+  const category = categoryToEdit || initialData;
+  const isEditing = Boolean(category);
+
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(
-    initialData.imageUrl || null,
+    category?.imageUrl || null,
   );
 
   const {
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
+    reset,
   } = useForm<CategoryInput>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
-      name: initialData.name,
-      description: initialData.description ?? "",
-      imageUrl: initialData.imageUrl ?? null,
+      name: category?.name || "",
+      description: category?.description || "",
+      imageUrl: category?.imageUrl,
     },
   });
-
-  const currentImageUrl = watch("imageUrl");
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // معاينة مؤقتة في الواجهة
     const tempUrl = URL.createObjectURL(file);
     setPreviewImage(tempUrl);
 
     try {
       setIsUploading(true);
-      const uploadedUrl = await uploadImage(file);
+
+      const uploadedUrl = await uploadImage(file, "categories");
 
       setValue("imageUrl", uploadedUrl, { shouldValidate: true });
-      toast.success("تم رفع الصورة الجديدة بنجاح");
-    } catch (err: any) {
-      console.error("خطأ أثناء رفع الصورة:", err);
-      // إرجاع الصورة الأصلية في حال فشل الرفع للحفاظ على الاتساق
-      setPreviewImage(initialData.imageUrl || null);
-      setValue("imageUrl", initialData.imageUrl || null, {
+      toast.success("تم رفع الصورة بنجاح");
+    } catch (err) {
+      setPreviewImage(category?.imageUrl || null);
+      setValue("imageUrl", category?.imageUrl || null, {
         shouldValidate: true,
       });
-      toast.error(err?.message || "حدث خطأ أثناء رفع الصورة الجديدة");
+
+      console.error("خطأ رفع الصورة:", err);
+      toast.error(
+        (err instanceof Error ? err.message : "فشل رفع الصورة") ||
+          "فشل رفع الصورة، يُرجى التأكد من صلاحيات Storage RLS وإعادة المحاولة",
+      );
     } finally {
       setIsUploading(false);
     }
   };
 
   const onSubmit: SubmitHandler<CategoryInput> = async (data) => {
-    if (!data.imageUrl) {
-      toast.error("صورة الصنف مطلوبة");
-      return;
-    }
-
     try {
       const formattedData = {
         ...data,
@@ -89,14 +93,22 @@ export default function UpdateModalContent({
         imageUrl: data.imageUrl ?? undefined,
       };
 
-      await updateCategory(String(initialData.id), formattedData);
-      toast.success(`تم تحديث صنف "${initialData.name}" بنجاح`);
+      if (isEditing && category) {
+        await updateCategory(String(category.id), formattedData);
+        toast.success(`تم تحديث "${category.name}" بنجاح`);
+      } else {
+        await createCategory(formattedData);
+        toast.success("تمت إضافة الفئة بنجاح");
+      }
 
-      closeModal();
+      reset();
       router.refresh();
-    } catch (err: any) {
-      console.error("فشل في تحديث بيانات الصنف:", err);
-      toast.error(err?.message || "حدث خطأ أثناء تحديث الصنف");
+      closeModal();
+    } catch (err) {
+      console.error("فشل في حفظ بيانات الفئة:", err);
+      toast.error(
+        err instanceof Error ? err.message : "حدث خطأ أثناء حفظ البيانات",
+      );
     }
   };
 
@@ -104,23 +116,26 @@ export default function UpdateModalContent({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       <div>
         <p className="text-sm text-gray-500">
-          تعديل البيانات والصورة الخاصة بالفئة الحالية.
+          {isEditing
+            ? `قم بتعديل بيانات الفئة "${category?.name}" والصورة المخصصة لها قبل حفظ التغييرات.`
+            : "يرجى ملء بيانات الفئة الجديدة وإرفاق الصورة لتنظيم المنتجات."}
         </p>
       </div>
 
       <div className="space-y-4">
-        {/* رفع / تعديل الصورة */}
+        {/* رفع الصورة */}
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            صورة الفئة <span className="text-red-500">*</span>
+            صورة الفئة
           </label>
           <div className="flex items-center gap-4">
             <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
               {previewImage ? (
                 <Image
                   src={previewImage}
-                  alt={initialData.name ?? "Category image"}
+                  alt="Preview"
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   className="object-cover"
                 />
               ) : (
@@ -135,7 +150,7 @@ export default function UpdateModalContent({
 
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100">
               <LuUpload className="h-4 w-4" />
-              <span>{isUploading ? "جاري الرفع..." : "تغيير الصورة"}</span>
+              <span>{isUploading ? "جاري الرفع..." : "اختر صورة"}</span>
               <input
                 type="file"
                 accept="image/*"
@@ -161,7 +176,7 @@ export default function UpdateModalContent({
             type="text"
             disabled={isSubmitting}
             {...register("name")}
-            placeholder="مثال: أقمشة يابانية"
+            placeholder="مثال: أقمشة يابانية، أزرار، خيوط"
             className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
           />
           {errors.name && (
@@ -186,25 +201,17 @@ export default function UpdateModalContent({
 
       <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
         <button
-          type="button"
-          disabled={isSubmitting || isUploading}
-          onClick={closeModal}
-          className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
-        >
-          إلغاء
-        </button>
-        <button
           type="submit"
-          disabled={isSubmitting || isUploading || !currentImageUrl}
+          disabled={isSubmitting || isUploading}
           className="flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? (
             <>
               <LuLoader className="h-4 w-4 animate-spin" />
-              <span>جاري التحديث...</span>
+              <span>جاري الحفظ...</span>
             </>
           ) : (
-            <span>حفظ التغييرات</span>
+            <span>{isEditing ? "حفظ التعديلات" : "حفظ الفئة"}</span>
           )}
         </button>
       </div>
