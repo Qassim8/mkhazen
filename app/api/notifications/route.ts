@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
-// جلب الإشعارات الغير مقروءة وإجمالي غير المقروء
 export async function GET() {
   const session = await getSession();
+
   if (!session || session.role?.toLowerCase() !== "admin") {
     return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
   }
@@ -12,19 +12,32 @@ export async function GET() {
   const { data: notifications, error } = await supabaseAdmin
     .from("notifications")
     .select("*")
-    .order("createdOut", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(20);
 
   if (error) {
-    return NextResponse.json({ message: "فشل جلب الإشعارات" }, { status: 500 });
+    console.error("Notifications GET error:", error);
+
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const formattedNotifications = notifications.map((n) => ({
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    type: n.type,
+    link: n.link,
+    isRead: n.isRead,
+    created_at: n.created_at,
+  }));
 
-  return NextResponse.json({ notifications, unreadCount });
+  const unreadCount = formattedNotifications.filter((n) => !n.isRead).length;
+
+  return NextResponse.json({
+    notifications: formattedNotifications,
+    unreadCount,
+  });
 }
-
-// تعليم الإشعار كمقروء
 
 export async function PATCH(request: Request) {
   try {
@@ -32,9 +45,13 @@ export async function PATCH(request: Request) {
 
     if (markAll) {
       // تحديث كل الإشعارات غير المقروءة لتصبح مقروءة
+
       const { error } = await supabaseAdmin
+
         .from("notifications")
+
         .update({ isRead: true })
+
         .eq("isRead", false);
 
       if (error) {
@@ -43,15 +60,20 @@ export async function PATCH(request: Request) {
 
       return NextResponse.json({
         success: true,
+
         message: "تم تعليم جميع الإشعارات كمقروءة",
       });
     }
 
     if (id) {
       // تحديث إشعار واحد محدد
+
       const { error } = await supabaseAdmin
+
         .from("notifications")
+
         .update({ isRead: true })
+
         .eq("id", id);
 
       if (error) {
@@ -65,6 +87,7 @@ export async function PATCH(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: "حدث خطأ أثناء تحديث الإشعارات" },
+
       { status: 500 },
     );
   }

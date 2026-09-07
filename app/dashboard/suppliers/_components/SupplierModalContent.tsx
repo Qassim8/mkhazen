@@ -36,6 +36,7 @@ export default function SupplierModalContent({
       email: initialData?.email || "",
       phone: initialData?.phone || "",
       address: initialData?.address || "",
+      notes: initialData?.notes || "",
       contactPerson: initialData?.contactPerson || "",
       isActive: initialData?.isActive ?? true,
     },
@@ -110,7 +111,7 @@ export default function SupplierModalContent({
 
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            البريد الإلكتروني <span className="text-red-500">*</span>
+            البريد الإلكتروني
           </label>
           <input
             type="email"
@@ -157,6 +158,24 @@ export default function SupplierModalContent({
             <p className="mt-1 text-xs text-red-500">
               {errors.address.message}
             </p>
+          )}
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            ملاحظات
+          </label>
+
+          <textarea
+            disabled={isSubmitting}
+            {...register("notes")}
+            placeholder="أي ملاحظات مهمة عن المورد..."
+            rows={3}
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
+          />
+
+          {errors.notes && (
+            <p className="mt-1 text-xs text-red-500">{errors.notes.message}</p>
           )}
         </div>
 

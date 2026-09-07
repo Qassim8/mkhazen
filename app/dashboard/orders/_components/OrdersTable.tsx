@@ -20,15 +20,14 @@ import {
   deletePurchaseOrder,
   updatePurchaseOrderStatus,
 } from "../services/order.services";
-import OrderDetailsModalContent from "./OrderDetailsModal";
-import UpdateOrderModalContent from "./UpdateOrderModal";
 import { Product } from "../../products/schemas/product.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 const columnHelper = createColumnHelper<PurchaseOrder>();
 
+// الخيارات المتاحة للتحويل لكل حالة من حالات الطلب
 const statusOptions: Record<
-  PurchaseOrder["status"],
+  string,
   { value: PurchaseOrder["status"]; label: string }[]
 > = {
   DRAFT: [
@@ -39,8 +38,8 @@ const statusOptions: Record<
   APPROVED: [
     { value: "APPROVED", label: "تمت الموافقة" },
     { value: "RECEIVED", label: "مستلم" },
+    { value: "CANCELLED", label: "ملغى" },
   ],
-  DIRECT: [{ value: "DIRECT", label: "شراء مباشر" }],
   RECEIVED: [{ value: "RECEIVED", label: "مستلم" }],
   CANCELLED: [{ value: "CANCELLED", label: "ملغى" }],
 };
@@ -51,7 +50,7 @@ interface OrdersTableProps {
   suppliers: Supplier[];
 }
 
-const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
+const OrdersTable = ({ orders }: OrdersTableProps) => {
   const openModal = useModalStore((state) => state.openModal);
   const router = useRouter();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -65,7 +64,7 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
     try {
       setUpdatingId(orderId);
       const result = await updatePurchaseOrderStatus(orderId, newStatus);
-      toast.success(result.message || "تم تحديث حالة الطلب بنجاح");
+      toast.success(result?.message || "تم تحديث حالة الطلب بنجاح");
       router.refresh();
     } catch (err: unknown) {
       toast.error(
@@ -150,12 +149,16 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
       cell: (info) => {
         const status = info.getValue();
         const orderId = info.row.original.id;
-        const availableStatuses = statusOptions[status];
+        const isDirect = info.row.original.purchaseType === "DIRECT";
+
+        // الجلب الآمن للخيارات مع Fallback لمنع الخلل
+        const availableStatuses = statusOptions[status] || [
+          { value: status, label: status },
+        ];
 
         const statusStyles: Record<string, string> = {
           DRAFT: "bg-amber-50 text-amber-700 border-amber-200",
           APPROVED: "bg-blue-50 text-blue-700 border-blue-200",
-          DIRECT: "bg-emerald-50 text-emerald-700 border-emerald-200",
           RECEIVED: "bg-emerald-50 text-emerald-700 border-emerald-200",
           CANCELLED: "bg-rose-50 text-rose-700 border-rose-200",
         };
@@ -163,10 +166,19 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
         const dotColors: Record<string, string> = {
           DRAFT: "bg-amber-500",
           APPROVED: "bg-blue-500",
-          DIRECT: "bg-emerald-500",
           RECEIVED: "bg-emerald-500",
           CANCELLED: "bg-rose-500",
         };
+
+        // عرض شارة الشراء المباشر بشكل مميز إن وجد
+        if (isDirect) {
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              شراء مباشر
+            </span>
+          );
+        }
 
         return (
           <div className="relative inline-block">
@@ -183,7 +195,7 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
               <select
                 value={status}
                 disabled={
-                  updatingId === orderId || availableStatuses.length === 1
+                  updatingId === orderId || availableStatuses.length <= 1
                 }
                 onChange={(e) =>
                   handleStatusChange(
@@ -192,7 +204,7 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
                     e.target.value as PurchaseOrder["status"],
                   )
                 }
-                className="bg-transparent outline-none cursor-pointer border-none p-0 pr-1 text-xs font-semibold focus:ring-0 disabled:opacity-50"
+                className="bg-transparent outline-none cursor-pointer border-none p-0 pr-1 text-xs font-semibold focus:ring-0 disabled:cursor-not-allowed disabled:opacity-75"
               >
                 {availableStatuses.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -219,12 +231,7 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
               title="عرض التفاصيل"
               className="rounded-lg p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
               onClick={() =>
-                openModal("VIEW", {
-                  title: `تفاصيل الطلب ${row.original.orderNumber}`,
-                  content: (
-                    <OrderDetailsModalContent initialData={row.original} />
-                  ),
-                })
+                router.push(`/dashboard/orders/${row.original.id}`)
               }
             >
               <LuEye className="h-5 w-5" />
@@ -238,16 +245,7 @@ const OrdersTable = ({ orders, products, suppliers }: OrdersTableProps) => {
                   title="تعديل الطلب"
                   className="rounded-lg p-1 text-blue-500 transition-colors hover:bg-blue-50 hover:text-blue-700"
                   onClick={() =>
-                    openModal("UPDATE", {
-                      title: "تعديل مسودة طلب الشراء",
-                      content: (
-                        <UpdateOrderModalContent
-                          suppliers={suppliers}
-                          products={products}
-                          initialOrder={row.original}
-                        />
-                      ),
-                    })
+                    router.push(`/dashboard/orders/${row.original.id}/edit`)
                   }
                 >
                   <LuSquarePen className="h-5 w-5" />

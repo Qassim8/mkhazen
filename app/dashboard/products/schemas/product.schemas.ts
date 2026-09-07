@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { Category } from "../../categories/schemas/category.schemas";
-import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 // 1. Schema المتغير الواحد
 export const variantSchema = z.object({
@@ -112,6 +110,11 @@ export interface ProductVariant {
   stockQuantity?: number;
   attributes?: Record<string, string>;
   images?: string[];
+  colorName?: string;
+  colorCode?: string;
+  width?: number;
+  length?: number;
+  size?: string;
 }
 
 export interface ProductTemplate {
@@ -126,7 +129,12 @@ export interface ProductTemplate {
   category?: { name: string };
   supplier?: { name: string };
   images?: string[];
-  variants: ProductVariant[]; // الحقل الأساسي للأسعار والمخزون
+  variants: ProductVariant[];
+  isActive: boolean;
+  isVisible: boolean;
+  hasVariants: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type Product = ProductTemplate;

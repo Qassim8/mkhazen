@@ -3,7 +3,7 @@ import { Category } from "../schemas/category.schemas";
 
 export interface CategoriesResponse {
   message?: string;
-  data: Category;
+  data: Category[];
 }
 
 export async function getCategories(): Promise<CategoriesResponse> {

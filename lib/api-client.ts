@@ -30,7 +30,6 @@ export async function serverFetch<T>(
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
       headers["Cookie"] = `auth_token=${token}`;
-      headers.credentials = "include";
     }
   }
 

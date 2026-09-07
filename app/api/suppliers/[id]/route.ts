@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { createSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier.schemas";
+import { updateSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier.schemas";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,12 +10,11 @@ interface RouteParams {
 
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
-    const session = await getSession();
-
-    if (!session) {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "غير مصرح لك بالوصول. يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
       );
     }
 
@@ -35,9 +34,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     return NextResponse.json({ data }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء جلب المورد", error: err.message },
+      { message: "خطأ في السيرفر أثناء جلب المورد", error: message },
       { status: 500 },
     );
   }
@@ -45,18 +45,17 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
-    const session = await getSession();
-
-    if (!session) {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "غير مصرح لك بإجراء التعديل. يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
       );
     }
 
     const { id } = await params;
     const body = await request.json();
-    const validation = createSupplierSchema.safeParse(body);
+    const validation = updateSupplierSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
@@ -70,12 +69,34 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // بناء الكائن للتحديث
     const updatePayload = {
-      name: validation.data.name,
-      phone: validation.data.phone,
-      email: validation.data.email,
-      address: validation.data.address ?? null,
-      contactPerson: validation.data.contactPerson ?? null,
-      isActive: validation.data.isActive,
+      ...(validation.data.name !== undefined && {
+        name: validation.data.name,
+      }),
+
+      ...(validation.data.phone !== undefined && {
+        phone: validation.data.phone,
+      }),
+
+      ...(validation.data.email !== undefined && {
+        email: validation.data.email,
+      }),
+
+      ...(validation.data.address !== undefined && {
+        address: validation.data.address,
+      }),
+
+      ...(validation.data.contactPerson !== undefined && {
+        contactPerson: validation.data.contactPerson,
+      }),
+
+      ...(validation.data.notes !== undefined && {
+        notes: validation.data.notes,
+      }),
+
+      ...(validation.data.isActive !== undefined && {
+        isActive: validation.data.isActive,
+      }),
+
       updatedAt: new Date().toISOString(),
     };
 
@@ -100,9 +121,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
       { message: "تم تحديث بيانات المورد بنجاح", data },
       { status: 200 },
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء تعديل المورد", error: err.message },
+      { message: "خطأ في السيرفر أثناء تعديل المورد", error: message },
       { status: 500 },
     );
   }
@@ -110,16 +132,28 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
-    const session = await getSession();
-
-    if (!session) {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "غير مصرح لك بحذف المورد. يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
       );
     }
 
     const { id } = await params;
+
+    const { data: supplier, error: supplierError } = await supabaseAdmin
+      .from("suppliers")
+      .select("id, name")
+      .eq("id", id)
+      .single();
+
+    if (supplierError || !supplier) {
+      return NextResponse.json(
+        { message: "المورد غير موجود" },
+        { status: 404 },
+      );
+    }
 
     const { error } = await supabaseAdmin
       .from("suppliers")
@@ -127,14 +161,13 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       .eq("id", id);
 
     if (error) {
-      // 23503 هو رمز الخطأ لتقييد المفتاح الأجنبي (Foreign Key Constraint) في Postgres
       if (error.code === "23503") {
         return NextResponse.json(
           {
             message:
               "لا يمكن حذف هذا المورد لوجود عمليات شراء أو منتجات مرتبطة به. يفضل تعديل حالته إلى (غير نشط) بدلاً من الحذف.",
           },
-          { status: 400 },
+          { status: 409 },
         );
       }
 
@@ -151,9 +184,10 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       { message: "تم حذف المورد بنجاح" },
       { status: 200 },
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء حذف المورد", error: err.message },
+      { message: "خطأ في السيرفر أثناء حذف المورد", error: message },
       { status: 500 },
     );
   }

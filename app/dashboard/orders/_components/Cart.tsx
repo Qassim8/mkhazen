@@ -1,149 +1,199 @@
 "use client";
 
-import { LuMinus, LuPlus, LuTrash2 } from "react-icons/lu";
-import { PurchaseItem } from "./OrderModalContent";
+import { LuTrash2 } from "react-icons/lu";
 
-interface Props {
+export interface PurchaseItem {
+  id: string; // معرف الفريد للبند داخل السلة
+  templateId: string; // معرف المنتج الرئيسي
+  variantId: string; // معرف المتغير
+  productName: string; // اسم المنتج العام
+  sku?: string;
+  variantAttributes: string; // الألوان / المقاسات للعرض
+  costPrice: number;
+  quantity: number;
+}
+
+interface CartProps {
   purchaseItems: PurchaseItem[];
   setPurchaseItems: React.Dispatch<React.SetStateAction<PurchaseItem[]>>;
-  deliveryCost?: number;
+  deliveryCost: number;
+  discountAmount: number;
   readOnly?: boolean;
 }
 
 export default function PurchaseCart({
   purchaseItems,
   setPurchaseItems,
-  deliveryCost = 0,
+  deliveryCost,
+  discountAmount,
   readOnly = false,
-}: Props) {
-  const updateQuantity = (id: string, delta: number) => {
+}: CartProps) {
+  const updateQuantity = (variantId: string, delta: number) => {
+    if (readOnly) return;
     setPurchaseItems((prev) =>
-      prev.map((item) => {
-        if (item.productId === id) {
-          const newQty = item.quantity + delta;
-          return newQty > 0 ? { ...item, quantity: newQty } : item;
-        }
-        return item;
-      }),
+      prev
+        .map((item) => {
+          if (item.variantId === variantId) {
+            const newQty = item.quantity + delta;
+            return newQty > 0 ? { ...item, quantity: newQty } : item;
+          }
+          return item;
+        })
+        .filter(Boolean),
     );
   };
 
-  const updateCost = (id: string, cost: number) => {
+  const updateCostPrice = (variantId: string, newCost: number) => {
+    if (readOnly) return;
     setPurchaseItems((prev) =>
       prev.map((item) =>
-        item.productId === id
-          ? { ...item, costPrice: Math.max(0, cost) }
+        item.variantId === variantId
+          ? { ...item, costPrice: Math.max(0, newCost) }
           : item,
       ),
     );
   };
 
-  const removeItem = (id: string) => {
-    setPurchaseItems((prev) => prev.filter((item) => item.productId !== id));
+  const removeItem = (variantId: string) => {
+    if (readOnly) return;
+    setPurchaseItems((prev) =>
+      prev.filter((item) => item.variantId !== variantId),
+    );
   };
 
-  const itemsTotal = purchaseItems.reduce(
-    (sum, item) => sum + item.costPrice * item.quantity,
+  const subtotal = purchaseItems.reduce(
+    (acc, item) => acc + item.costPrice * item.quantity,
     0,
   );
-  const grandTotal = itemsTotal + Number(deliveryCost || 0);
+  const totalAmount = Math.max(0, subtotal + deliveryCost - discountAmount);
 
   return (
-    <div className="flex h-full flex-col justify-between space-y-4">
-      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-        <h4 className="font-semibold text-gray-800 text-base">
-          سلة عناصر الطلب
-        </h4>
-        <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
-          {purchaseItems.length} عنصر
-        </span>
-      </div>
+    <div className="space-y-4">
+      <h3 className="font-semibold text-gray-800 text-sm">عناصر الشراء</h3>
 
-      <div className="space-y-3 overflow-y-auto max-h-95 pr-1">
-        {purchaseItems.length === 0 ? (
-          <div className="py-12 text-center text-gray-400 text-sm">
-            لم يتم إضافة منتجات إلى الطلب بعد. قم باختيار منتج من القائمة
-            الجانبية.
-          </div>
-        ) : (
-          purchaseItems.map((item) => (
-            <div
-              key={item.productId}
-              className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-3 transition hover:border-gray-200"
-            >
-              <div className="flex-1 min-w-0">
-                <h5 className="font-semibold text-gray-900 text-sm truncate">
-                  {item.name}
-                </h5>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="text-xs text-gray-400">سعر الوحدة:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.costPrice}
-                    disabled={readOnly}
-                    onChange={(e) =>
-                      updateCost(
-                        item.productId,
-                        parseFloat(e.target.value) || 0,
-                      )
-                    }
-                    className="w-20 rounded-lg border border-gray-200 px-2 py-0.5 text-xs text-gray-700 outline-none focus:border-red-500 disabled:bg-gray-100"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <button
-                  type="button"
-                  disabled={readOnly}
-                  onClick={() => removeItem(item.productId)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition disabled:opacity-40"
+      <div className="overflow-x-auto rounded-xl border border-gray-100">
+        <table className="w-full text-right text-sm">
+          <thead className="bg-gray-50 text-gray-500 border-b border-gray-100">
+            <tr>
+              <th className="px-4 py-3 font-medium">المنتج / المتغير</th>
+              <th className="px-4 py-3 font-medium">تلفة الوحدة</th>
+              <th className="px-4 py-3 font-medium">الكمية</th>
+              <th className="px-4 py-3 font-medium">الإجمالي</th>
+              {!readOnly && <th className="px-4 py-3 text-center">إجراء</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {purchaseItems.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={readOnly ? 4 : 5}
+                  className="px-4 py-8 text-center text-gray-400"
                 >
-                  <LuTrash2 className="w-4 h-4" />
-                </button>
-                <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-1">
-                  <button
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => updateQuantity(item.productId, 1)}
-                    className="p-1 hover:bg-gray-100 rounded text-gray-600 transition disabled:opacity-40"
-                  >
-                    <LuPlus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-3 text-center text-xs font-bold text-gray-800">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => updateQuantity(item.productId, -1)}
-                    className="p-1 hover:bg-gray-100 rounded text-gray-600 transition disabled:opacity-40"
-                  >
-                    <LuMinus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+                  لم يتم إضافة أي منتجات إلى الطلب بعد.
+                </td>
+              </tr>
+            ) : (
+              purchaseItems.map((item) => {
+                const itemTotal = item.costPrice * item.quantity;
+                return (
+                  <tr key={item.variantId} className="hover:bg-gray-50/50">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-800">
+                        {item.productName}
+                      </div>
+                      <div className="text-xs text-gray-500 flex gap-2">
+                        {item.variantAttributes && (
+                          <span>{item.variantAttributes}</span>
+                        )}
+                        {item.sku && <span>(SKU: {item.sku})</span>}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {readOnly ? (
+                        <span>{item.costPrice.toFixed(2)}</span>
+                      ) : (
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.costPrice}
+                          onChange={(e) =>
+                            updateCostPrice(
+                              item.variantId,
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          className="w-20 rounded-lg border border-gray-200 px-2 py-1 text-sm focus:border-red-500 focus:outline-none"
+                        />
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {readOnly ? (
+                        <span>{item.quantity}</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.variantId, -1)}
+                            className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
+                          >
+                            -
+                          </button>
+                          <span className="w-8 text-center font-semibold">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.variantId, 1)}
+                            className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 font-semibold text-gray-700">
+                      {itemTotal.toFixed(2)}
+                    </td>
+
+                    {!readOnly && (
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.variantId)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition"
+                        >
+                          <LuTrash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <div className="border-t border-gray-100 pt-3 mt-auto space-y-1.5">
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <span>قيمة المنتجات:</span>
-          <span>{itemsTotal.toLocaleString()} ريال</span>
+      <div className="space-y-2 rounded-xl bg-gray-50 p-4 text-sm font-medium">
+        <div className="flex justify-between text-gray-600">
+          <span>المجموع الفرعي:</span>
+          <span>{subtotal.toFixed(2)}</span>
         </div>
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex justify-between text-gray-600">
           <span>تكلفة الشحن:</span>
-          <span>{Number(deliveryCost || 0).toLocaleString()} ريال</span>
+          <span>{deliveryCost.toFixed(2)}</span>
         </div>
-        <div className="flex items-center justify-between font-bold text-gray-900 text-base">
-          <span>التكلفة الإجمالية:</span>
-          <span className="text-red-600">
-            {grandTotal.toLocaleString()} ريال
-          </span>
+        <div className="flex justify-between text-gray-600">
+          <span>الخصم:</span>
+          <span className="text-red-600">-{discountAmount.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900">
+          <span>الإجمالي النهائي:</span>
+          <span>{totalAmount.toFixed(2)}</span>
         </div>
       </div>
     </div>

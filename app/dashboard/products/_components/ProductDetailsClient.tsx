@@ -30,8 +30,6 @@ interface ProductDetailsClientProps {
 
 export default function ProductDetailsClient({
   product,
-  onEditVariant,
-  onDeleteVariant,
 }: ProductDetailsClientProps) {
   // 🔹 استخراج المتغيرات مع حماية ضد القيم الفارغة
   const variants = product.variants || [];
@@ -100,7 +98,7 @@ export default function ProductDetailsClient({
       {/* 📌 العمود الأيمن */}
       <div className="lg:col-span-1 space-y-6">
         {/* معرض الصور */}
-        <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs space-y-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 space-y-4">
           <div className="relative aspect-square w-full rounded-2xl border border-gray-100 bg-gray-50 overflow-hidden">
             <Image
               src={selectedImage}
@@ -120,7 +118,7 @@ export default function ProductDetailsClient({
                   onClick={() => setSelectedImage(img)}
                   className={`relative h-16 w-16 shrink-0 rounded-xl border-2 overflow-hidden transition-all cursor-pointer ${
                     selectedImage === img
-                      ? "border-red-500 ring-2 ring-red-100"
+                      ? "border-(--primary-red)/80"
                       : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
@@ -151,10 +149,54 @@ export default function ProductDetailsClient({
             price={currentPrice}
           />
         )}
+      </div>
 
+      {/* 📌 العمود الأيسر */}
+      <div className="lg:col-span-2 space-y-6">
+        {/* 1️⃣ كروت الإحصائيات السريعة */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
+            <div className="p-2 w-fit rounded-xl bg-gray-50 text-gray-600 mb-2">
+              <LuBox className="h-5 w-5" />
+            </div>
+            <p className="text-[11px] text-gray-400 font-bold">إجمالي الكمية</p>
+            <p className="text-lg font-black text-gray-900">
+              {totalStock.toLocaleString()}{" "}
+              <span className="text-xs font-medium text-gray-500">
+                {product.sellingUnit || "قطعة"}
+              </span>
+            </p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
+            <div className="p-2 w-fit rounded-xl bg-emerald-50 text-emerald-600 mb-2">
+              <LuTrendingUp className="h-5 w-5" />
+            </div>
+            <p className="text-[11px] text-gray-400 font-bold">سعر البيع</p>
+            <p className="text-lg font-black text-emerald-600">
+              {minSellingPrice === maxSellingPrice
+                ? minSellingPrice.toLocaleString()
+                : `${minSellingPrice} - ${maxSellingPrice}`}{" "}
+              <span className="text-xs font-normal">ريال</span>
+            </p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
+            <div className="p-2 w-fit rounded-xl bg-blue-50 text-blue-600 mb-2">
+              <LuDollarSign className="h-5 w-5" />
+            </div>
+            <p className="text-[11px] text-gray-400 font-bold">سعر الشراء</p>
+            <p className="text-lg font-black text-gray-900">
+              {minPurchasePrice === maxPurchasePrice
+                ? minPurchasePrice.toLocaleString()
+                : `${minPurchasePrice} - ${maxPurchasePrice}`}{" "}
+              <span className="text-xs font-normal">ريال</span>
+            </p>
+          </div>
+        </div>
         {/* بطاقة الهيكل والتصنيف */}
-        <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-2xs space-y-4">
-          <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 space-y-4">
+          <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-3">
             المعلومات الهيكلية
           </h3>
 
@@ -215,52 +257,6 @@ export default function ProductDetailsClient({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* 📌 العمود الأيسر */}
-      <div className="lg:col-span-2 space-y-6">
-        {/* 1️⃣ كروت الإحصائيات السريعة */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
-            <div className="p-2 w-fit rounded-xl bg-gray-50 text-gray-600 mb-2">
-              <LuBox className="h-5 w-5" />
-            </div>
-            <p className="text-[11px] text-gray-400 font-bold">إجمالي الكمية</p>
-            <p className="text-lg font-black text-gray-900">
-              {totalStock.toLocaleString()}{" "}
-              <span className="text-xs font-medium text-gray-500">
-                {product.sellingUnit || "قطعة"}
-              </span>
-            </p>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
-            <div className="p-2 w-fit rounded-xl bg-emerald-50 text-emerald-600 mb-2">
-              <LuTrendingUp className="h-5 w-5" />
-            </div>
-            <p className="text-[11px] text-gray-400 font-bold">سعر البيع</p>
-            <p className="text-lg font-black text-emerald-600">
-              {minSellingPrice === maxSellingPrice
-                ? minSellingPrice.toLocaleString()
-                : `${minSellingPrice} - ${maxSellingPrice}`}{" "}
-              <span className="text-xs font-normal">ريال</span>
-            </p>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 space-y-1">
-            <div className="p-2 w-fit rounded-xl bg-blue-50 text-blue-600 mb-2">
-              <LuDollarSign className="h-5 w-5" />
-            </div>
-            <p className="text-[11px] text-gray-400 font-bold">سعر الشراء</p>
-            <p className="text-lg font-black text-gray-900">
-              {minPurchasePrice === maxPurchasePrice
-                ? minPurchasePrice.toLocaleString()
-                : `${minPurchasePrice} - ${maxPurchasePrice}`}{" "}
-              <span className="text-xs font-normal">ريال</span>
-            </p>
-          </div>
-        </div>
-
         {/* 2️⃣ عرض بوكسات المتغيرات (في حال وجود متغيرات متعددة) */}
         {isMultiVariant ? (
           <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-4">
@@ -294,18 +290,11 @@ export default function ProductDetailsClient({
                         : "border-gray-200 bg-gray-50/40 hover:border-gray-300 hover:bg-white"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2 border-b border-gray-100/80 pb-2.5">
+                    <div className="flex items-start justify-between gap-2 pb-2.5">
                       <div className="space-y-1">
                         <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">
                           خيار #{index + 1}
                         </span>
-                        <h4 className="text-xs font-bold text-gray-900">
-                          {v.attributes && Object.keys(v.attributes).length > 0
-                            ? Object.entries(v.attributes)
-                                .map(([key, val]) => `${key}: ${val}`)
-                                .join(" | ")
-                            : `متغير ${index + 1}`}
-                        </h4>
                       </div>
 
                       <div className="flex items-center gap-1">
@@ -318,12 +307,12 @@ export default function ProductDetailsClient({
                                 : "bg-emerald-100 text-emerald-700"
                           }`}
                         >
-                          {vStock} {product.sellingUnit || "قطعة"}
+                          {vStock} {product.sellingUnit || "وحدة"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-white p-2.5 rounded-xl border border-gray-100">
+                    <div className="text-[11px] bg-white p-2.5 rounded-xl border border-gray-100">
                       <div>
                         <span className="text-gray-400 block text-[10px]">
                           SKU
@@ -332,14 +321,56 @@ export default function ProductDetailsClient({
                           {v.sku || "—"}
                         </span>
                       </div>
-                      <div>
-                        <span className="text-gray-400 block text-[10px] flex items-center gap-1">
-                          <LuQrCode className="h-3 w-3" /> الباركود
-                        </span>
-                        <span className="font-mono font-bold text-gray-700 truncate block">
-                          {v.barcode || "—"}
-                        </span>
-                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[11px] bg-white p-2.5 rounded-xl border border-gray-100">
+                      {v.colorName && (
+                        <div className="flex-1">
+                          <span className="text-gray-400 block text-[10px]">
+                            اللون
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <span
+                              style={{
+                                backgroundColor: `${v.colorCode}`,
+                              }}
+                              className="w-4 h-4 rounded"
+                            ></span>
+                            <span className="font-mono font-bold text-gray-700 truncate block">
+                              {v.colorName || "—"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {v.size || (v.length && v.size) ? (
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">
+                            المقاس
+                          </span>
+                          <span className="font-mono font-bold text-gray-700 truncate block">
+                            {v.size || "—"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex-1 flex justify-between ">
+                          <div>
+                            <span className="text-gray-400 block text-[10px]">
+                              الطول
+                            </span>
+                            <span className="font-mono font-bold text-gray-700 truncate block">
+                              {v.length || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 block text-[10px]">
+                              العرض
+                            </span>
+                            <span className="font-mono font-bold text-gray-700 truncate block">
+                              {v.width || "—"}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-1.5 pt-1 text-center">
@@ -367,7 +398,7 @@ export default function ProductDetailsClient({
           </div>
         ) : (
           /* 3️⃣ تفاصيل تسعير ومخزون المنتج المفرد (تُقرأ بأمان من defaultVariant) */
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 space-y-4">
             <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center gap-2">
               <LuCoins className="h-4 w-4 text-emerald-600" />
               تفاصيل تسعير ومخزون المنتج المفرد
@@ -380,6 +411,13 @@ export default function ProductDetailsClient({
                 </span>
                 <p className="font-mono font-bold text-gray-800 text-sm">
                   {defaultVariant.sku || product.sku || "غير محدد"}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-gray-50/70 border border-gray-100 space-y-1">
+                <span className="text-gray-400 font-semibold">الباركود:</span>
+                <p className="font-mono font-bold text-gray-800 text-sm">
+                  {defaultVariant.barcode || product.barcode || "غير محدد"}
                 </p>
               </div>
 
@@ -464,7 +502,7 @@ export default function ProductDetailsClient({
         </div> */}
 
         {/* 5️⃣ التفاصيل والوصف */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-2xs space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 space-y-4">
           <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-3">
             المواصفات والتعليمات الإضافية
           </h3>
@@ -484,7 +522,7 @@ export default function ProductDetailsClient({
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-gray-50/70 border border-gray-100">
+            <div className="p-3.5 rounded-2xl bg-gray-50/70 border border-gray-200">
               <p className="text-gray-400 font-semibold mb-1">
                 تنبيه انخفاض المخزون
               </p>

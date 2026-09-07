@@ -23,16 +23,6 @@ import ProductVariantsSection from "./ProductVariants";
 import { Category } from "../../categories/schemas/category.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
-// interface Category {
-//   id: string;
-//   name: string;
-// }
-
-// interface Supplier {
-//   id: string;
-//   name: string;
-// }
-
 interface AddProductFormProps {
   initialCategories: Category[];
   initialSuppliers: Supplier[];
@@ -93,13 +83,13 @@ export default function AddProductClient({
 
   const hasVariants = watch("hasVariants");
   const currentImages = watch("images") ?? [];
+  const currentVariants = watch("variants") ?? [];
 
   // التبديل بين نوع المنتج (مفرد / متعدد المتغيرات)
   const toggleHasVariants = (value: boolean) => {
     setValue("hasVariants", value, { shouldValidate: true });
 
     if (!value) {
-      const currentVariants = watch("variants");
       const firstVariant = currentVariants?.[0] || {};
 
       setValue("variants", [
@@ -114,6 +104,7 @@ export default function AddProductClient({
     }
   };
 
+  // 1. رفع وتمرير صور المنتج الرئيسي (موجودة بالفعل)
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const filesList = e.target.files;
     if (!filesList || filesList.length === 0) return;
@@ -144,14 +135,42 @@ export default function AddProductClient({
     );
   };
 
-  const handleCategoryCreated = (newCategory: Category) => {
-    setCategories((prev) => [...prev, newCategory]); // تحديث القائمة فوراً
-    setValue("categoryId", newCategory.id, { shouldValidate: true }); // اختيارها تلقائياً في النموذج
+  // 2. رفع وتمرير صور المتغيرات (جديدة لتغطية كافّة الأجزاء)
+  const handleVariantImageChange = async (
+    variantIndex: number,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const filesList = e.target.files;
+    if (!filesList || filesList.length === 0) return;
+
+    try {
+      setUploadingImages(true);
+      const uploadedUrls = await Promise.all(
+        Array.from(filesList).map((file) => uploadImage(file, "products")),
+      );
+
+      const existingVariantImages = currentVariants[variantIndex]?.images || [];
+      setValue(
+        `variants.${variantIndex}.images`,
+        [...existingVariantImages, ...uploadedUrls].slice(0, 5),
+        { shouldValidate: true },
+      );
+      toast.success("تم رفع صور المتغير بنجاح!");
+    } catch (error: any) {
+      toast.error(error?.message || "حدث خطأ أثناء رفع صور المتغير");
+    } finally {
+      setUploadingImages(false);
+      e.target.value = "";
+    }
   };
 
-  const handleSupplierCreated = (newSupplier: Supplier) => {
-    setSuppliers((prev) => [...prev, newSupplier]); // تحديث القائمة فوراً
-    setValue("supplierId", newSupplier.id, { shouldValidate: true }); // اختياره تلقائياً
+  const removeVariantImage = (variantIndex: number, imageIndex: number) => {
+    const existingVariantImages = currentVariants[variantIndex]?.images || [];
+    setValue(
+      `variants.${variantIndex}.images`,
+      existingVariantImages.filter((_, i) => i !== imageIndex),
+      { shouldValidate: true },
+    );
   };
 
   const onSubmit = async (data: ProductFormInputType) => {
@@ -192,7 +211,6 @@ export default function AddProductClient({
 
       {/* العمود الثاني */}
       <div className="space-y-6">
-        {/* 🔘 شريط اختيارات نوع المنتج (مفرد / متعدد) */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
           <label className="block text-sm font-bold text-gray-900">
             نوع المنتج
@@ -240,6 +258,8 @@ export default function AddProductClient({
           setValue={setValue}
           categories={categories}
           hasVariants={hasVariants}
+          onVariantImageChange={handleVariantImageChange}
+          onRemoveVariantImage={removeVariantImage}
         />
 
         <ProductVisibility register={register} />

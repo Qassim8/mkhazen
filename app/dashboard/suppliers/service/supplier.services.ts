@@ -7,7 +7,7 @@ import {
 
 export interface SuppliersResponse {
   data: Supplier[];
-  meta?: {
+  meta: {
     total: number;
     page: number;
     limit: number;

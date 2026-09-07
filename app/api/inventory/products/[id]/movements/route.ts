@@ -15,18 +15,37 @@ export async function GET(
       );
     }
 
-    const { id: productId } = await params;
+    const { id: variantId } = await params;
 
     // 1. جلب بيانات المنتج الحالية
-    const { data: product, error: productError } = await supabaseAdmin
-      .from("products")
+    const { data: variant, error: productError } = await supabaseAdmin
+      .from("product_variants")
       .select(
-        "id, name, barcode, stockQuantity, minStockLevel, conversionFactor",
+        `
+        id,
+        "templateId",
+        sku,
+        barcode,
+        "colorName",
+        "colorCode",
+        size,
+        length,
+        width,
+        "stockQuantity",
+        "minStockLevel",
+        "purchasePrice",
+        "sellingPrice",
+        product_templates (
+          id,
+          name,
+          "conversionFactor"
+        )
+      `,
       )
-      .eq("id", productId)
+      .eq("id", variantId)
       .single();
 
-    if (productError || !product) {
+    if (productError || !variant) {
       return NextResponse.json(
         { message: "المنتج غير موجود" },
         { status: 404 },
@@ -38,17 +57,20 @@ export async function GET(
       .from("inventory_movements")
       .select(
         `
-        id,
-        movement_type,
-        quantity,
-        unit_cost,
-        reference,
-        notes,
-        created_at,
-        purchase_orders (order_number)
-      `,
+          id,
+          movement_type,
+          quantity,
+          unit_cost,
+          reference,
+          notes,
+          created_at,
+          purchase_order_id,
+          purchase_orders (
+            order_number
+          )
+        `,
       )
-      .eq("product_id", productId)
+      .eq("template_id", variantId)
       .order("created_at", { ascending: false });
 
     if (movementsError) {
@@ -59,7 +81,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      product,
+      variant,
       movements: movements || [],
     });
   } catch (err: unknown) {

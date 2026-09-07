@@ -61,7 +61,7 @@ export async function PATCH(
 
     const { data: existingOrder, error: fetchError } = await supabaseAdmin
       .from("purchase_orders")
-      .select("status")
+      .select("status, delivery_cost, discount_amount")
       .eq("id", id)
       .single();
 
@@ -101,8 +101,15 @@ export async function PATCH(
       );
     }
 
-    const { expectedDate, notes, supplierId, items, orderDate, deliveryCost } =
-      validation.data;
+    const {
+      expectedDate,
+      notes,
+      supplierId,
+      items,
+      orderDate,
+      deliveryCost,
+      discountAmount,
+    } = validation.data;
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -113,64 +120,100 @@ export async function PATCH(
     if (notes !== undefined) updateData.notes = notes;
     if (supplierId !== undefined) updateData.supplier_id = supplierId || null;
     if (deliveryCost !== undefined) updateData.delivery_cost = deliveryCost;
+    if (discountAmount !== undefined)
+      updateData.discount_amount = discountAmount;
+
+    // تحديد أرقام الشحن والخصم المحدثة أو الحالية للحسابات
+    const activeDeliveryCost =
+      deliveryCost !== undefined
+        ? Number(deliveryCost)
+        : Number(existingOrder.delivery_cost || 0);
+
+    const activeDiscountAmount =
+      discountAmount !== undefined
+        ? Number(discountAmount)
+        : Number(existingOrder.discount_amount || 0);
 
     if (items) {
-      const shipping =
-        deliveryCost !== undefined
-          ? Number(deliveryCost)
-          : Number(
-              (
-                await supabaseAdmin
-                  .from("purchase_orders")
-                  .select("delivery_cost")
-                  .eq("id", id)
-                  .single()
-              ).data?.delivery_cost || 0,
-            );
-      updateData.total_amount = calculatePurchaseTotal(items, shipping);
-    } else if (deliveryCost !== undefined) {
+      const itemsSubtotal = items.reduce(
+        (sum, item) => sum + item.quantity * item.unitCost,
+        0,
+      );
+      updateData.subtotal = itemsSubtotal;
+      updateData.total_amount = calculatePurchaseTotal(
+        items,
+        activeDeliveryCost,
+        activeDiscountAmount,
+      );
+    } else if (deliveryCost !== undefined || discountAmount !== undefined) {
       const { data: currentItems } = await supabaseAdmin
         .from("purchase_order_items")
         .select("quantity, unit_cost")
         .eq("purchase_order_id", id);
+
+      const mappedItems = (currentItems || []).map((item) => ({
+        quantity: Number(item.quantity),
+        unitCost: Number(item.unit_cost),
+      }));
+
+      const itemsSubtotal = mappedItems.reduce(
+        (sum, item) => sum + item.quantity * item.unitCost,
+        0,
+      );
+      updateData.subtotal = itemsSubtotal;
       updateData.total_amount = calculatePurchaseTotal(
-        (currentItems || []).map((item) => ({
-          quantity: Number(item.quantity),
-          unitCost: Number(item.unit_cost),
-        })),
-        Number(deliveryCost),
+        mappedItems,
+        activeDeliveryCost,
+        activeDiscountAmount,
       );
     }
 
     const { error } = await supabaseAdmin
       .from("purchase_orders")
       .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
+      .eq("id", id);
 
     if (error) {
       return NextResponse.json({ message: error.message }, { status: 400 });
     }
 
+    // إعادة تجهيز بنود الطلب في حال تم إرسال قائمة جديدة
     if (items) {
       await supabaseAdmin
         .from("purchase_order_items")
         .delete()
         .eq("purchase_order_id", id);
 
+      const itemsSubtotal = items.reduce(
+        (sum, item) => sum + item.quantity * item.unitCost,
+        0,
+      );
+
+      const formattedItems = items.map((item) => {
+        const itemSubtotal = item.quantity * item.unitCost;
+        const shareRatio = itemsSubtotal > 0 ? itemSubtotal / itemsSubtotal : 0;
+        const allocatedDeliveryCost =
+          item.quantity > 0
+            ? (activeDeliveryCost * shareRatio) / item.quantity
+            : 0;
+        const effectiveUnitCost = item.unitCost + allocatedDeliveryCost;
+
+        return {
+          purchase_order_id: id,
+          template_id: item.templateId,
+          variant_id: item.variantId,
+          quantity: item.quantity,
+          unit_cost: item.unitCost,
+          allocated_delivery_cost: Number(allocatedDeliveryCost.toFixed(2)),
+          effective_unit_cost: Number(effectiveUnitCost.toFixed(2)),
+          subtotal: itemSubtotal,
+          received_quantity: 0,
+        };
+      });
+
       const { error: insertItemsError } = await supabaseAdmin
         .from("purchase_order_items")
-        .insert(
-          items.map((item) => ({
-            purchase_order_id: id,
-            product_id: item.productId,
-            quantity: item.quantity,
-            unit_cost: item.unitCost,
-            subtotal: item.quantity * item.unitCost,
-            received_quantity: 0,
-          })),
-        );
+        .insert(formattedItems);
 
       if (insertItemsError) {
         return NextResponse.json(

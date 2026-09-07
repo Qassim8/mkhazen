@@ -1,46 +1,54 @@
 import { z } from "zod";
 
-// ==========================================
-// Helper Standard Preprocess Rules
-// ==========================================
-const stringOptional = z.preprocess(
-  (val) => (val === "" || val === null || val === undefined ? null : val),
-  z.string().nullable().optional(),
+const nullableOptionalEmail = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z
+    .string()
+    .trim()
+    .email("يرجى إدخال بريد إلكتروني صحيح")
+    .nullable()
+    .optional(),
+);
+const nullableOptionalString = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.string().trim().nullable().optional(),
 );
 
-// ==========================================
-// Supplier Interface
-// ==========================================
-export interface Supplier {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address?: string | null;
-  contactPerson?: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ==========================================
-// Create Supplier Schema
-// ==========================================
 export const createSupplierSchema = z.object({
-  name: z.string().min(2, "اسم المورد مطلوب (حرفين على الأقل)"),
-  email: z.string().email("يرجى إدخال بريد إلكتروني صحيح"),
-  phone: z.string().min(4, "يرجى إدخال رقم هاتف صحيح"),
-  address: stringOptional,
-  contactPerson: stringOptional,
+  name: z.string().trim().min(2, "اسم المورد مطلوب (حرفين على الأقل)"),
+
+  phone: z.string().trim().min(4, "يرجى إدخال رقم هاتف صحيح"),
+
+  email: nullableOptionalEmail,
+
+  address: nullableOptionalString,
+
+  contactPerson: nullableOptionalString,
+
+  notes: nullableOptionalString,
+
   isActive: z.boolean().default(true),
 });
+
+export const updateSupplierSchema = createSupplierSchema.partial();
 
 export type CreateSupplierFormInput = z.input<typeof createSupplierSchema>;
 export type CreateSupplierFormOutput = z.output<typeof createSupplierSchema>;
 
-// ==========================================
-// Update Supplier Schema
-// ==========================================
-export const updateSupplierSchema = createSupplierSchema.partial();
 export type UpdateSupplierFormInput = z.input<typeof updateSupplierSchema>;
 export type UpdateSupplierFormOutput = z.output<typeof updateSupplierSchema>;
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  contactPerson: string | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

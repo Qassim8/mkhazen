@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const BUCKET_NAME = "store-assets";
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 Megabytes
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +14,22 @@ export async function POST(request: Request) {
 
     if (!(file instanceof File)) {
       return NextResponse.json({ message: "الملف غير صالح" }, { status: 400 });
+    }
+
+    // 1. التحقق من حجم الملف (Max 5MB)
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { message: "حجم الصورة يتجاوز الحد المسموح به (5 ميجابايت)" },
+        { status: 400 },
+      );
+    }
+
+    // 2. التحقق من صيغة الملف
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { message: "صيغة الصورة غير مدعومة. يرجى رفع (PNG, JPEG, WEBP)" },
+        { status: 400 },
+      );
     }
 
     const validFolders = ["products", "categories"];
@@ -35,6 +53,7 @@ export async function POST(request: Request) {
       .from(BUCKET_NAME)
       .upload(filePath, buffer, {
         contentType: file.type || "image/png",
+        cacheControl: "3600000", // التخزين المؤقت لتسريع الأداء
         upsert: true,
       });
 
@@ -53,7 +72,7 @@ export async function POST(request: Request) {
       url: data.publicUrl,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Upload error:", error);
 
     return NextResponse.json(
       { message: "حدث خطأ أثناء رفع الصورة" },

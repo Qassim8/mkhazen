@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: Params) {
       .select(
         `
         *,
-        products:products(count)
+        product_templates(count)
       `,
       )
       .eq("id", id)
@@ -32,7 +32,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const formattedData = {
       ...data,
-      productsCount: (data as any).products?.[0]?.count ?? 0,
+      productsCount: data.product_templates?.[0]?.count ?? 0,
     };
     delete (formattedData as any).products;
 
@@ -118,29 +118,39 @@ export async function DELETE(_request: Request, { params }: Params) {
 
     const { id } = await params;
 
-    // جلب بيانات الفئة لحذف الصورة من Storage إذا كانت موجودة
-    const { data: category } = await supabaseAdmin
+    const { data: category, error: categoryError } = await supabaseAdmin
       .from("categories")
       .select("imageUrl")
       .eq("id", id)
       .single();
 
+    if (categoryError || !category) {
+      return NextResponse.json(
+        { message: "الفئة غير موجودة" },
+        { status: 404 },
+      );
+    }
+
+    const { data: deletedCategory, error } = await supabaseAdmin
+      .from("categories")
+      .delete()
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error || !deletedCategory) {
+      return NextResponse.json(
+        { message: "لا يمكن حذف الفئة لأنها مستخدمة أو حدث خطأ أثناء الحذف" },
+        { status: 409 },
+      );
+    }
+
     if (category?.imageUrl) {
       const urlParts = category.imageUrl.split("/categories/");
       if (urlParts.length > 1) {
         const filePath = `categories/${urlParts[1]}`;
-        await supabaseAdmin.storage.from("categories").remove([filePath]);
+        await supabaseAdmin.storage.from("store-assets").remove([filePath]);
       }
-    }
-
-    // حذف الفئة من جدول البيانات
-    const { error } = await supabaseAdmin
-      .from("categories")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
     }
 
     revalidateTag("categories-list", "default");

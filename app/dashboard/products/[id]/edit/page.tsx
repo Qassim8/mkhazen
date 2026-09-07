@@ -23,8 +23,6 @@ export default async function EditProductPage({
       getSuppliers().catch(() => []),
     ]);
 
-  console.log(product);
-
   if (!product) {
     notFound();
   }

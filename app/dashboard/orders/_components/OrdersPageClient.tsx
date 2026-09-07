@@ -9,8 +9,12 @@ import { useModalStore } from "@/store/useModalStore";
 import OrdersTable from "./OrdersTable";
 import OrderModalContent from "./OrderModalContent";
 import { PurchaseOrder } from "../schemas/orders.schemas";
-import { Product } from "../../products/schemas/product.schemas";
+import {
+  Product,
+  ProductTemplate,
+} from "../../products/schemas/product.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
+import { useRouter } from "next/navigation";
 
 interface Props {
   orders: PurchaseOrder[];
@@ -20,7 +24,7 @@ interface Props {
     currentPage: number;
     limit: number;
   };
-  products: Product[];
+  products: ProductTemplate[] | Product[];
   suppliers: Supplier[];
 }
 
@@ -31,20 +35,14 @@ export default function OrdersPageClient({
   suppliers,
 }: Props) {
   const openModal = useModalStore((state) => state.openModal);
+  const router = useRouter();
   return (
     <main dir="rtl">
       <PageHeader
         title="طلبات الشراء"
         subtitle={`${meta.totalCount} طلب مسجل`}
         buttonTitle="عملية شراء جديدة"
-        redirect={() =>
-          openModal("CREATE", {
-            title: "عملية شراء جديدة",
-            content: (
-              <OrderModalContent products={products} suppliers={suppliers} />
-            ),
-          })
-        }
+        redirect={() => router.push("/dashboard/orders/new")}
       />
       <div className="frame my-8 overflow-hidden p-0!">
         <Suspense

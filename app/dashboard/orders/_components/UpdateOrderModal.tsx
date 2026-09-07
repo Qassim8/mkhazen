@@ -19,7 +19,7 @@ import { Product } from "../../products/schemas/product.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 interface Props {
-  initialOrder?: PurchaseOrder;
+  initialOrder: PurchaseOrder;
   products: Product[];
   suppliers: Supplier[];
 }
@@ -33,7 +33,7 @@ export default function UpdateOrderModalContent({
   const closeModal = useModalStore((state) => state.closeModal);
 
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>(
-    initialOrder?.items?.map((item) => ({
+    initialOrder.items?.map((item) => ({
       id: item.productId,
       productId: item.productId,
       name: item.productName || "منتج",
@@ -47,17 +47,17 @@ export default function UpdateOrderModalContent({
   const form = useForm<CreatePurchaseOrderInput>({
     resolver: zodResolver(createPurchaseOrderSchema),
     defaultValues: {
-      supplierId: initialOrder?.supplierId || "",
-      orderNumber: initialOrder?.orderNumber || "",
-      orderDate: initialOrder?.orderDate
+      supplierId: initialOrder.supplierId || "",
+      orderNumber: initialOrder.orderNumber || "",
+      orderDate: initialOrder.orderDate
         ? new Date(initialOrder.orderDate).toISOString().split("T")[0]
         : defaultToday,
-      expectedDate: initialOrder?.expectedDate
+      expectedDate: initialOrder.expectedDate
         ? new Date(initialOrder.expectedDate).toISOString().split("T")[0]
         : "",
-      notes: initialOrder?.notes || "",
-      status: "DRAFT",
-      deliveryCost: initialOrder?.deliveryCost || 0,
+      notes: initialOrder.notes || "",
+      status: initialOrder.status || "DRAFT",
+      deliveryCost: initialOrder.deliveryCost || 0,
       items: purchaseItems.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -70,7 +70,8 @@ export default function UpdateOrderModalContent({
     register,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    handleSubmit,
+    formState: { isSubmitting },
   } = form;
 
   const deliveryCost = Number(watch("deliveryCost") || 0);
@@ -107,7 +108,7 @@ export default function UpdateOrderModalContent({
           id: product.id,
           productId: product.id,
           name: product.name,
-          costPrice: product.purchasePrice || 0,
+          costPrice: product.variants[0]?.purchasePrice || 0,
           quantity: 1,
         },
       ];
@@ -115,32 +116,32 @@ export default function UpdateOrderModalContent({
   };
 
   const onSubmit = async (data: CreatePurchaseOrderInput) => {
-    try {
-      await updatePurchaseOrder(initialOrder?.id || "", {
-        supplierId: data.supplierId === "" ? null : data.supplierId,
-        orderDate: data.orderDate,
-        expectedDate: data.expectedDate === "" ? null : data.expectedDate,
-        notes: data.notes,
-        deliveryCost: data.deliveryCost,
-        items: data.items,
-      });
+    const payload = {
+      ...data,
+      supplierId: data.supplierId === "" ? null : data.supplierId,
+      expectedDate: data.expectedDate === "" ? null : data.expectedDate,
+    };
 
+    try {
+      await updatePurchaseOrder(initialOrder.id, payload);
       toast.success("تم تحديث مسودة طلب الشراء بنجاح");
       closeModal();
       router.refresh();
     } catch (err: unknown) {
       toast.error(
-        err instanceof Error ? err.message : "حدث خطأ غير متوقع أثناء التحديث",
+        err instanceof Error
+          ? err.message
+          : "حدث خطأ غير متوقع أثناء تحديث الطلب",
       );
     }
   };
 
-  const onError = (formErrors: FieldErrors<CreatePurchaseOrderInput>) => {
-    if (formErrors.items) {
+  const onError = (errors: FieldErrors<CreatePurchaseOrderInput>) => {
+    if (errors.items) {
       toast.error(
-        typeof formErrors.items.message === "string"
-          ? formErrors.items.message
-          : "يرجى إضافة منتج واحد على الأقل للطلب",
+        typeof errors.items.message === "string"
+          ? errors.items.message
+          : "يرجى إضافة منتج واحد على الأقل",
       );
     } else {
       toast.error("يرجى التأكد من ملء جميع الحقول المطلوبة بشكل صحيح");
@@ -148,26 +149,17 @@ export default function UpdateOrderModalContent({
   };
 
   return (
-    <form
-      onSubmit={form.handleSubmit(onSubmit, onError)}
-      className="space-y-6"
-      noValidate
-    >
-      <p className="text-sm text-gray-500">
-        يمكن تعديل المسودة فقط. بعد الموافقة أو الشراء المباشر لن يمكن التعديل
-        أو الحذف.
-      </p>
-
+    <div className="space-y-3">
       <div className="grid gap-6 lg:grid-cols-12 max-h-[65vh] overflow-y-auto p-1">
         <div className="lg:col-span-5 space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
               المورد
             </label>
             <select
               {...register("supplierId")}
               disabled={isSubmitting}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
             >
               <option value="">بدون مورد (اختياري)</option>
               {suppliers.map((s) => (
@@ -179,24 +171,19 @@ export default function UpdateOrderModalContent({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
               تاريخ الشراء
             </label>
             <input
               type="date"
               disabled={isSubmitting}
               {...register("orderDate")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60"
             />
-            {errors.orderDate && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.orderDate.message}
-              </p>
-            )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
               تكلفة الشحن
             </label>
             <input
@@ -207,13 +194,13 @@ export default function UpdateOrderModalContent({
               {...register("deliveryCost", {
                 setValueAs: (value) => (value === "" ? 0 : Number(value)),
               })}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              إضافة منتج <span className="text-red-500">*</span>
+            <label className="mb-0.5 block text-sm font-semibold text-gray-700">
+              إضافة منتج
             </label>
             <select
               disabled={isSubmitting}
@@ -221,20 +208,15 @@ export default function UpdateOrderModalContent({
                 addToOrder(e.target.value);
                 e.target.value = "";
               }}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60 cursor-pointer"
             >
-              <option value="">{"اضغط لاختيار منتج وتضمينه..."}</option>
+              <option value="">اضغط لاختيار منتج وتضمينه...</option>
               {products.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </select>
-            {errors.items && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.items.message}
-              </p>
-            )}
           </div>
 
           <div>
@@ -245,7 +227,7 @@ export default function UpdateOrderModalContent({
               rows={3}
               disabled={isSubmitting}
               {...register("notes")}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60 resize-none"
+              className="w-full h-24 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-red-500 focus:bg-white focus:outline-none disabled:opacity-60 resize-none"
             />
           </div>
         </div>
@@ -259,23 +241,25 @@ export default function UpdateOrderModalContent({
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 pt-5">
         <button
           type="button"
           disabled={isSubmitting}
-          onClick={closeModal}
-          className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 disabled:opacity-50"
+          onClick={() => closeModal()}
+          className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50"
         >
           إلغاء
         </button>
+
         <button
-          type="submit"
+          type="button"
           disabled={isSubmitting}
-          className="flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={handleSubmit(onSubmit, onError)}
+          className="rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-(--primary-red)/80 disabled:opacity-60"
         >
           {isSubmitting ? "جاري الحفظ..." : "تحديث المسودة"}
         </button>
       </div>
-    </form>
+    </div>
   );
 }

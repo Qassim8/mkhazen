@@ -28,7 +28,9 @@ export async function GET(request: Request) {
         reference,
         notes,
         created_at,
-        products (id, name, barcode)
+        template_id ,
+        purchase_order_id ,
+        variant_id,
       `,
       )
       .order("created_at", { ascending: false })

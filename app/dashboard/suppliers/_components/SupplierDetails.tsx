@@ -59,6 +59,20 @@ export default function SupplierViewContent({ initialData }: Props) {
             {initialData.contactPerson}
           </span>
         </div>
+        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-3.5">
+          <span className="mb-1 block text-xs text-gray-400">العنوان</span>
+
+          <span className="font-semibold text-gray-800">
+            {initialData.address || "—"}
+          </span>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-3.5">
+          <span className="mb-1 block text-xs text-gray-400">الملاحظات</span>
+
+          <span className="font-semibold text-gray-800">
+            {initialData.notes || "—"}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -8,7 +8,8 @@ import {
   UpdatePurchaseOrderInput,
 } from "../schemas/orders.schemas";
 
-const API_BASE_URL = "/api/orders";
+// تعديل المسار ليتجه إلى API المشتريات
+const API_BASE_URL = "/api/purchases";
 
 export interface PurchasesResponse {
   data: PurchaseOrder[];
@@ -49,6 +50,7 @@ export async function getPurchaseOrderById(
 ): Promise<PurchaseOrderResponse> {
   return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}/${id}`, {
     method: "GET",
+    next: { tags: [`purchase-${id}`] },
   });
 }
 

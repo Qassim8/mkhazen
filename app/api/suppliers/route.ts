@@ -6,20 +6,26 @@ import { createSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-
-    if (!session) {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "غير مصرح لك بالوصول. يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
       );
     }
 
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || "";
+    const search = (searchParams.get("search") || "").trim().slice(0, 100);
     const status = searchParams.get("status");
-    const page = Number(searchParams.get("page") || "1");
-    const limit = Number(searchParams.get("limit") || "10");
+    const rawPage = Number(searchParams.get("page"));
+    const rawLimit = Number(searchParams.get("limit"));
+
+    const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+
+    const limit =
+      Number.isInteger(rawLimit) && rawLimit > 0 && rawLimit <= 100
+        ? rawLimit
+        : 10;
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -28,7 +34,7 @@ export async function GET(request: Request) {
 
     if (search) {
       query = query.or(
-        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`,
+        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,contactPerson.ilike.%${search}%`,
       );
     }
 
@@ -61,9 +67,10 @@ export async function GET(request: Request) {
       },
       { status: 200 },
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء جلب الموردين", error: err.message },
+      { message: "خطأ في السيرفر أثناء جلب الموردين", error: message },
       { status: 500 },
     );
   }
@@ -71,12 +78,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-
-    if (!session) {
+    const user = await getSession();
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "غير مصرح لك بإجراء هذه العملية. يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
       );
     }
 
@@ -97,8 +103,7 @@ export async function POST(request: Request) {
       ...validation.data,
       address: validation.data.address ?? null,
       contactPerson: validation.data.contactPerson ?? null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      notes: validation.data.notes ?? null,
     };
 
     const { data, error } = await supabaseAdmin
@@ -121,9 +126,10 @@ export async function POST(request: Request) {
       { message: "تم إضافة المورد بنجاح", data },
       { status: 201 },
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء إضافة المورد", error: err.message },
+      { message: "خطأ في السيرفر أثناء إضافة المورد", error: message },
       { status: 500 },
     );
   }

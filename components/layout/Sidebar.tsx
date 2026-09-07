@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getMe } from "@/app/(login)/services/auth.services";
 import {
+  LuBoxes,
   LuCalculator,
   LuChevronDown,
   LuFileChartColumn,
@@ -51,27 +52,27 @@ const menuItems: MenuItem[] = [
     roles: ["admin"],
     subItems: [
       {
-        href: "/dashboard/products",
-        label: "المنتجات",
-        icon: LuPackage2,
-        roles: ["admin"],
-      },
-      {
         href: "/dashboard/categories",
         label: "الفئات",
         icon: LuFolderTree,
         roles: ["admin"],
       },
       {
-        href: "/dashboard/orders",
-        label: "المشتريات والتوريد",
-        icon: LuShoppingCart,
-        roles: ["admin"],
-      },
-      {
         href: "/dashboard/suppliers",
         label: "الموردين",
         icon: LuPackageCheck,
+        roles: ["admin"],
+      },
+      {
+        href: "/dashboard/products",
+        label: "المنتجات",
+        icon: LuBoxes,
+        roles: ["admin"],
+      },
+      {
+        href: "/dashboard/orders",
+        label: "المشتريات والتوريد",
+        icon: LuShoppingCart,
         roles: ["admin"],
       },
     ],

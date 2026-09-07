@@ -2,15 +2,27 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LuBell, LuKey, LuClock, LuBadgeAlert, LuShoppingCart } from "react-icons/lu";
+import {
+  LuBell,
+  LuKey,
+  LuClock,
+  LuBadgeAlert,
+  LuShoppingCart,
+} from "react-icons/lu";
+import { BASE_URL } from "@/lib/constants";
 
 interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: "RESET_PASSWORD" | "LOW_STOCK" | "ORDER_DELAY" | "PURCHASE_ORDER" | "SYSTEM";
+  type:
+    | "RESET_PASSWORD"
+    | "LOW_STOCK"
+    | "ORDER_DELAY"
+    | "PURCHASE_ORDER"
+    | "SYSTEM";
   link: string;
-  is_read: boolean;
+  isRead: boolean;
   created_out: string;
 }
 
@@ -23,7 +35,7 @@ export default function NotificationsDropdown() {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications");
+      const res = await fetch(`${BASE_URL}/api/notifications`);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -67,9 +79,11 @@ export default function NotificationsDropdown() {
     };
   }, [fetchNotifications]);
 
+  console.log(notifications);
+
   const handleNotificationClick = async (item: NotificationItem) => {
     // 1️⃣ تحديث الحالة المحلية فوراً (Optimistic UI Update)
-    if (!item.is_read) {
+    if (!item.isRead) {
       setNotifications((prev) =>
         prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)),
       );
@@ -83,7 +97,7 @@ export default function NotificationsDropdown() {
     }
 
     // 3️⃣ إرسال التحديث للسيرفر في الخلفية
-    if (!item.is_read) {
+    if (!item.isRead) {
       try {
         await fetch("/api/notifications", {
           method: "PATCH",
@@ -101,7 +115,7 @@ export default function NotificationsDropdown() {
     if (unreadCount === 0) return;
 
     // 1️⃣ تحديث متفائل فوري للواجهة local state
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setUnreadCount(0);
 
     // 2️⃣ إرسال الطلب للسيرفر
@@ -178,7 +192,7 @@ export default function NotificationsDropdown() {
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
                   className={`flex items-start gap-3 p-2.5 rounded-xl transition cursor-pointer ${
-                    n.is_read
+                    n.isRead
                       ? "bg-white hover:bg-gray-50 opacity-70"
                       : "bg-amber-50/40 hover:bg-amber-50"
                   }`}

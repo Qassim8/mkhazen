@@ -46,7 +46,7 @@ export async function PATCH(
 
     const { data: existingOrder, error: fetchError } = await supabaseAdmin
       .from("purchase_orders")
-      .select("status")
+      .select("status, purchase_type")
       .eq("id", id)
       .single();
 
@@ -70,9 +70,9 @@ export async function PATCH(
     if (!allowedStatusTransitions[currentStatus]?.includes(newStatus)) {
       const lockedMessage =
         currentStatus === "APPROVED"
-          ? "بعد الموافقة لا يمكن إلغاء الطلب أو حذفه. يمكن تحويله إلى مستلم فقط عند وصول التوريد."
-          : currentStatus === "DIRECT" || currentStatus === "RECEIVED"
-            ? "الشراء المباشر والمستلم لا يمكن تعديل حالته أو حذفه."
+          ? "بعد الموافقة لا يمكن إلغاء الطلب. يمكن تحويله إلى مستلم فقط عند وصول التوريد."
+          : currentStatus === "RECEIVED"
+            ? "الطلب المستلم لا يمكن تعديل حالته أو حذفه."
             : "لا يمكن تغيير حالة الطلب إلى هذه القيمة.";
 
       return NextResponse.json({ message: lockedMessage }, { status: 400 });
@@ -92,7 +92,7 @@ export async function PATCH(
 
     if (newStatus === "RECEIVED") {
       try {
-        await processPurchaseReceipt(id);
+        await processPurchaseReceipt(id, user.userId);
       } catch (receiptError) {
         await supabaseAdmin
           .from("purchase_orders")
@@ -107,7 +107,7 @@ export async function PATCH(
             message:
               receiptError instanceof Error
                 ? receiptError.message
-                : "تعذر استلام الطلب وزيادة المخزون وتسجيل القيد",
+                : "تعذر استلام الطلب وزيادة المخزون",
           },
           { status: 500 },
         );
@@ -116,7 +116,6 @@ export async function PATCH(
       revalidateTag("products-list", "default");
       revalidatePath("/dashboard/products");
       revalidatePath("/dashboard/inventory");
-      revalidatePath("/dashboard/accounting");
     }
 
     revalidateTag("purchases-list", "default");
@@ -124,8 +123,9 @@ export async function PATCH(
 
     const { data } = await fetchPurchaseOrderById(id);
     const messages: Record<string, string> = {
-      APPROVED: "تمت الموافقة على طلب الشراء. لم يعد بالإمكان إلغاؤه أو حذفه.",
-      RECEIVED: "تم استلام الطلب وزيادة المخزون وتسجيل القيد المحاسبي.",
+      APPROVED:
+        "تمت الموافقة على طلب الشراء. يمكنك الآن انتظار التوريد واستلام الشحنة.",
+      RECEIVED: "تم استلام الطلب بنجاح وتحديث مخزون المتغيرات التسويقية.",
       CANCELLED: "تم إلغاء مسودة طلب الشراء.",
     };
 
