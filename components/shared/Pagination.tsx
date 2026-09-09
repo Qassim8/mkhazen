@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LuChevronRight, LuChevronLeft } from "react-icons/lu";
+
+import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 
 interface MetaProps {
   page: number;
@@ -10,63 +11,141 @@ interface MetaProps {
   totalPages: number;
 }
 
-export default function Pagination({ meta }: { meta?: MetaProps }) {
+interface PaginationProps {
+  meta?: MetaProps;
+}
+
+const Pagination = ({ meta }: PaginationProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  if (!meta || meta.totalPages <= 1) return null;
+  if (!meta || meta.total === 0 || meta.totalPages <= 1) {
+    return null;
+  }
 
-  const createPageURL = (pageNumber: number) => {
+  const createPageUrl = (pageNumber: number) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("page", pageNumber.toString());
+
+    params.set("page", String(pageNumber));
+
     return `${pathname}?${params.toString()}`;
   };
 
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= meta.totalPages) {
-      router.push(createPageURL(newPage));
+  const handlePageChange = (pageNumber: number) => {
+    if (
+      pageNumber < 1 ||
+      pageNumber > meta.totalPages ||
+      pageNumber === meta.page
+    ) {
+      return;
     }
+
+    router.push(createPageUrl(pageNumber));
   };
 
+  const getVisiblePages = () => {
+    const totalPages = meta.totalPages;
+    const currentPage = meta.page;
+
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, "ellipsis-right", totalPages];
+    }
+
+    if (currentPage >= totalPages - 2) {
+      return [
+        1,
+        "ellipsis-left",
+        totalPages - 3,
+        totalPages - 2,
+        totalPages - 1,
+        totalPages,
+      ];
+    }
+
+    return [
+      1,
+      "ellipsis-left",
+      currentPage - 1,
+      currentPage,
+      currentPage + 1,
+      "ellipsis-right",
+      totalPages,
+    ];
+  };
+
+  const visiblePages = getVisiblePages();
+
+  const start = (meta.page - 1) * meta.limit + 1;
+
+  const end = Math.min(meta.page * meta.limit, meta.total);
+
   return (
-    <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4 text-sm">
-      <div className="text-gray-500">
-        عرض{" "}
-        <span className="font-semibold text-gray-800">
-          {(meta.page - 1) * meta.limit + 1}
-        </span>{" "}
-        إلى{" "}
-        <span className="font-semibold text-gray-800">
-          {Math.min(meta.page * meta.limit, meta.total)}
-        </span>{" "}
-        من أصل <span className="font-semibold text-gray-800">{meta.total}</span>{" "}
-        عنصر
+    <div className="flex flex-col gap-4 border-t border-gray-100 px-5 py-4 text-sm md:flex-row md:items-center md:justify-between">
+      <div className="text-center text-gray-500 md:text-start">
+        عرض <span className="font-semibold text-gray-800">{start}</span> إلى{" "}
+        <span className="font-semibold text-gray-800">{end}</span> من أصل{" "}
+        <span className="font-semibold text-gray-800">{meta.total}</span> منتج
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-1.5">
         <button
           type="button"
-          onClick={() => handlePageChange(meta.page - 1)}
+          aria-label="الصفحة السابقة"
           disabled={meta.page <= 1}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
+          onClick={() => handlePageChange(meta.page - 1)}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <LuChevronRight className="h-5 w-5" />
         </button>
 
-        <span className="px-3 font-semibold text-gray-700">
-          {meta.page} / {meta.totalPages}
-        </span>
+        {visiblePages.map((page) => {
+          if (typeof page !== "number") {
+            return (
+              <span
+                key={page}
+                className="flex h-9 w-8 items-center justify-center text-gray-400"
+              >
+                …
+              </span>
+            );
+          }
+
+          const isCurrent = page === meta.page;
+
+          return (
+            <button
+              key={page}
+              type="button"
+              aria-current={isCurrent ? "page" : undefined}
+              onClick={() => handlePageChange(page)}
+              className={`flex h-9 min-w-9 items-center justify-center rounded-xl border px-2 text-sm font-semibold transition ${
+                isCurrent
+                  ? "border-gray-900 bg-gray-900 text-white"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {page}
+            </button>
+          );
+        })}
 
         <button
           type="button"
-          onClick={() => handlePageChange(meta.page + 1)}
+          aria-label="الصفحة التالية"
           disabled={meta.page >= meta.totalPages}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent"
+          onClick={() => handlePageChange(meta.page + 1)}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <LuChevronLeft className="h-5 w-5" />
         </button>
       </div>
     </div>
   );
-}
+};
+
+export default Pagination;

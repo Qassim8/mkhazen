@@ -1,18 +1,20 @@
 "use client";
 
-import Table from "@/components/shared/Table";
-import { useModalStore } from "@/store/useModalStore";
-import { createColumnHelper } from "@tanstack/react-table";
 import Image from "next/image";
-import { LuEye, LuSquarePen, LuTrash2, LuLayers } from "react-icons/lu";
-import ProductViewModal from "./ProductViewModal";
-import { Product } from "../schemas/product.schemas";
-import { deleteProduct } from "../services/products.services";
+import { useRouter } from "next/navigation";
+import { createColumnHelper } from "@tanstack/react-table";
+import { LuEye, LuLayers, LuSquarePen, LuTrash2 } from "react-icons/lu";
+
+import Table from "@/components/shared/Table";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
-import ProductUpdateModal from "./ProductUpdateModal";
+
+import { useModalStore } from "@/store/useModalStore";
+
+import { deleteProduct } from "../services/products.services";
+
 import { Category } from "../../categories/schemas/category.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
-import { useRouter } from "next/navigation";
+import { Product } from "../schemas/product.schemas";
 
 const columnHelper = createColumnHelper<Product>();
 
@@ -30,18 +32,29 @@ const ProductsTable = ({
   const openModal = useModalStore((state) => state.openModal);
   const router = useRouter();
 
+  const categoryMap = new Map(
+    categories.map((category) => [category.id, category.name]),
+  );
+
+  const supplierMap = new Map(
+    suppliers.map((supplier) => [supplier.id, supplier.name]),
+  );
+
   const columns = [
-    // 📦 اسم المنتج والخيارات
     columnHelper.accessor("name", {
       header: "المنتج",
+
       cell: (info) => {
         const product = info.row.original;
-        // أخذ صورة المتغير الأول أو الصورة الرئيسية أو الـ placeholder
+
+        const variants = product.variants ?? [];
+
         const image =
-          product.variants?.[0]?.images?.[0] ||
+          variants.find((variant) => variant.images?.length)?.images?.[0] ||
           product.images?.[0] ||
           "/placeholder.png";
-        const variantsCount = product.variants?.length || 0;
+
+        const variantsCount = variants.length;
 
         return (
           <div className="flex items-center gap-3">
@@ -50,18 +63,24 @@ const ProductsTable = ({
                 src={image}
                 alt={info.getValue()}
                 fill
+                sizes="48px"
                 className="object-cover"
               />
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-gray-900 text-sm">
+
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-bold text-gray-900">
                 {info.getValue()}
               </span>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-gray-400">
-                  {product.purchaseUnit} / {product.sellingUnit}
-                </span>
-                {variantsCount > 0 && (
+
+              <div className="mt-0.5 flex items-center gap-2">
+                {product.purchaseUnit && product.sellingUnit && (
+                  <span className="text-xs text-gray-400">
+                    {product.purchaseUnit} / {product.sellingUnit}
+                  </span>
+                )}
+
+                {variantsCount > 1 && (
                   <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600">
                     <LuLayers className="h-3 w-3 text-gray-500" />
                     {variantsCount} خيارات
@@ -74,60 +93,71 @@ const ProductsTable = ({
       },
     }),
 
-    // 🏷️ رمز الـ SKU
-    // 🏷️ رمز الـ SKU
     columnHelper.display({
       id: "sku",
-      header: "الرمز (SKU)",
+      header: "رمز SKU",
+
       cell: ({ row }) => {
-        // نأخذ الـ SKU المباشر من المنتج أو من أول متغير
-        const firstVariantSku = row.original.variants?.[0]?.sku;
-        const displaySku = firstVariantSku || "—";
+        const sku = row.original.variants?.[0]?.sku;
 
         return (
-          <span className="font-mono text-xs uppercase text-gray-500 font-medium">
-            {displaySku}
+          <span className="font-mono text-xs font-medium uppercase text-gray-500">
+            {sku || "—"}
           </span>
         );
       },
     }),
 
-    // 📂 الفئة
-    columnHelper.accessor("category", {
+    columnHelper.accessor("categoryId", {
       header: "الفئة",
-      cell: (info) => (
-        <span className="font-semibold text-xs text-gray-800 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-lg inline-block">
-          {info.getValue()?.name || "—"}
-        </span>
-      ),
+
+      cell: (info) => {
+        const categoryId = info.getValue();
+        const categoryName = categoryId
+          ? categoryMap.get(categoryId)
+          : undefined;
+
+        return (
+          <span className="inline-block rounded-lg border border-gray-100 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-800">
+            {categoryName || "—"}
+          </span>
+        );
+      },
     }),
 
-    // 🏭 المورد
-    columnHelper.accessor("supplier", {
+    columnHelper.accessor("supplierId", {
       header: "المورد",
-      cell: (info) => (
-        <span className="text-xs font-medium text-gray-600">
-          {info.getValue()?.name || "—"}
-        </span>
-      ),
+
+      cell: (info) => {
+        const supplierId = info.getValue();
+
+        return (
+          <span className="text-xs font-medium text-gray-600">
+            {(supplierId && supplierMap.get(supplierId)) || "—"}
+          </span>
+        );
+      },
     }),
 
-    // 📊 إجمالي الكمية بالمخزن
     columnHelper.display({
       id: "totalStock",
       header: "إجمالي الكمية",
+
       cell: ({ row }) => {
-        const variants = row.original.variants || [];
-        const totalStock =
-          variants.length > 0
-            ? variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0)
-            : row.original.variants?.[0]?.stockQuantity || 0;
+        const product = row.original;
+        const variants = product.variants ?? [];
+
+        const totalStock = variants.reduce(
+          (sum, variant) => sum + Number(variant.stockQuantity || 0),
+          0,
+        );
 
         return (
           <div className="flex flex-col">
-            <span className="font-bold text-sm text-gray-900">
-              {totalStock.toLocaleString()} {row.original.sellingUnit}
+            <span className="text-sm font-bold text-gray-900">
+              {totalStock.toLocaleString()} {product.sellingUnit || ""}
             </span>
+
             {variants.length > 1 && (
               <span className="text-[10px] text-gray-400">
                 موزعة على {variants.length} خيارات
@@ -138,136 +168,149 @@ const ProductsTable = ({
       },
     }),
 
-    // 💰 الأسعار ومدى الأسعار
     columnHelper.display({
       id: "priceRange",
       header: "الأسعار",
+
       cell: ({ row }) => {
-        const variants = row.original.variants || [];
+        const variants = row.original.variants ?? [];
 
-        if (variants.length > 0) {
-          const prices = variants.map((v) => v.sellingPrice || 0);
-          const minPrice = Math.min(...prices);
-          const maxPrice = Math.max(...prices);
-
-          const purchasePrices = variants.map((v) => v.purchasePrice || 0);
-          const minPurchase = Math.min(...purchasePrices);
-
-          return (
-            <div className="flex flex-col text-xs">
-              <span className="font-bold text-emerald-600">
-                {minPrice === maxPrice
-                  ? `${minPrice} ريال`
-                  : `${minPrice} - ${maxPrice} ريال`}
-              </span>
-              <span className="text-[11px] text-gray-400">
-                تكلفة: {minPurchase} ريال
-              </span>
-            </div>
-          );
+        if (variants.length === 0) {
+          return <span className="text-xs text-gray-400">—</span>;
         }
+
+        const sellingPrices = variants.map(
+          (variant) => Number(variant.sellingPrice) || 0,
+        );
+
+        const purchasePrices = variants.map(
+          (variant) => Number(variant.purchasePrice) || 0,
+        );
+
+        const minSellingPrice = Math.min(...sellingPrices);
+        const maxSellingPrice = Math.max(...sellingPrices);
+
+        const minPurchasePrice = Math.min(...purchasePrices);
 
         return (
           <div className="flex flex-col text-xs">
             <span className="font-bold text-emerald-600">
-              {row.original.variants?.[0]?.sellingPrice || 0} ريال
+              {minSellingPrice === maxSellingPrice
+                ? `${minSellingPrice.toLocaleString()} ريال`
+                : `${minSellingPrice.toLocaleString()} - ${maxSellingPrice.toLocaleString()} ريال`}
             </span>
+
             <span className="text-[11px] text-gray-400">
-              تكلفة: {row.original.variants?.[0]?.purchasePrice || 0} ريال
+              تكلفة تبدأ من {minPurchasePrice.toLocaleString()} ريال
             </span>
           </div>
         );
       },
     }),
 
-    // 🟢/🔴 حالة التوفر
     columnHelper.display({
       id: "status",
       header: "الحالة",
-      cell: ({ row }) => {
-        const variants = row.original.variants || [];
-        const totalStock =
-          variants.length > 0
-            ? variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0)
-            : row.original.variants?.[0]?.stockQuantity || 0;
 
-        const minStock = row.original.variants?.[0]?.minStockLevel ?? 5;
+      cell: ({ row }) => {
+        const variants = row.original.variants ?? [];
+
+        const totalStock = variants.reduce(
+          (sum, variant) => sum + Number(variant.stockQuantity || 0),
+          0,
+        );
+
+        const minimumRequiredStock = variants.reduce(
+          (sum, variant) => sum + Number(variant.minStockLevel || 0),
+          0,
+        );
+
         const isOutOfStock = totalStock <= 0;
-        const isLowStock = totalStock <= minStock && !isOutOfStock;
+
+        const isLowStock = totalStock > 0 && totalStock <= minimumRequiredStock;
+
+        const isInStock = totalStock > minimumRequiredStock;
+
+        const statusClass = isOutOfStock
+          ? "bg-red-50 text-red-700 border-red-100"
+          : isLowStock
+            ? "bg-amber-50 text-amber-700 border-amber-100"
+            : "bg-emerald-50 text-emerald-700 border-emerald-100";
+
+        const dotClass = isOutOfStock
+          ? "bg-red-500"
+          : isLowStock
+            ? "bg-amber-500"
+            : "bg-emerald-500";
+
+        const statusText = isOutOfStock
+          ? "نفذت الكمية"
+          : isLowStock
+            ? "منخفض"
+            : "متوفر";
 
         return (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-              isOutOfStock
-                ? "bg-red-50 text-red-700 border border-red-100"
-                : isLowStock
-                  ? "bg-amber-50 text-amber-700 border border-amber-100"
-                  : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-            }`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass}`}
           >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                isOutOfStock
-                  ? "bg-red-500"
-                  : isLowStock
-                    ? "bg-amber-500"
-                    : "bg-emerald-500"
-              }`}
-            />
-            {isOutOfStock ? "نفذت الكمية" : isLowStock ? "منخفض" : "متوفر"}
+            <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+
+            {statusText}
           </span>
         );
       },
     }),
 
-    // ⚙️ الإجراءات
     columnHelper.display({
       id: "actions",
       header: "الإجراءات",
-      cell: ({ row }) => (
-        <div className="flex items-center justify-center gap-1">
-          {/* معاينة */}
-          <button
-            type="button"
-            aria-label="عرض المنتج"
-            className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
-            onClick={() =>
-              router.push(`/dashboard/products/${row.original.id}`)
-            }
-          >
-            <LuEye className="h-4 w-4" />
-          </button>
 
-          {/* تعديل */}
-          <button
-            type="button"
-            aria-label="تعديل المنتج"
-            className="rounded-xl p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
-            onClick={() =>
-              router.push(`/dashboard/products/${row.original.id}/edit`)
-            }
-          >
-            <LuSquarePen className="h-4 w-4" />
-          </button>
+      cell: ({ row }) => {
+        const product = row.original;
 
-          {/* حذف */}
-          <button
-            type="button"
-            aria-label="حذف المنتج"
-            className="rounded-xl p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 cursor-pointer"
-            onClick={() =>
-              openModal("DELETE_CONFIRM", {
-                rowId: row.original.id,
-                itemName: row.original.name,
-                actionFunction: deleteProduct,
-                content: <DeleteConfirmationModal />,
-              })
-            }
-          >
-            <LuTrash2 className="h-4 w-4" />
-          </button>
-        </div>
-      ),
+        return (
+          <div className="flex items-center justify-center gap-1">
+            <button
+              type="button"
+              aria-label="عرض المنتج"
+              title="عرض المنتج"
+              className="cursor-pointer rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              onClick={() => router.push(`/dashboard/products/${product.id}`)}
+            >
+              <LuEye className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="تعديل المنتج"
+              title="تعديل المنتج"
+              className="cursor-pointer rounded-xl p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700"
+              onClick={() =>
+                router.push(`/dashboard/products/${product.id}/edit`)
+              }
+            >
+              <LuSquarePen className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="حذف المنتج"
+              title="حذف المنتج"
+              className="cursor-pointer rounded-xl p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+              onClick={() =>
+                openModal("DELETE_CONFIRM", {
+                  rowId: product.id,
+                  itemName: product.name,
+                  actionFunction: deleteProduct,
+                  content: <DeleteConfirmationModal />,
+                })
+              }
+            >
+              <LuTrash2 className="h-4 w-4" />
+            </button>
+          </div>
+        );
+      },
     }),
   ];
 

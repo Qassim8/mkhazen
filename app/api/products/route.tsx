@@ -1,170 +1,407 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { revalidateTag, revalidatePath } from "next/cache";
-import { createProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
-import { getSession } from "@/lib/auth";
+import { z } from "zod";
 
-// 1. جلب المنتجات مع المتغيرات والفئة والمورد
+import { supabaseAdmin } from "@/lib/supabase";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { getSession } from "@/lib/auth";
+import { createProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
+
+const querySchema = z.object({
+  search: z.string().trim().max(100).optional(),
+
+  categoryId: z.string().uuid().optional(),
+
+  supplierId: z.string().uuid().optional(),
+
+  status: z.enum(["instock", "lowstock", "outstock"]).optional(),
+
+  sortBy: z
+    .enum(["createdAt-desc", "createdAt-asc", "name-asc", "name-desc"])
+    .default("createdAt-desc"),
+
+  page: z.coerce.number().int().positive().default(1),
+
+  limit: z.coerce.number().int().positive().max(100).default(10),
+});
+
+async function requireAdmin() {
+  const session = await getSession();
+
+  if (!session) {
+    return NextResponse.json(
+      { message: "يرجى تسجيل الدخول أولاً." },
+      { status: 401 },
+    );
+  }
+
+  if (session.role !== "admin") {
+    return NextResponse.json(
+      { message: "هذه العملية مقتصرة على المدير." },
+      { status: 403 },
+    );
+  }
+
+  return null;
+}
+
+function sanitizeSearch(value: string) {
+  return value.replace(/[(),]/g, " ").trim().slice(0, 100);
+}
+
+const productListSelect = `
+  *,
+  category:categories(id, name),
+  supplier:suppliers(id, name),
+  variants:product_variants(
+    id,
+    templateId,
+    sku,
+    barcode,
+    packBarcode,
+    colorName,
+    colorCode,
+    size,
+    length,
+    width,
+    purchasePrice,
+    sellingPrice,
+    minSellingPrice,
+    stockQuantity,
+    minStockLevel,
+    images,
+    isDefault,
+    isActive,
+    createdAt,
+    updatedAt
+  )
+`;
+
+/* =========================================================
+   GET /api/products
+   Public
+   ========================================================= */
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || "";
-    const categoryId = searchParams.get("categoryId");
-    const supplierId = searchParams.get("supplierId");
-    const sortBy = searchParams.get("sortBy") || "createdAt-desc";
-    const status = searchParams.get("status");
 
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const parsed = querySchema.safeParse({
+      search: searchParams.get("search") || undefined,
+      categoryId: searchParams.get("categoryId") || undefined,
+      supplierId: searchParams.get("supplierId") || undefined,
+      status: searchParams.get("status") || undefined,
+      sortBy: searchParams.get("sortBy") || undefined,
+      page: searchParams.get("page") || undefined,
+      limit: searchParams.get("limit") || undefined,
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          message: "معاملات الطلب غير صحيحة.",
+          errors: parsed.error.flatten().fieldErrors,
+        },
+        { status: 422 },
+      );
+    }
+
+    const {
+      search = "",
+      categoryId,
+      supplierId,
+      status,
+      sortBy = "createdAt-desc",
+      page,
+      limit,
+    } = parsed.data;
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // إذا كان البحث نصياً يحتوي على SKU أو Barcode، نجلب معرفات الـ templates أولاً
+    const safeSearch = sanitizeSearch(search);
+
+    /* =====================================================
+       Search inside variants
+    ===================================================== */
+
     let matchingTemplateIdsFromVariants: string[] = [];
-    if (search) {
-      const { data: variantMatches } = await supabaseAdmin
+
+    if (safeSearch) {
+      const { data: variantMatches, error } = await supabaseAdmin
         .from("product_variants")
         .select("templateId")
         .or(
-          `sku.ilike.%${search}%,barcode.ilike.%${search}%,packBarcode.ilike.%${search}%`,
+          `sku.ilike.%${safeSearch}%,barcode.ilike.%${safeSearch}%,packBarcode.ilike.%${safeSearch}%`,
         );
 
-      if (variantMatches && variantMatches.length > 0) {
-        matchingTemplateIdsFromVariants = [
-          ...new Set(variantMatches.map((v) => v.templateId)),
-        ];
-      }
-    }
+      if (error) {
+        console.error("Variant search error:", error);
 
-    // بناء الاستعلام الرئيسي
-    let query = supabaseAdmin.from("product_templates").select(
-      `
-        *,
-        category:categories(id, name),
-        supplier:suppliers(id, name),
-        variants:product_variants(*)
-      `,
-      { count: "exact" },
-    );
-
-    // 1. الفرز (Sorting)
-    const [sortColumn, sortOrder] = sortBy.split("-");
-    query = query.order(sortColumn || "createdAt", {
-      ascending: sortOrder === "asc",
-    });
-
-    // 2. البحث النصي
-    if (search) {
-      if (matchingTemplateIdsFromVariants.length > 0) {
-        query = query.or(
-          `name.ilike.%${search}%,id.in.(${matchingTemplateIdsFromVariants.join(",")})`,
+        return NextResponse.json(
+          {
+            message: "حدث خطأ أثناء البحث عن المنتجات.",
+          },
+          { status: 500 },
         );
-      } else {
-        query = query.ilike("name", `%${search}%`);
       }
-    }
 
-    // 3. فلترة الفئة والمورد
-    if (categoryId) query = query.eq("categoryId", categoryId);
-    if (supplierId) query = query.eq("supplierId", supplierId);
-
-    // 4. فلترة حالة المخزون
-    if (status === "outstock" || status === "instock") {
-      const { data: filteredVariants } = await supabaseAdmin
-        .from("product_variants")
-        .select("templateId")
-        .filter("stockQuantity", status === "outstock" ? "lte" : "gt", 0);
-
-      const templateIds = [
-        ...new Set(filteredVariants?.map((v) => v.templateId) || []),
+      matchingTemplateIdsFromVariants = [
+        ...new Set((variantMatches ?? []).map((variant) => variant.templateId)),
       ];
+    }
 
-      if (templateIds.length > 0) {
-        query = query.in("id", templateIds);
-      } else {
-        // إذا لم توجد أي نتيجة تطابق الشرط
+    /* =====================================================
+       Stock filter
+
+       We calculate for every template:
+
+       totalStock
+       totalMinStock
+
+       using ACTIVE variants only.
+    ===================================================== */
+
+    let stockFilteredTemplateIds: string[] | null = null;
+
+    if (status) {
+      const { data: stockRows, error } = await supabaseAdmin
+        .from("product_variants")
+        .select('templateId, "stockQuantity", "minStockLevel", "isActive"');
+
+      if (error) {
+        console.error("Stock filter error:", error);
+
+        return NextResponse.json(
+          {
+            message: "حدث خطأ أثناء فلترة المخزون.",
+          },
+          { status: 500 },
+        );
+      }
+
+      const grouped = new Map<
+        string,
+        {
+          totalStock: number;
+          totalMinStock: number;
+          activeCount: number;
+        }
+      >();
+
+      for (const row of stockRows ?? []) {
+        // المنتجات غير النشطة لا تدخل في حساب حالة المخزون
+        if (!row.isActive) {
+          continue;
+        }
+
+        const current = grouped.get(row.templateId) ?? {
+          totalStock: 0,
+          totalMinStock: 0,
+          activeCount: 0,
+        };
+
+        current.activeCount += 1;
+
+        current.totalStock += Number(row.stockQuantity ?? 0);
+
+        current.totalMinStock += Number(row.minStockLevel ?? 0);
+
+        grouped.set(row.templateId, current);
+      }
+
+      stockFilteredTemplateIds = [];
+
+      for (const [templateId, info] of grouped) {
+        /*
+         * إذا لم توجد variants نشطة فلا نعتبر المنتج
+         * متوفرًا أو منخفضًا أو نافدًا من خلال هذا الفلتر.
+         */
+        if (info.activeCount === 0) {
+          continue;
+        }
+
+        const isOutOfStock = info.totalStock <= 0;
+
+        const isLowStock =
+          info.totalStock > 0 && info.totalStock <= info.totalMinStock;
+
+        const isInStock = info.totalStock > info.totalMinStock;
+
+        if (
+          (status === "instock" && isInStock) ||
+          (status === "lowstock" && isLowStock) ||
+          (status === "outstock" && isOutOfStock)
+        ) {
+          stockFilteredTemplateIds.push(templateId);
+        }
+      }
+
+      /*
+       * لا توجد نتائج لهذا الفلتر.
+       */
+      if (stockFilteredTemplateIds.length === 0) {
         return NextResponse.json(
           {
             data: [],
-            meta: { total: 0, page, limit, totalPages: 0 },
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
           },
           { status: 200 },
         );
       }
     }
 
-    // تطبيق الـ Pagination
+    /* =====================================================
+       Main query
+    ===================================================== */
+
+    let query = supabaseAdmin
+      .from("product_templates")
+      .select(productListSelect, {
+        count: "exact",
+      });
+
+    /* =====================================================
+       Search
+    ===================================================== */
+
+    if (safeSearch) {
+      if (matchingTemplateIdsFromVariants.length > 0) {
+        query = query.or(
+          `name.ilike.%${safeSearch}%,id.in.(${matchingTemplateIdsFromVariants.join(",")})`,
+        );
+      } else {
+        query = query.ilike("name", `%${safeSearch}%`);
+      }
+    }
+
+    /* =====================================================
+       Category
+    ===================================================== */
+
+    if (categoryId) {
+      query = query.eq("categoryId", categoryId);
+    }
+
+    /* =====================================================
+       Preferred Supplier
+    ===================================================== */
+
+    if (supplierId) {
+      query = query.eq("supplierId", supplierId);
+    }
+
+    /* =====================================================
+       Stock
+    ===================================================== */
+
+    if (stockFilteredTemplateIds) {
+      query = query.in("id", stockFilteredTemplateIds);
+    }
+
+    /* =====================================================
+       Sorting
+    ===================================================== */
+
+    const sortMap = {
+      "createdAt-desc": {
+        column: "createdAt",
+        ascending: false,
+      },
+
+      "createdAt-asc": {
+        column: "createdAt",
+        ascending: true,
+      },
+
+      "name-asc": {
+        column: "name",
+        ascending: true,
+      },
+
+      "name-desc": {
+        column: "name",
+        ascending: false,
+      },
+    } as const;
+
+    const sort = sortMap[sortBy];
+
+    query = query.order(sort.column, {
+      ascending: sort.ascending,
+    });
+
+    /* =====================================================
+       Pagination
+    ===================================================== */
+
     query = query.range(from, to);
 
     const { data, error, count } = await query;
 
     if (error) {
+      console.error("Products GET error:", error);
+
       return NextResponse.json(
-        { message: `خطأ أثناء جلب البيانات: ${error.message}` },
-        { status: 400 },
+        {
+          message: "حدث خطأ أثناء جلب المنتجات.",
+        },
+        { status: 500 },
       );
     }
 
+    const total = count ?? 0;
+
     return NextResponse.json(
       {
-        data,
+        data: data ?? [],
+
         meta: {
-          total: count || 0,
+          total,
           page,
           limit,
-          totalPages: Math.ceil((count || 0) / limit),
+          totalPages: total === 0 ? 0 : Math.ceil(total / limit),
         },
       },
       { status: 200 },
     );
-  } catch (err: any) {
+  } catch (error: unknown) {
+    console.error("Products GET unexpected error:", error);
+
     return NextResponse.json(
       {
-        message: "خطأ غير متوقع في السيرفر أثناء جلب المنتجات",
-        error: err.message,
+        message: "خطأ غير متوقع في السيرفر.",
       },
       { status: 500 },
     );
   }
 }
 
-// 2. إنشاء منتج جديد مع متغيراته
+/* =========================================================
+   POST /api/products
+   Admin only
+   ========================================================= */
+
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const authError = await requireAdmin();
 
-    if (!session) {
-      return NextResponse.json(
-        { message: "غير مصرح لك بإجراء هذه العملية. يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
-      );
+    if (authError) {
+      return authError;
     }
 
     const body = await request.json();
 
-    // تنظيف القيم النصية الفارغة "" إلى null
-    if (body) {
-      Object.keys(body).forEach((key) => {
-        if (body[key] === "") body[key] = null;
-      });
-      if (Array.isArray(body.variants)) {
-        body.variants = body.variants.map((v: any) => {
-          Object.keys(v).forEach((k) => {
-            if (v[k] === "") v[k] = null;
-          });
-          return v;
-        });
-      }
-    }
-
-    // التحقق من صحة البيانات باستخدام Schema
     const validation = createProductSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(
         {
-          message: "بيانات المنتج المدخلة غير صحيحة",
+          message: "بيانات المنتج غير صحيحة.",
           errors: validation.error.flatten().fieldErrors,
         },
         { status: 422 },
@@ -173,66 +410,61 @@ export async function POST(request: Request) {
 
     const { variants, ...templateData } = validation.data;
 
-    // 1. إضافة المنتج الرئيسي (Product Template)
-    const { data: template, error: templateError } = await supabaseAdmin
-      .from("product_templates")
-      .insert([templateData])
-      .select(
-        `
-        *,
-        category:categories(id, name),
-        supplier:suppliers(id, name)
-      `,
-      )
-      .single();
+    /*
+     * hasVariants:
+     * لا يأتي من المستخدم.
+     *
+     * يتم حسابه من عدد الـ variants
+     * داخل transaction في PostgreSQL.
+     */
 
-    if (templateError || !template) {
+    const { data: productId, error } = await supabaseAdmin.rpc(
+      "create_product",
+      {
+        p_payload: {
+          ...templateData,
+          variants,
+        },
+      },
+    );
+
+    if (error) {
+      console.error("Create product RPC error:", error);
+
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            message:
+              "تعذر إنشاء المنتج بسبب تكرار SKU أو Barcode أو Pack Barcode.",
+          },
+          { status: 409 },
+        );
+      }
+
+      if (error.code === "22023" || error.code === "23503") {
+        return NextResponse.json({ message: error.message }, { status: 422 });
+      }
+
       return NextResponse.json(
-        { message: `فشل إنشاء المنتج الأساسي: ${templateError?.message}` },
-        { status: 400 },
+        { message: "فشل إنشاء المنتج." },
+        { status: 500 },
       );
     }
 
-    // 2. إعداد المتغيرات
-    const isSingleProduct = !template.hasVariants;
-    const preparedVariants = variants.map((variant, idx) => ({
-      templateId: template.id,
-      sku: variant.sku || `SKU-${Date.now().toString().slice(-6)}-${idx + 1}`,
-      barcode:
-        variant.barcode ||
-        Math.floor(100000000000 + Math.random() * 900000000000).toString(),
-      packBarcode: variant.packBarcode || null,
-      colorName: variant.colorName || null,
-      colorCode: variant.colorCode || null,
-      size: variant.size || null,
-      length: variant.length ?? null,
-      width: variant.width ?? null,
-      purchasePrice: variant.purchasePrice,
-      sellingPrice: variant.sellingPrice,
-      minSellingPrice: variant.minSellingPrice ?? null,
-      stockQuantity: variant.stockQuantity,
-      minStockLevel: variant.minStockLevel,
-      images: variant.images || [],
-      isDefault: isSingleProduct ? true : (variant.isDefault ?? idx === 0),
-      isActive: variant.isActive ?? true,
-    }));
+    const { data: product, error: fetchError } = await supabaseAdmin
+      .from("product_templates")
+      .select(productListSelect)
+      .eq("id", productId)
+      .single();
 
-    // 3. إدراج المتغيرات في قاعدة البيانات
-    const { data: insertedVariants, error: variantsError } = await supabaseAdmin
-      .from("product_variants")
-      .insert(preparedVariants)
-      .select();
-
-    if (variantsError) {
-      // Rollback
-      await supabaseAdmin
-        .from("product_templates")
-        .delete()
-        .eq("id", template.id);
+    if (fetchError || !product) {
+      console.error("Created product fetch error:", fetchError);
 
       return NextResponse.json(
-        { message: `فشل إنشاء متغيرات المنتج: ${variantsError.message}` },
-        { status: 400 },
+        {
+          message: "تم إنشاء المنتج لكن تعذر استرجاع بياناته.",
+        },
+        { status: 500 },
       );
     }
 
@@ -241,17 +473,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message: "تم إضافة المنتج بنجاح",
-        data: {
-          ...template,
-          variants: insertedVariants,
-        },
+        message: "تم إضافة المنتج بنجاح.",
+        data: product,
       },
       { status: 201 },
     );
-  } catch (err: any) {
+  } catch (error: unknown) {
+    console.error("Products POST unexpected error:", error);
+
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء إضافة المنتج", error: err.message },
+      { message: "خطأ غير متوقع أثناء إنشاء المنتج." },
       { status: 500 },
     );
   }

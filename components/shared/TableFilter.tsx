@@ -7,20 +7,27 @@ export type filterOption = {
   value: string;
 };
 
-type filterProps = {
+interface TableFilterProps {
   label: string;
   paramKey?: string;
   options: filterOption[];
-};
+}
 
-const TableFilter = ({ label, paramKey = "filter", options }: filterProps) => {
+const TableFilter = ({
+  label,
+  paramKey = "filter",
+  options,
+}: TableFilterProps) => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { replace } = useRouter();
+  const router = useRouter();
+
+  const currentValue = searchParams.get(paramKey) ?? "";
 
   const handleFilterChange = (value: string) => {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams.toString());
 
+    // أي تغيير في الفلتر يبدأ من الصفحة الأولى
     params.set("page", "1");
 
     if (value) {
@@ -29,20 +36,21 @@ const TableFilter = ({ label, paramKey = "filter", options }: filterProps) => {
       params.delete(paramKey);
     }
 
-    replace(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   return (
     <div className="relative">
       <select
-        value={searchParams.get(paramKey)?.toString() || ""}
-        onChange={(e) => handleFilterChange(e.target.value)}
-        className="w-full rounded-md md:rounded-lg bg-gray-50 px-3 md:px-6 py-1 md:py-2 text-sm text-gray-700 border border-gray-300 placeholder-gray-600 focus:border-red-500/20 focus:bg-white focus:outline-none focus:ring focus:ring-red-200 cursor-pointer"
+        value={currentValue}
+        onChange={(event) => handleFilterChange(event.target.value)}
+        className="cursor-pointer rounded-md border border-gray-300 bg-gray-50 px-3 py-1 text-sm text-gray-700 placeholder-gray-600 outline-none transition focus:border-red-500/20 focus:bg-white focus:ring focus:ring-red-200 md:rounded-lg md:px-6 md:py-2"
       >
         <option value="">{label}</option>
-        {options.map(({ label: optionLabel, value }) => (
-          <option key={value} value={value}>
-            {optionLabel}
+
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>

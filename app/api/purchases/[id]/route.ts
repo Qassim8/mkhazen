@@ -1,63 +1,102 @@
 import { NextResponse } from "next/server";
+
 import { revalidatePath, revalidateTag } from "next/cache";
+
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
+
 import { updatePurchaseOrderSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
+
 import {
+  allocateDeliveryCost,
   calculatePurchaseTotal,
   canDeletePurchaseOrder,
   canEditPurchaseOrder,
   fetchPurchaseOrderById,
+  PURCHASE_ORDER_SELECT,
 } from "../_lib/purchase-order";
+
+/* =========================================================
+   GET
+========================================================= */
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  {
+    params,
+  }: {
+    params: Promise<{
+      id: string;
+    }>;
+  },
 ) {
   try {
     const user = await getSession();
-    const { id } = await params;
+
     if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
         { status: 403 },
       );
     }
+
+    const { id } = await params;
 
     const { data, error } = await fetchPurchaseOrderById(id);
 
     if (error || !data) {
       return NextResponse.json(
-        { message: "طلب الشراء غير موجود" },
+        {
+          message: "طلب الشراء غير موجود",
+        },
         { status: 404 },
       );
     }
 
-    return NextResponse.json({ data });
-  } catch (err: unknown) {
+    return NextResponse.json({
+      data,
+    });
+  } catch (error: unknown) {
+    console.error("Purchase order GET:", error);
+
     return NextResponse.json(
       {
         message: "خطأ في السيرفر",
-        error: err instanceof Error ? err.message : String(err),
       },
       { status: 500 },
     );
   }
 }
 
+/* =========================================================
+   PATCH
+========================================================= */
+
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  {
+    params,
+  }: {
+    params: Promise<{
+      id: string;
+    }>;
+  },
 ) {
   try {
     const user = await getSession();
-    const { id } = await params;
+
     if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
         { status: 403 },
       );
     }
+
+    const { id } = await params;
 
     const { data: existingOrder, error: fetchError } = await supabaseAdmin
       .from("purchase_orders")
@@ -67,7 +106,9 @@ export async function PATCH(
 
     if (fetchError || !existingOrder) {
       return NextResponse.json(
-        { message: "طلب الشراء غير موجود" },
+        {
+          message: "طلب الشراء غير موجود",
+        },
         { status: 404 },
       );
     }
@@ -75,16 +116,21 @@ export async function PATCH(
     if (!canEditPurchaseOrder(existingOrder.status)) {
       return NextResponse.json(
         {
-          message:
-            "لا يمكن تعديل الطلب إلا وهو مسودة. الشراء المباشر والمعتمد والمستلم غير قابل للتعديل.",
+          message: "لا يمكن تعديل طلب الشراء إلا عندما يكون مسودة",
         },
         { status: 400 },
       );
     }
 
     const body = await request.json();
-    if (body.supplierId === "") body.supplierId = null;
-    if (body.expectedDate === "") body.expectedDate = null;
+
+    if (body.supplierId === "") {
+      body.supplierId = null;
+    }
+
+    if (body.expectedDate === "") {
+      body.expectedDate = null;
+    }
 
     const validation = updatePurchaseOrderSchema.safeParse({
       ...body,
@@ -95,6 +141,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           message: "بيانات التعديل غير صالحة",
+
           errors: validation.error.flatten().fieldErrors,
         },
         { status: 422 },
@@ -102,57 +149,80 @@ export async function PATCH(
     }
 
     const {
+      supplierId,
+      orderDate,
       expectedDate,
       notes,
-      supplierId,
       items,
-      orderDate,
       deliveryCost,
       discountAmount,
     } = validation.data;
+
+    /* =====================================================
+       Update order fields
+    ===================================================== */
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
-    if (orderDate !== undefined) updateData.order_date = orderDate;
-    if (expectedDate !== undefined) updateData.expected_date = expectedDate;
-    if (notes !== undefined) updateData.notes = notes;
-    if (supplierId !== undefined) updateData.supplier_id = supplierId || null;
-    if (deliveryCost !== undefined) updateData.delivery_cost = deliveryCost;
-    if (discountAmount !== undefined)
-      updateData.discount_amount = discountAmount;
+    if (orderDate !== undefined) {
+      updateData.order_date = orderDate;
+    }
 
-    // تحديد أرقام الشحن والخصم المحدثة أو الحالية للحسابات
+    if (expectedDate !== undefined) {
+      updateData.expected_date = expectedDate;
+    }
+
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+
+    if (supplierId !== undefined) {
+      updateData.supplier_id = supplierId;
+    }
+
+    const currentDeliveryCost = Number(existingOrder.delivery_cost ?? 0);
+
+    const currentDiscount = Number(existingOrder.discount_amount ?? 0);
+
     const activeDeliveryCost =
-      deliveryCost !== undefined
-        ? Number(deliveryCost)
-        : Number(existingOrder.delivery_cost || 0);
+      deliveryCost !== undefined ? Number(deliveryCost) : currentDeliveryCost;
 
     const activeDiscountAmount =
-      discountAmount !== undefined
-        ? Number(discountAmount)
-        : Number(existingOrder.discount_amount || 0);
+      discountAmount !== undefined ? Number(discountAmount) : currentDiscount;
+
+    /* =====================================================
+       If items are changed
+    ===================================================== */
 
     if (items) {
       const itemsSubtotal = items.reduce(
         (sum, item) => sum + item.quantity * item.unitCost,
         0,
       );
-      updateData.subtotal = itemsSubtotal;
-      updateData.total_amount = calculatePurchaseTotal(
+
+      /*
+       * Prevent negative final total.
+       */
+      const totalAmount = calculatePurchaseTotal(
         items,
         activeDeliveryCost,
         activeDiscountAmount,
       );
+
+      updateData.subtotal = Number(itemsSubtotal.toFixed(2));
+
+      updateData.total_amount = totalAmount;
     } else if (deliveryCost !== undefined || discountAmount !== undefined) {
       const { data: currentItems } = await supabaseAdmin
         .from("purchase_order_items")
         .select("quantity, unit_cost")
         .eq("purchase_order_id", id);
 
-      const mappedItems = (currentItems || []).map((item) => ({
+      const mappedItems = (currentItems ?? []).map((item) => ({
         quantity: Number(item.quantity),
+
         unitCost: Number(item.unit_cost),
       }));
 
@@ -160,7 +230,9 @@ export async function PATCH(
         (sum, item) => sum + item.quantity * item.unitCost,
         0,
       );
-      updateData.subtotal = itemsSubtotal;
+
+      updateData.subtotal = Number(itemsSubtotal.toFixed(2));
+
       updateData.total_amount = calculatePurchaseTotal(
         mappedItems,
         activeDeliveryCost,
@@ -168,46 +240,70 @@ export async function PATCH(
       );
     }
 
-    const { error } = await supabaseAdmin
+    /* =====================================================
+       Update main order
+    ===================================================== */
+
+    const { error: orderUpdateError } = await supabaseAdmin
       .from("purchase_orders")
       .update(updateData)
       .eq("id", id);
 
-    if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
+    if (orderUpdateError) {
+      return NextResponse.json(
+        {
+          message: orderUpdateError.message,
+        },
+        { status: 400 },
+      );
     }
 
-    // إعادة تجهيز بنود الطلب في حال تم إرسال قائمة جديدة
+    /* =====================================================
+       Replace items
+
+       Safe because only DRAFT orders are editable.
+    ===================================================== */
+
     if (items) {
-      await supabaseAdmin
+      const { error: deleteItemsError } = await supabaseAdmin
         .from("purchase_order_items")
         .delete()
         .eq("purchase_order_id", id);
 
-      const itemsSubtotal = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitCost,
-        0,
-      );
+      if (deleteItemsError) {
+        return NextResponse.json(
+          {
+            message: deleteItemsError.message,
+          },
+          { status: 400 },
+        );
+      }
 
-      const formattedItems = items.map((item) => {
+      const allocated = allocateDeliveryCost(activeDeliveryCost, items);
+
+      const formattedItems = items.map((item, index) => {
+        const deliveryData = allocated[index];
+
         const itemSubtotal = item.quantity * item.unitCost;
-        const shareRatio = itemsSubtotal > 0 ? itemSubtotal / itemsSubtotal : 0;
-        const allocatedDeliveryCost =
-          item.quantity > 0
-            ? (activeDeliveryCost * shareRatio) / item.quantity
-            : 0;
-        const effectiveUnitCost = item.unitCost + allocatedDeliveryCost;
 
         return {
           purchase_order_id: id,
+
           template_id: item.templateId,
+
           variant_id: item.variantId,
+
           quantity: item.quantity,
-          unit_cost: item.unitCost,
-          allocated_delivery_cost: Number(allocatedDeliveryCost.toFixed(2)),
-          effective_unit_cost: Number(effectiveUnitCost.toFixed(2)),
-          subtotal: itemSubtotal,
+
           received_quantity: 0,
+
+          unit_cost: Number(item.unitCost.toFixed(2)),
+
+          allocated_delivery_cost: deliveryData.allocatedDeliveryCost,
+
+          effective_unit_cost: deliveryData.effectiveUnitCost,
+
+          subtotal: Number(itemSubtotal.toFixed(2)),
         };
       });
 
@@ -217,48 +313,68 @@ export async function PATCH(
 
       if (insertItemsError) {
         return NextResponse.json(
-          { message: insertItemsError.message },
+          {
+            message: insertItemsError.message,
+          },
           { status: 400 },
         );
       }
     }
 
+    /* =====================================================
+       Cache
+    ===================================================== */
+
     revalidateTag("purchases-list", "default");
+
     revalidatePath("/dashboard/orders");
 
-    const { data: mapped } = await fetchPurchaseOrderById(id);
+    const { data } = await fetchPurchaseOrderById(id);
 
-    return NextResponse.json(
-      {
-        message: "تم تحديث طلب الشراء بنجاح",
-        data: mapped,
-      },
-      { status: 200 },
-    );
-  } catch (err: unknown) {
+    return NextResponse.json({
+      message: "تم تحديث طلب الشراء بنجاح",
+
+      data,
+    });
+  } catch (error: unknown) {
+    console.error("Purchase order PATCH:", error);
+
     return NextResponse.json(
       {
         message: "خطأ في السيرفر",
-        error: err instanceof Error ? err.message : String(err),
       },
       { status: 500 },
     );
   }
 }
 
+/* =========================================================
+   DELETE
+========================================================= */
+
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  {
+    params,
+  }: {
+    params: Promise<{
+      id: string;
+    }>;
+  },
 ) {
   try {
     const user = await getSession();
-    const { id } = await params;
+
     if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
         { status: 403 },
       );
     }
+
+    const { id } = await params;
 
     const { data: existingOrder } = await supabaseAdmin
       .from("purchase_orders")
@@ -268,7 +384,9 @@ export async function DELETE(
 
     if (!existingOrder) {
       return NextResponse.json(
-        { message: "طلب الشراء غير موجود" },
+        {
+          message: "طلب الشراء غير موجود",
+        },
         { status: 404 },
       );
     }
@@ -276,8 +394,7 @@ export async function DELETE(
     if (!canDeletePurchaseOrder(existingOrder.status)) {
       return NextResponse.json(
         {
-          message:
-            "لا يمكن حذف الطلب إلا وهو مسودة. بعد الموافقة أو الشراء المباشر لا يمكن الحذف.",
+          message: "لا يمكن حذف طلب الشراء إلا عندما يكون مسودة",
         },
         { status: 400 },
       );
@@ -289,21 +406,27 @@ export async function DELETE(
       .eq("id", id);
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
+      return NextResponse.json(
+        {
+          message: error.message,
+        },
+        { status: 400 },
+      );
     }
 
     revalidateTag("purchases-list", "default");
+
     revalidatePath("/dashboard/orders");
 
-    return NextResponse.json(
-      { message: "تم حذف طلب الشراء بنجاح" },
-      { status: 200 },
-    );
-  } catch (err: unknown) {
+    return NextResponse.json({
+      message: "تم حذف طلب الشراء بنجاح",
+    });
+  } catch (error: unknown) {
+    console.error("Purchase order DELETE:", error);
+
     return NextResponse.json(
       {
         message: "خطأ في السيرفر",
-        error: err instanceof Error ? err.message : String(err),
       },
       { status: 500 },
     );

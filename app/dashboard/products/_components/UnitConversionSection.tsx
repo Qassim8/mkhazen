@@ -13,24 +13,18 @@ interface Props {
   setValue: UseFormSetValue<ProductFormInputType>;
 }
 
-export default function UnitConversionSection({
-  register,
-  watch,
-  setValue,
-}: Props) {
+export default function UnitConversionSection({ register, watch }: Props) {
   const purchaseUnit = watch("purchaseUnit");
   const sellingUnit = watch("sellingUnit");
 
   const rawConversionFactor = watch("conversionFactor");
   const rawPurchasePrice = watch("variants.0.purchasePrice");
 
-  const conversionFactor = Number(rawConversionFactor) || 1;
+  const conversionFactor = Number(rawConversionFactor);
   const purchasePrice = Number(rawPurchasePrice) || 0;
 
   const unitCost =
-    conversionFactor > 0
-      ? (purchasePrice / conversionFactor).toFixed(2)
-      : "0.00";
+    conversionFactor > 0 ? (purchasePrice / conversionFactor).toFixed(2) : "—";
 
   const isDifferentUnits = purchaseUnit !== sellingUnit;
 

@@ -56,7 +56,6 @@ export default function AddProductClient({
       purchaseUnit: "قطعة",
       sellingUnit: "قطعة",
       conversionFactor: 1,
-      hasVariants: false,
       images: [],
       isActive: true,
       isVisible: true,
@@ -71,7 +70,6 @@ export default function AddProductClient({
           purchasePrice: 0,
           sellingPrice: 0,
           minSellingPrice: 0,
-          stockQuantity: 0,
           minStockLevel: 5,
           isDefault: true,
           isActive: true,
@@ -81,16 +79,39 @@ export default function AddProductClient({
     },
   });
 
-  const hasVariants = watch("hasVariants");
   const currentImages = watch("images") ?? [];
   const currentVariants = watch("variants") ?? [];
+  const hasVariants = currentVariants.length > 1;
 
   // التبديل بين نوع المنتج (مفرد / متعدد المتغيرات)
   const toggleHasVariants = (value: boolean) => {
-    setValue("hasVariants", value, { shouldValidate: true });
-
-    if (!value) {
-      const firstVariant = currentVariants?.[0] || {};
+    if (value) {
+      // الانتقال إلى منتج متعدد
+      if (currentVariants.length < 2) {
+        setValue("variants", [
+          ...currentVariants,
+          {
+            sku: "",
+            barcode: "",
+            packBarcode: "",
+            size: "",
+            colorName: "",
+            colorCode: "#000000",
+            length: undefined,
+            width: undefined,
+            purchasePrice: 0,
+            sellingPrice: 0,
+            minSellingPrice: 0,
+            minStockLevel: 5,
+            isDefault: false,
+            isActive: true,
+            images: [],
+          },
+        ]);
+      }
+    } else {
+      // الانتقال إلى منتج فردي
+      const firstVariant = currentVariants[0];
 
       setValue("variants", [
         {
@@ -98,6 +119,8 @@ export default function AddProductClient({
           colorName: null,
           colorCode: null,
           size: null,
+          length: null,
+          width: null,
           isDefault: true,
         },
       ]);
@@ -115,7 +138,7 @@ export default function AddProductClient({
         Array.from(filesList).map((file) => uploadImage(file, "products")),
       );
 
-      setValue("images", [...currentImages, ...uploadedUrls].slice(0, 5), {
+      setValue("images", [...currentImages, ...uploadedUrls].slice(0, 4), {
         shouldValidate: true,
       });
       toast.success("تم رفع الصور بنجاح!");
@@ -135,7 +158,7 @@ export default function AddProductClient({
     );
   };
 
-  // 2. رفع وتمرير صور المتغيرات (جديدة لتغطية كافّة الأجزاء)
+  // 2. رفع وتمرير صور المتغيرات
   const handleVariantImageChange = async (
     variantIndex: number,
     e: React.ChangeEvent<HTMLInputElement>,
@@ -152,7 +175,7 @@ export default function AddProductClient({
       const existingVariantImages = currentVariants[variantIndex]?.images || [];
       setValue(
         `variants.${variantIndex}.images`,
-        [...existingVariantImages, ...uploadedUrls].slice(0, 5),
+        [...existingVariantImages, ...uploadedUrls].slice(0, 4),
         { shouldValidate: true },
       );
       toast.success("تم رفع صور المتغير بنجاح!");

@@ -1,140 +1,312 @@
 import { z } from "zod";
 
-// 1. Schema المتغير الواحد
-export const variantSchema = z.object({
-  sku: z.string().nullable().optional(),
-  barcode: z.string().nullable().optional(),
-  packBarcode: z.string().nullable().optional(),
-  colorName: z.string().nullable().optional(),
-  colorCode: z.string().nullable().optional(),
-  size: z.string().nullable().optional(),
-  length: z.number().nullable().optional(),
-  width: z.number().nullable().optional(),
-  purchasePrice: z.number({ error: "سعر الشراء مطلوب" }),
-  sellingPrice: z.number({ error: "سعر البيع مطلوب" }),
-  minSellingPrice: z.number().nullable().optional(),
-  stockQuantity: z.number().default(0),
-  minStockLevel: z.number().default(5),
-  isDefault: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-  images: z.array(z.string()).optional(),
-});
+/* =========================================================
+   Helpers
+========================================================= */
 
-// 2. المخطط الأساسي كـ ZodObject كائن مباشر
-export const baseProductSchema = z.object({
-  name: z.string().min(1, "اسم المنتج مطلوب"),
-  description: z.string().optional().nullable(),
-  categoryId: z.string().optional().nullable(),
-  supplierId: z.string().optional().nullable(),
+const nullableOptionalString = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.string().trim().nullable().optional(),
+);
+const nullableOptionalUuid = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.string().uuid().nullable().optional(),
+);
 
-  purchaseUnit: z.string().default("طاقة"),
-  sellingUnit: z.string().default("متر"),
-  conversionFactor: z.coerce
-    .number()
-    .min(0.01, "معامل التحويل يجب أن يكون أكبر من صفر")
-    .default(1),
+/* =========================================================
+   Variant Schema
+========================================================= */
 
-  images: z.array(z.string()).default([]),
-  hasVariants: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  isVisible: z.boolean().default(true),
+export const variantSchema = z
+  .object({
+    sku: nullableOptionalString,
 
-  variants: z
-    .array(variantSchema)
-    .min(1, "يجب إدخال بيانات السعر والكمية للمنتج على الأقل"),
-});
+    barcode: nullableOptionalString,
 
-// دالة التحقق الشرطي للتحقق من المنطق الخاص بالمتغيرات
-const validateProductVariants = (
-  data: z.infer<typeof baseProductSchema>,
-  ctx: z.RefinementCtx,
-) => {
-  // حالة 1: منتج فردي (hasVariants = false)
-  if (!data.hasVariants) {
-    if (data.variants && data.variants.length > 1) {
+    packBarcode: nullableOptionalString,
+
+    colorName: nullableOptionalString,
+
+    colorCode: nullableOptionalString,
+
+    size: nullableOptionalString,
+
+    length: z.number().nonnegative().nullable().optional(),
+
+    width: z.number().nonnegative().nullable().optional(),
+
+    purchasePrice: z.number().nonnegative({
+      error: "سعر الشراء لا يمكن أن يكون سالبًا",
+    }),
+
+    sellingPrice: z.number().nonnegative({
+      error: "سعر البيع لا يمكن أن يكون سالبًا",
+    }),
+
+    minSellingPrice: z.number().nonnegative().nullable().optional(),
+
+    minStockLevel: z.number().nonnegative().default(5),
+
+    isDefault: z.boolean().default(false),
+
+    isActive: z.boolean().default(true),
+
+    images: z.array(z.string().url()).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.minSellingPrice !== null &&
+      data.minSellingPrice !== undefined &&
+      data.minSellingPrice > data.sellingPrice
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "المنتج الفردي لا يمكن أن يحتوي على أكثر من متغير واحد",
+        message: "الحد الأدنى لسعر البيع لا يمكن أن يكون أكبر من سعر البيع",
+        path: ["minSellingPrice"],
+      });
+    }
+  });
+
+/* =========================================================
+   Base Product Fields
+
+   IMPORTANT:
+   لا يوجد superRefine هنا حتى نستطيع
+   استخدام .partial() في update schema.
+========================================================= */
+
+export const baseProductFields = z.object({
+  name: z.string().trim().min(1, "اسم المنتج مطلوب"),
+
+  description: z.string().optional().nullable(),
+
+  categoryId: nullableOptionalUuid,
+
+  supplierId: nullableOptionalUuid,
+
+  purchaseUnit: z.string().trim().min(1, "وحدة الشراء مطلوبة"),
+
+  sellingUnit: z.string().trim().min(1, "وحدة البيع مطلوبة"),
+
+  conversionFactor: z.coerce
+    .number()
+    .positive("معامل التحويل يجب أن يكون أكبر من صفر"),
+
+  images: z.array(z.string().url()).default([]),
+
+  isActive: z.boolean().default(true),
+
+  isVisible: z.boolean().default(true),
+});
+
+/* =========================================================
+   Create Validation
+========================================================= */
+
+const validateCreateProduct = (
+  data: {
+    purchaseUnit: string;
+    sellingUnit: string;
+    conversionFactor: number;
+    variants: Array<{
+      isDefault?: boolean;
+    }>;
+  },
+  ctx: z.RefinementCtx,
+) => {
+  /* -------------------------------------------------------
+     Conversion validation
+  ------------------------------------------------------- */
+
+  if (data.purchaseUnit === data.sellingUnit && data.conversionFactor !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "معامل التحويل يجب أن يكون 1 عندما تكون وحدات الشراء والبيع متطابقة",
+      path: ["conversionFactor"],
+    });
+  }
+
+  /* -------------------------------------------------------
+     Variant validation
+
+     hasVariants is derived:
+     1 variant  = simple product
+     2+ variants = product with variants
+  ------------------------------------------------------- */
+
+  const variantsCount = data.variants.length;
+
+  const hasVariants = variantsCount > 1;
+
+  const defaultCount = data.variants.filter(
+    (variant) => variant.isDefault === true,
+  ).length;
+
+  if (hasVariants) {
+    if (defaultCount !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "يجب تحديد متغير افتراضي واحد فقط",
         path: ["variants"],
       });
     }
-  }
-
-  // حالة 2: منتج متعدد الخيارات (hasVariants = true)
-  if (data.hasVariants && data.variants) {
-    const hasDefaultVariant = data.variants.some((v) => v.isDefault);
-    if (!hasDefaultVariant && data.variants.length > 0) {
+  } else {
+    if (variantsCount !== 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "يجب تحديد متغير افتراضي واحد على الأقل للمنتج المتعدد",
+        message: "المنتج الفردي يجب أن يحتوي على متغير واحد فقط",
         path: ["variants"],
+      });
+    }
+
+    if (variantsCount === 1 && data.variants[0]?.isDefault !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "المتغير الوحيد يجب أن يكون المتغير الافتراضي",
+        path: ["variants", 0, "isDefault"],
       });
     }
   }
 };
 
-// 3. مخطط الإنشاء ومخطط التحديث
-export const createProductSchema = baseProductSchema.superRefine(
-  validateProductVariants,
-);
+/* =========================================================
+   Create Variant
+========================================================= */
 
-export const updateProductSchema = baseProductSchema
+export const createVariantSchema = variantSchema;
+
+/* =========================================================
+   Update Variant
+========================================================= */
+
+export const updateVariantSchema = variantSchema.extend({
+  id: z.string().uuid().optional(),
+});
+
+/* =========================================================
+   Create Product
+========================================================= */
+
+export const createProductSchema = baseProductFields
+  .extend({
+    variants: z
+      .array(createVariantSchema)
+      .min(1, "يجب إدخال بيانات المتغير للمنتج"),
+  })
+  .superRefine(validateCreateProduct);
+
+/* =========================================================
+   Update Product
+========================================================= */
+
+export const updateProductSchema = baseProductFields
   .partial()
+  .extend({
+    variants: z.array(updateVariantSchema).optional(),
+  })
   .superRefine((data, ctx) => {
-    // تشغيل التحقق الشرطي فقط في حال وجود الخواص المرتبطة بالتعديل
-    if (data.hasVariants !== undefined && data.variants !== undefined) {
-      validateProductVariants(data as z.infer<typeof baseProductSchema>, ctx);
+    /*
+     * في PATCH/PUT قد لا تصل كل حقول الوحدات.
+     * لذلك نتحقق عندما تكون الثلاثة موجودة.
+     */
+
+    if (
+      data.purchaseUnit !== undefined &&
+      data.sellingUnit !== undefined &&
+      data.conversionFactor !== undefined &&
+      data.purchaseUnit === data.sellingUnit &&
+      data.conversionFactor !== 1
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "معامل التحويل يجب أن يكون 1 عندما تكون وحدات الشراء والبيع متطابقة",
+        path: ["conversionFactor"],
+      });
     }
   });
 
+/* =========================================================
+   Product Schema
+========================================================= */
+
 export const productSchema = createProductSchema;
 
-// 4. الأنواع المشتقة من Zod
-export type ProductFormInputType = z.input<typeof createProductSchema>;
-export type ProductFormOutputType = z.output<typeof createProductSchema>;
-export type CreateProductFormInput = ProductFormInputType;
-export type CreateProductFormOutput = ProductFormOutputType;
-export type UpdateProductFormInput = z.input<typeof updateProductSchema>;
-export type UpdateProductFormOutput = z.output<typeof updateProductSchema>;
+/* =========================================================
+   Form / API Input Types
+========================================================= */
 
-export type VariantFormInput = z.input<typeof variantSchema>;
-export type VariantFormOutput = z.output<typeof variantSchema>;
+export type CreateProductInput = z.infer<typeof createProductSchema>;
 
-// 5. Interfaces الخاصة بالبيانات المرجعة من قاعدة البيانات (DB Entities)
+export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+
+export type VariantInput = z.infer<typeof variantSchema>;
+
+/* =========================================================
+   Database / API Response Types
+
+   These are NOT form inputs.
+   They include generated fields مثل:
+   id, stockQuantity, timestamps...
+========================================================= */
+
 export interface ProductVariant {
   id: string;
-  sku?: string;
-  barcode?: string;
-  purchasePrice?: number;
-  sellingPrice?: number;
-  stockQuantity?: number;
-  attributes?: Record<string, string>;
-  images?: string[];
-  colorName?: string;
-  colorCode?: string;
-  width?: number;
-  length?: number;
-  size?: string;
-}
+  templateId: string;
 
-export interface ProductTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  sku?: string; // الـ SKU العام إن وجد
-  barcode?: string;
-  minStockLevel?: number;
-  sellingUnit?: string;
-  purchaseUnit?: string;
-  category?: { name: string };
-  supplier?: { name: string };
-  images?: string[];
-  variants: ProductVariant[];
+  sku: string | null;
+  barcode: string | null;
+  packBarcode: string | null;
+
+  colorName: string | null;
+  colorCode: string | null;
+
+  size: string | null;
+
+  length: number | null;
+  width: number | null;
+
+  purchasePrice: number;
+  sellingPrice: number;
+
+  minSellingPrice: number | null;
+  stockQuantity: number;
+  minStockLevel: number | null;
+
+  images: string[];
+
+  isDefault: boolean;
   isActive: boolean;
-  isVisible: boolean;
-  hasVariants: boolean;
+
   createdAt: string;
   updatedAt: string;
 }
 
-export type Product = ProductTemplate;
+export interface Product {
+  id: string;
+
+  name: string;
+  description: string | null;
+
+  categoryId: string | null;
+  supplierId: string | null;
+
+  hasVariants: boolean;
+
+  purchaseUnit: string | null;
+  sellingUnit: string | null;
+  conversionFactor: number | null;
+
+  images: string[];
+
+  isActive: boolean;
+  isVisible: boolean;
+
+  createdAt: string;
+  updatedAt: string;
+
+  variants: ProductVariant[];
+}

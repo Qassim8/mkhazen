@@ -1,101 +1,173 @@
 import { NextResponse } from "next/server";
+
 import { revalidatePath, revalidateTag } from "next/cache";
+
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
-import { createPurchaseOrderSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
+
 import {
+  createPurchaseOrderSchema,
+  purchaseQuerySchema,
+} from "@/app/dashboard/orders/schemas/orders.schemas";
+
+import {
+  allocateDeliveryCost,
   mapPurchaseOrder,
   notifyOwnerForDraft,
   processPurchaseReceipt,
   PURCHASE_ORDER_SELECT,
 } from "./_lib/purchase-order";
 
+/* =========================================================
+   GET
+========================================================= */
+
 export async function GET(request: Request) {
   try {
     const user = await getSession();
+
     if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
         { status: 403 },
       );
     }
 
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || "";
-    const status = searchParams.get("status");
-    const purchaseType = searchParams.get("purchaseType");
-    const supplierId = searchParams.get("supplierId");
-    const sort = searchParams.get("sort") || "date_desc";
-    const page = Math.max(1, Number(searchParams.get("page") || "1"));
-    const limit = Math.min(
-      100,
-      Math.max(1, Number(searchParams.get("limit") || "10")),
-    );
+
+    const parsed = purchaseQuerySchema.safeParse({
+      page: searchParams.get("page"),
+
+      limit: searchParams.get("limit"),
+
+      search: searchParams.get("search") || undefined,
+
+      status: searchParams.get("status") || undefined,
+
+      purchaseType: searchParams.get("purchaseType") || undefined,
+
+      supplierId: searchParams.get("supplierId") || undefined,
+    });
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          message: "معاملات الطلب غير صحيحة",
+          errors: parsed.error.flatten().fieldErrors,
+        },
+        { status: 422 },
+      );
+    }
+
+    const { page, limit, search, status, purchaseType, supplierId } =
+      parsed.data;
 
     const from = (page - 1) * limit;
+
     const to = from + limit - 1;
 
     let query = supabaseAdmin
       .from("purchase_orders")
-      .select(PURCHASE_ORDER_SELECT, { count: "exact" });
+      .select(PURCHASE_ORDER_SELECT, {
+        count: "exact",
+      });
 
-    if (search) query = query.ilike("order_number", `%${search}%`);
-    if (status && status !== "ALL") query = query.eq("status", status);
-    if (purchaseType && purchaseType !== "ALL")
+    if (search) {
+      query = query.ilike("order_number", `%${search}%`);
+    }
+
+    if (status && status !== "ALL") {
+      query = query.eq("status", status);
+    }
+
+    if (purchaseType && purchaseType !== "ALL") {
       query = query.eq("purchase_type", purchaseType);
-    if (supplierId) query = query.eq("supplier_id", supplierId);
+    }
 
-    const sortColumn = sort.startsWith("total") ? "total_amount" : "order_date";
-    const ascending = sort.endsWith("asc");
+    if (supplierId) {
+      query = query.eq("supplier_id", supplierId);
+    }
+
     const { data, count, error } = await query
-      .order(sortColumn, { ascending })
+      .order("order_date", {
+        ascending: false,
+      })
       .range(from, to);
 
     if (error) {
-      return NextResponse.json({ message: error.message }, { status: 400 });
+      console.error("Purchase orders GET:", error);
+
+      return NextResponse.json(
+        {
+          message: "حدث خطأ أثناء جلب طلبات الشراء",
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({
-      data: (data || []).map((order) =>
+      data: (data ?? []).map((order) =>
         mapPurchaseOrder(order as Record<string, unknown>),
       ),
+
       meta: {
-        totalCount: count || 0,
-        totalPages: count ? Math.ceil(count / limit) : 0,
-        currentPage: page,
+        total: count ?? 0,
+
+        page,
+
         limit,
+
+        totalPages: count ? Math.ceil(count / limit) : 0,
       },
     });
-  } catch (err: unknown) {
+  } catch (error: unknown) {
+    console.error("Purchase orders GET unexpected:", error);
+
     return NextResponse.json(
       {
-        message: "خطأ في السيرفر",
-        error: err instanceof Error ? err.message : String(err),
+        message: "خطأ غير متوقع في السيرفر",
       },
       { status: 500 },
     );
   }
 }
 
+/* =========================================================
+   POST
+========================================================= */
+
 export async function POST(request: Request) {
   try {
     const user = await getSession();
+
     if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
         { status: 403 },
       );
     }
 
     const body = await request.json();
-    if (body.supplierId === "") body.supplierId = null;
-    if (body.expectedDate === "") body.expectedDate = null;
+
+    if (body.supplierId === "") {
+      body.supplierId = null;
+    }
+
+    if (body.expectedDate === "") {
+      body.expectedDate = null;
+    }
 
     const validation = createPurchaseOrderSchema.safeParse(body);
+
     if (!validation.success) {
       return NextResponse.json(
         {
           message: "خطأ في البيانات المدخلة",
+
           errors: validation.error.flatten().fieldErrors,
         },
         { status: 422 },
@@ -110,72 +182,131 @@ export async function POST(request: Request) {
       expectedDate,
       notes,
       items,
-      status,
-      deliveryCost = 0,
-      discountAmount = 0,
+      deliveryCost,
+      discountAmount,
     } = validation.data;
 
+    /*
+     * Server controls the initial status.
+     */
     const isDirect = purchaseType === "DIRECT";
-    const finalStatus = isDirect ? "RECEIVED" : status;
 
-    // 1. حساب الإجمالي الصافي
+    const finalStatus = isDirect ? "RECEIVED" : "DRAFT";
+
+    /* =====================================================
+       Validate supplier
+    ===================================================== */
+
+    if (supplierId) {
+      const { data: supplier, error: supplierError } = await supabaseAdmin
+        .from("suppliers")
+        .select("id")
+        .eq("id", supplierId)
+        .single();
+
+      if (supplierError || !supplier) {
+        return NextResponse.json(
+          {
+            message: "المورد المحدد غير موجود",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    /* =====================================================
+       Calculate subtotal
+    ===================================================== */
+
     const itemsSubtotal = items.reduce(
       (sum, item) => sum + item.quantity * item.unitCost,
       0,
     );
-    const totalAmount = itemsSubtotal + deliveryCost - discountAmount;
+
+    const totalAmount = Number(
+      Math.max(0, itemsSubtotal + deliveryCost - discountAmount).toFixed(2),
+    );
 
     const finalOrderNumber =
-      orderNumber || `PO-${Date.now().toString().slice(-6)}`;
+      orderNumber || `PO-${Date.now().toString().slice(-8)}`;
 
-    // 2. إنشاء أمر الشراء الرئيسي
+    /* =====================================================
+       Insert order
+    ===================================================== */
+
     const { data: newOrder, error: orderError } = await supabaseAdmin
       .from("purchase_orders")
-      .insert([
-        {
-          order_number: finalOrderNumber,
-          supplier_id: supplierId || null,
-          status: finalStatus,
-          purchase_type: purchaseType,
-          order_date: orderDate,
-          expected_date: expectedDate || null,
-          subtotal: itemsSubtotal,
-          delivery_cost: deliveryCost,
-          discount_amount: discountAmount,
-          total_amount: totalAmount,
-          notes: notes || null,
-          created_by: user.userId || null,
-        },
-      ])
+      .insert({
+        order_number: finalOrderNumber,
+
+        supplier_id: supplierId ?? null,
+
+        status: finalStatus,
+
+        purchase_type: purchaseType,
+
+        order_date: orderDate,
+
+        expected_date: expectedDate ?? null,
+
+        subtotal: Number(itemsSubtotal.toFixed(2)),
+
+        delivery_cost: deliveryCost,
+
+        discount_amount: discountAmount,
+
+        total_amount: totalAmount,
+
+        notes: notes ?? null,
+
+        created_by: user.userId ?? null,
+      })
       .select()
       .single();
 
-    if (orderError) {
+    if (orderError || !newOrder) {
+      console.error("Create purchase order:", orderError);
+
       return NextResponse.json(
-        { message: orderError.message },
+        {
+          message: orderError?.message ?? "تعذر إنشاء طلب الشراء",
+        },
         { status: 400 },
       );
     }
 
-    // 3. تجهيز البنود وتحديد received_quantity بحسب نوع الطلب
-    const formattedItems = items.map((item) => {
+    /* =====================================================
+       Delivery allocation
+
+       IMPORTANT:
+       Equal distribution between ITEMS.
+    ===================================================== */
+
+    const allocated = allocateDeliveryCost(deliveryCost, items);
+
+    const formattedItems = items.map((item, index) => {
+      const deliveryData = allocated[index];
+
       const itemSubtotal = item.quantity * item.unitCost;
-      const shareRatio = itemsSubtotal > 0 ? itemSubtotal / itemsSubtotal : 0;
-      const allocatedDeliveryCost =
-        item.quantity > 0 ? (deliveryCost * shareRatio) / item.quantity : 0;
-      const effectiveUnitCost = item.unitCost + allocatedDeliveryCost;
 
       return {
         purchase_order_id: newOrder.id,
+
         template_id: item.templateId,
+
         variant_id: item.variantId,
+
         quantity: item.quantity,
-        unit_cost: item.unitCost,
-        allocated_delivery_cost: Number(allocatedDeliveryCost.toFixed(2)),
-        effective_unit_cost: Number(effectiveUnitCost.toFixed(2)),
-        subtotal: itemSubtotal,
-        // في الشراء المباشر تعتبر الكمية مستلمة فورياً بكاملها
+
         received_quantity: isDirect ? item.quantity : 0,
+
+        unit_cost: Number(item.unitCost.toFixed(2)),
+
+        allocated_delivery_cost: deliveryData.allocatedDeliveryCost,
+
+        effective_unit_cost: deliveryData.effectiveUnitCost,
+
+        subtotal: Number(itemSubtotal.toFixed(2)),
       };
     });
 
@@ -188,50 +319,100 @@ export async function POST(request: Request) {
         .from("purchase_orders")
         .delete()
         .eq("id", newOrder.id);
+
       return NextResponse.json(
-        { message: itemsError.message },
+        {
+          message: itemsError.message,
+        },
         { status: 400 },
       );
     }
 
-    // 4. المعالجة بحسب نوع الشراء
+    /* =====================================================
+       DIRECT PURCHASE
+    ===================================================== */
+
     if (isDirect) {
       try {
+        /*
+         * Make the receipt processor
+         * think it is APPROVED internally.
+         */
+        await supabaseAdmin
+          .from("purchase_orders")
+          .update({
+            status: "APPROVED",
+          })
+          .eq("id", newOrder.id);
+
         await processPurchaseReceipt(newOrder.id, user.userId);
+
+        await supabaseAdmin
+          .from("purchase_orders")
+          .update({
+            status: "RECEIVED",
+
+            received_by: user.userId,
+
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", newOrder.id);
       } catch (receiptError) {
-        // حذف الطلب والبنود المستحدثة في حال حدوث استثناء لضمان السلامة المرجعية (Rollback)
+        console.error("Direct purchase receipt error:", receiptError);
+
+        /*
+         * Cleanup because the direct purchase
+         * did not complete successfully.
+         */
         await supabaseAdmin
           .from("purchase_order_items")
           .delete()
           .eq("purchase_order_id", newOrder.id);
+
         await supabaseAdmin
           .from("purchase_orders")
           .delete()
           .eq("id", newOrder.id);
 
-        const errorMessage =
-          receiptError instanceof Error
-            ? receiptError.message
-            : "تعذر زيادة المخزون وتسجيل الحركة، لم يتم إنشاء الطلب";
-
-        console.error("Direct Purchase Error:", receiptError);
-
         return NextResponse.json(
-          { message: errorMessage },
-          { status: 400 }, // إرجاع status 400 بدلاً من 500 لإظهار الرسالة بوضوح للعميل
+          {
+            message:
+              receiptError instanceof Error
+                ? receiptError.message
+                : "تعذر استلام الشراء المباشر",
+          },
+          { status: 400 },
         );
       }
-    } else if (finalStatus === "DRAFT") {
+    }
+
+    /* =====================================================
+       WORKFLOW DRAFT
+    ===================================================== */
+
+    if (purchaseType === "WORKFLOW") {
       await notifyOwnerForDraft(finalOrderNumber, newOrder.id);
     }
 
+    /* =====================================================
+       CACHE
+    ===================================================== */
+
     revalidateTag("purchases-list", "default");
+
     revalidatePath("/dashboard/orders");
+
     if (isDirect) {
       revalidateTag("products-list", "default");
+
       revalidatePath("/dashboard/products");
+
       revalidatePath("/dashboard/inventory");
     }
+
+    /* =====================================================
+       Return created order
+    ===================================================== */
 
     const { data: created } = await supabaseAdmin
       .from("purchase_orders")
@@ -242,19 +423,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message: isDirect
-          ? "تم الشراء المباشر وزيادة المخزون بنجاح"
-          : "تم حفظ مسودة طلب الشراء وإخطار المالك للموافقة",
+          ? "تم تسجيل الشراء المباشر وزيادة المخزون بنجاح"
+          : "تم حفظ مسودة طلب الشراء وإخطار المدير للموافقة",
+
         data: created
           ? mapPurchaseOrder(created as Record<string, unknown>)
-          : mapPurchaseOrder(newOrder as Record<string, unknown>),
+          : null,
       },
       { status: 201 },
     );
-  } catch (err: unknown) {
+  } catch (error: unknown) {
+    console.error("Purchase order POST:", error);
+
     return NextResponse.json(
       {
-        message: "خطأ في معالجة الطلب",
-        error: err instanceof Error ? err.message : String(err),
+        message: "خطأ في معالجة طلب الشراء",
       },
       { status: 500 },
     );

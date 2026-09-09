@@ -21,6 +21,7 @@ import {
   LuLock,
   LuUpload,
 } from "react-icons/lu";
+import Image from "next/image";
 
 interface Category {
   id: string;
@@ -35,6 +36,11 @@ interface ProductVariantsSectionProps {
   setValue: UseFormSetValue<ProductFormInputType>;
   categories?: Category[];
   hasVariants?: boolean;
+  onVariantImageChange: (
+    index: number,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => Promise<void>;
+  onRemoveVariantImage: (variantIndex: number, imageIndex: number) => void;
 }
 
 export default function ProductVariantsSection({
@@ -42,9 +48,10 @@ export default function ProductVariantsSection({
   register,
   errors,
   watch,
-  setValue,
   categories = [],
   hasVariants = false,
+  onVariantImageChange,
+  onRemoveVariantImage,
 }: ProductVariantsSectionProps) {
   const { fields, append, remove } = useFieldArray({
     control,
@@ -79,7 +86,6 @@ export default function ProductVariantsSection({
       purchasePrice: 0,
       sellingPrice: 0,
       minSellingPrice: 0,
-      stockQuantity: 0,
       minStockLevel: 5,
       isDefault: false,
       isActive: true,
@@ -87,26 +93,8 @@ export default function ProductVariantsSection({
     });
   };
 
-  const handleImageUpload = (
-    index: number,
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    const currentImages = watch(`variants.${index}.images`) || [];
-    const newImageUrls = Array.from(files).map((file) =>
-      URL.createObjectURL(file),
-    );
-
-    setValue(`variants.${index}.images`, [...currentImages, ...newImageUrls]);
-  };
-
-  const removeImage = (variantIndex: number, imageIndex: number) => {
-    const currentImages = watch(`variants.${variantIndex}.images`) || [];
-    const updated = currentImages.filter((_, i) => i !== imageIndex);
-    setValue(`variants.${variantIndex}.images`, updated);
-  };
+  const toNumberOrUndefined = (value: string) =>
+    value === "" ? undefined : Number(value);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 space-y-5">
@@ -141,8 +129,6 @@ export default function ProductVariantsSection({
         {fields.map((field, index) => {
           const variantErrors = errors?.variants?.[index];
           const variantImages = watch(`variants.${index}.images`) || [];
-          const currentColorCode =
-            watch(`variants.${index}.colorCode`) || "#000000";
 
           return (
             <div
@@ -171,7 +157,6 @@ export default function ProductVariantsSection({
                 </div>
               )}
 
-              {/* 🖼️ قسم صور المتغير (يظهر عند استخدام المتغيرات) */}
               {hasVariants && (
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
@@ -184,14 +169,14 @@ export default function ProductVariantsSection({
                         key={imgIdx}
                         className="relative h-16 w-16 rounded-xl border border-gray-200 overflow-hidden group bg-white"
                       >
-                        <img
+                        <Image
                           src={imgUrl}
                           alt="variant"
                           className="h-full w-full object-cover"
                         />
                         <button
                           type="button"
-                          onClick={() => removeImage(index, imgIdx)}
+                          onClick={() => onRemoveVariantImage(index, imgIdx)}
                           className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition"
                         >
                           <LuTrash2 className="h-4 w-4" />
@@ -206,7 +191,7 @@ export default function ProductVariantsSection({
                         multiple
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => handleImageUpload(index, e)}
+                        onChange={(e) => onVariantImageChange(index, e)}
                       />
                     </label>
                   </div>
@@ -238,9 +223,6 @@ export default function ProductVariantsSection({
                         {...register(`variants.${index}.colorCode`)}
                         className="h-7 w-8 rounded-md cursor-pointer border-0 bg-transparent"
                       />
-                      <span className="text-xs font-mono text-gray-600 uppercase">
-                        {currentColorCode}
-                      </span>
                     </div>
                   </div>
 
@@ -255,7 +237,7 @@ export default function ProductVariantsSection({
                           type="number"
                           step="0.01"
                           {...register(`variants.${index}.length`, {
-                            valueAsNumber: true,
+                            setValueAs: toNumberOrUndefined,
                           })}
                           placeholder="مثال: 58"
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium focus:border-(--primary-red) outline-hidden"
@@ -270,7 +252,7 @@ export default function ProductVariantsSection({
                           type="number"
                           step="0.01"
                           {...register(`variants.${index}.width`, {
-                            valueAsNumber: true,
+                            setValueAs: toNumberOrUndefined,
                           })}
                           placeholder="مثال: 24"
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium focus:border-(--primary-red) outline-hidden"
@@ -281,7 +263,7 @@ export default function ProductVariantsSection({
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
                         <LuRuler className="h-3.5 w-3.5 text-gray-500" />
-                        المقاس (Size)
+                        المقاس
                       </label>
                       <input
                         {...register(`variants.${index}.size`)}
@@ -293,7 +275,6 @@ export default function ProductVariantsSection({
                 </div>
               )}
 
-              {/* 🏷️ الـ SKU والباركودات */}
               <div
                 className={`grid gap-4 md:grid-cols-3 ${
                   hasVariants ? "border-t border-gray-200/60 pt-4" : ""
@@ -344,7 +325,7 @@ export default function ProductVariantsSection({
                     type="number"
                     step="0.01"
                     {...register(`variants.${index}.purchasePrice`, {
-                      valueAsNumber: true,
+                      setValueAs: toNumberOrUndefined,
                     })}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold focus:border-(--primary-red) outline-hidden"
                   />
@@ -363,7 +344,7 @@ export default function ProductVariantsSection({
                     type="number"
                     step="0.01"
                     {...register(`variants.${index}.sellingPrice`, {
-                      valueAsNumber: true,
+                      setValueAs: toNumberOrUndefined,
                     })}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold focus:border-(--primary-red) outline-hidden"
                   />
@@ -383,7 +364,7 @@ export default function ProductVariantsSection({
                     type="number"
                     step="0.01"
                     {...register(`variants.${index}.minSellingPrice`, {
-                      valueAsNumber: true,
+                      setValueAs: toNumberOrUndefined,
                     })}
                     placeholder="حد الخصم"
                     className="w-full rounded-xl border border-amber-200 bg-amber-50/30 px-3 py-2 text-xs font-bold focus:border-amber-500 outline-hidden"
@@ -396,7 +377,6 @@ export default function ProductVariantsSection({
                 </div>
               </div>
 
-              {/* 📦 المخزون */}
               <div className="grid gap-4 md:grid-cols-2 border-t border-gray-200/60 pt-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5 flex items-center gap-1">
@@ -406,9 +386,7 @@ export default function ProductVariantsSection({
                   <input
                     type="number"
                     readOnly
-                    {...register(`variants.${index}.stockQuantity`, {
-                      valueAsNumber: true,
-                    })}
+                    value={0}
                     className="w-full rounded-xl border border-gray-200 bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-500 cursor-not-allowed outline-hidden"
                   />
                 </div>
@@ -418,9 +396,8 @@ export default function ProductVariantsSection({
                     حد إعادة الطلب
                   </label>
                   <input
-                    type="number"
                     {...register(`variants.${index}.minStockLevel`, {
-                      valueAsNumber: true,
+                      setValueAs: toNumberOrUndefined,
                     })}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold focus:border-(--primary-red) outline-hidden"
                   />
