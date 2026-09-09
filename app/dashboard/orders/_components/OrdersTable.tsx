@@ -20,8 +20,6 @@ import {
   deletePurchaseOrder,
   updatePurchaseOrderStatus,
 } from "../services/order.services";
-import { Product } from "../../products/schemas/product.schemas";
-import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 const columnHelper = createColumnHelper<PurchaseOrder>();
 
@@ -46,8 +44,6 @@ const statusOptions: Record<
 
 interface OrdersTableProps {
   orders: PurchaseOrder[];
-  products: Product[];
-  suppliers: Supplier[];
 }
 
 const OrdersTable = ({ orders }: OrdersTableProps) => {
@@ -58,7 +54,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
   const handleStatusChange = async (
     orderId: string,
     currentStatus: PurchaseOrder["status"],
-    newStatus: PurchaseOrder["status"],
+    newStatus: Exclude<PurchaseOrder["status"], "DRAFT">,
   ) => {
     if (newStatus === currentStatus) return;
     try {
@@ -98,7 +94,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
     }),
 
     columnHelper.accessor("items", {
-      header: "عدد المواد",
+      header: "عدد المنتجات",
       cell: (info) => {
         const items = info.getValue() || [];
         const totalItems = items.reduce(
@@ -108,7 +104,9 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
         return (
           <div className="flex items-center gap-1.5 text-gray-700 text-sm">
             <LuPackage className="h-4 w-4 text-gray-400" />
-            <span>{totalItems} قطعة</span>
+            <span>
+              {totalItems} {totalItems > 10 ? "منتج" : "منتجات"}
+            </span>
           </div>
         );
       },
@@ -201,7 +199,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
                   handleStatusChange(
                     orderId,
                     status,
-                    e.target.value as PurchaseOrder["status"],
+                    e.target.value as Exclude<PurchaseOrder["status"], "DRAFT">,
                   )
                 }
                 className="bg-transparent outline-none cursor-pointer border-none p-0 pr-1 text-xs font-semibold focus:ring-0 disabled:cursor-not-allowed disabled:opacity-75"
@@ -237,7 +235,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
               <LuEye className="h-5 w-5" />
             </button>
 
-            {isDraft ? (
+            {isDraft && (
               <>
                 <button
                   type="button"
@@ -264,24 +262,6 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
                       content: <DeleteConfirmationModal />,
                     })
                   }
-                >
-                  <LuTrash2 className="h-5 w-5" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  disabled
-                  title="لا يمكن التعديل بعد الموافقة أو الشراء المباشر"
-                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed!"
-                >
-                  <LuSquarePen className="h-5 w-5" />
-                </button>
-
-                <button
-                  disabled
-                  title="لا يمكن الحذف بعد الموافقة أو الشراء المباشر"
-                  className="rounded-lg p-1 text-gray-300 cursor-not-allowed!"
                 >
                   <LuTrash2 className="h-5 w-5" />
                 </button>

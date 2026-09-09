@@ -1,61 +1,75 @@
 import OrdersPageClient from "./_components/OrdersPageClient";
 import { getPurchaseOrders } from "./services/order.services";
-import { PurchaseOrderStatus } from "./schemas/orders.schemas";
-import { getProducts } from "../products/services/products.services";
-import { getSuppliers } from "../suppliers/service/supplier.services";
+import {
+  PurchaseOrderStatus,
+  PurchaseOrderType,
+} from "./schemas/orders.schemas";
 
 interface Props {
   searchParams: Promise<{
     search?: string;
     status?: string;
+    purchaseType?: string;
     sort?: string;
     page?: string;
     limit?: string;
   }>;
 }
 
+const validStatuses: PurchaseOrderStatus[] = [
+  "DRAFT",
+  "APPROVED",
+  "RECEIVED",
+  "CANCELLED",
+];
+
+const validPurchaseTypes: PurchaseOrderType[] = ["DIRECT", "WORKFLOW"];
+
+const validSorts = [
+  "date_desc",
+  "date_asc",
+  "total_desc",
+  "total_asc",
+] as const;
+
 export default async function PurchaseOrdersPage({ searchParams }: Props) {
   const query = await searchParams;
-  const status = [
-    "DIRECT",
-    "DRAFT",
-    "APPROVED",
-    "RECEIVED",
-    "CANCELLED",
-  ].includes(query.status || "")
+
+  const status = validStatuses.includes(query.status as PurchaseOrderStatus)
     ? (query.status as PurchaseOrderStatus)
     : undefined;
-  const sort = ["date_desc", "date_asc", "total_desc", "total_asc"].includes(
-    query.sort || "",
-  )
-    ? (query.sort as "date_desc" | "date_asc" | "total_desc" | "total_asc")
-    : "date_desc";
-  const [response, productsResponse, suppliersResponse] = await Promise.all([
-    getPurchaseOrders({
-      search: query.search,
-      status,
-      sort,
-      page: Number(query.page) || 1,
-      limit: Number(query.limit) || 10,
-    }),
-    getProducts({ limit: 100 }),
-    getSuppliers({ limit: 100 }),
-  ]);
 
-  const products = productsResponse.data || [];
-  const suppliers = suppliersResponse.data || [];
+  const purchaseType = validPurchaseTypes.includes(
+    query.purchaseType as PurchaseOrderType,
+  )
+    ? (query.purchaseType as PurchaseOrderType)
+    : undefined;
+
+  const sort = validSorts.includes(query.sort as (typeof validSorts)[number])
+    ? (query.sort as (typeof validSorts)[number])
+    : "date_desc";
+
+  const page = Math.max(Number(query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(query.limit) || 10, 1), 100);
+
+  const response = await getPurchaseOrders({
+    search: query.search,
+    status,
+    purchaseType,
+    sort,
+    page,
+    limit,
+  });
 
   return (
     <OrdersPageClient
       orders={response?.data || []}
-      products={products}
-      suppliers={suppliers}
       meta={
         response?.meta || {
-          totalCount: 0,
+          total: 0,
           totalPages: 1,
-          currentPage: 1,
-          limit: 10,
+          page: 1,
+          limit,
         }
       }
     />

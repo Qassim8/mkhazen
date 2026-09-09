@@ -61,15 +61,11 @@ export interface PurchasePaymentsResponse {
 
 export interface GetPurchasesParams {
   search?: string;
-
   status?: PurchaseOrderStatus | "ALL";
-
   purchaseType?: "DIRECT" | "WORKFLOW" | "ALL";
-
   supplierId?: string;
-
+  sort?: "date_desc" | "date_asc" | "total_desc" | "total_asc";
   page?: number;
-
   limit?: number;
 }
 
@@ -77,18 +73,39 @@ export interface GetPurchasesParams {
    GET ALL PURCHASE ORDERS
 ========================================================= */
 
-export async function getPurchaseOrders(
-  params?: GetPurchasesParams,
-): Promise<PurchasesResponse> {
-  return serverFetch<PurchasesResponse>(API_BASE_URL, {
-    method: "GET",
+export async function getPurchaseOrders(params?: GetPurchasesParams) {
+  const searchParams = new URLSearchParams();
 
-    params,
+  if (params?.search) {
+    searchParams.set("search", params.search);
+  }
 
-    next: {
+  if (params?.status && params.status !== "ALL") {
+    searchParams.set("status", params.status);
+  }
+
+  if (params?.purchaseType && params.purchaseType !== "ALL") {
+    searchParams.set("purchaseType", params.purchaseType);
+  }
+
+  if (params?.supplierId) {
+    searchParams.set("supplierId", params.supplierId);
+  }
+
+  if (params?.sort) {
+    searchParams.set("sort", params.sort);
+  }
+
+  searchParams.set("page", String(params?.page ?? 1));
+  searchParams.set("limit", String(params?.limit ?? 10));
+
+  return serverFetch<PurchasesResponse>(
+    `${API_BASE_URL}?${searchParams.toString()}`,
+    {
+      method: "GET",
       tags: ["purchases-list"],
     },
-  });
+  );
 }
 
 /* =========================================================

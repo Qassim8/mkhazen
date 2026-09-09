@@ -39,16 +39,12 @@ export async function GET(request: Request) {
 
     const parsed = purchaseQuerySchema.safeParse({
       page: searchParams.get("page"),
-
       limit: searchParams.get("limit"),
-
       search: searchParams.get("search") || undefined,
-
       status: searchParams.get("status") || undefined,
-
       purchaseType: searchParams.get("purchaseType") || undefined,
-
       supplierId: searchParams.get("supplierId") || undefined,
+      sort: searchParams.get("sort") || undefined,
     });
 
     if (!parsed.success) {
@@ -61,12 +57,35 @@ export async function GET(request: Request) {
       );
     }
 
-    const { page, limit, search, status, purchaseType, supplierId } =
+    const { page, limit, search, status, purchaseType, supplierId, sort } =
       parsed.data;
 
     const from = (page - 1) * limit;
-
     const to = from + limit - 1;
+
+    const sortMap = {
+      date_desc: {
+        column: "order_date",
+        ascending: false,
+      },
+
+      date_asc: {
+        column: "order_date",
+        ascending: true,
+      },
+
+      total_desc: {
+        column: "total_amount",
+        ascending: false,
+      },
+
+      total_asc: {
+        column: "total_amount",
+        ascending: true,
+      },
+    } as const;
+
+    const currentSort = sortMap[sort];
 
     let query = supabaseAdmin
       .from("purchase_orders")
@@ -91,8 +110,8 @@ export async function GET(request: Request) {
     }
 
     const { data, count, error } = await query
-      .order("order_date", {
-        ascending: false,
+      .order(currentSort.column, {
+        ascending: currentSort.ascending,
       })
       .range(from, to);
 
@@ -114,11 +133,8 @@ export async function GET(request: Request) {
 
       meta: {
         total: count ?? 0,
-
         page,
-
         limit,
-
         totalPages: count ? Math.ceil(count / limit) : 0,
       },
     });
@@ -298,7 +314,12 @@ export async function POST(request: Request) {
 
         quantity: item.quantity,
 
-        received_quantity: isDirect ? item.quantity : 0,
+        /*
+         * يبدأ الاستلام من صفر.
+         * processPurchaseReceipt هو المسؤول
+         * عن تسجيل الكمية المستلمة.
+         */
+        received_quantity: 0,
 
         unit_cost: Number(item.unitCost.toFixed(2)),
 

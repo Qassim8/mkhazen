@@ -14,7 +14,12 @@ export const PurchaseOrderStatusEnum = z.enum([
   "RECEIVED",
   "CANCELLED",
 ]);
-
+const PurchaseSortEnum = z.enum([
+  "date_desc",
+  "date_asc",
+  "total_desc",
+  "total_asc",
+]);
 export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusEnum>;
 
 /* =========================================================
@@ -55,9 +60,14 @@ export const purchaseOrderItemSchema = z.object({
    DIRECT   -> RECEIVED
    WORKFLOW -> DRAFT
 ========================================================= */
+const nullableOptionalUuid = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.string().uuid("معرف المورد غير صالح").nullable().optional(),
+);
 
 export const createPurchaseOrderSchema = z.object({
-  supplierId: z.string().uuid("معرف المورد غير صالح").nullable().optional(),
+  supplierId: nullableOptionalUuid,
 
   orderNumber: z.string().trim().max(50, "رقم الطلب طويل جدًا").optional(),
 
@@ -140,7 +150,13 @@ export const purchaseQuerySchema = z.object({
   purchaseType: PurchaseOrderTypeEnum.or(z.literal("ALL")).optional(),
 
   supplierId: z.string().uuid().optional(),
+
+  sort: PurchaseSortEnum.default("date_desc"),
 });
+
+/* =========================================================
+   INFERRED TYPES
+========================================================= */
 
 /* =========================================================
    INFERRED TYPES
@@ -148,11 +164,19 @@ export const purchaseQuerySchema = z.object({
 
 export type PurchaseOrderItemInput = z.infer<typeof purchaseOrderItemSchema>;
 
-export type CreatePurchaseOrderInput = z.infer<
+export type CreatePurchaseOrderFormInput = z.input<
   typeof createPurchaseOrderSchema
 >;
 
-export type UpdatePurchaseOrderInput = z.infer<
+export type CreatePurchaseOrderInput = z.output<
+  typeof createPurchaseOrderSchema
+>;
+
+export type UpdatePurchaseOrderInput = z.output<
+  typeof updatePurchaseOrderSchema
+>;
+
+export type UpdatePurchaseOrderFormInput = z.input<
   typeof updatePurchaseOrderSchema
 >;
 
@@ -160,11 +184,15 @@ export type UpdatePurchaseOrderStatusInput = z.infer<
   typeof updatePurchaseOrderStatusSchema
 >;
 
-export type CreatePurchasePaymentInput = z.infer<
+export type CreatePurchasePaymentInput = z.output<
   typeof createPurchasePaymentSchema
 >;
 
-export type PurchaseQueryInput = z.infer<typeof purchaseQuerySchema>;
+export type CreatePurchasePaymentFormInput = z.input<
+  typeof createPurchasePaymentSchema
+>;
+
+export type PurchaseQueryInput = z.output<typeof purchaseQuerySchema>;
 
 /* =========================================================
    RESPONSE TYPES

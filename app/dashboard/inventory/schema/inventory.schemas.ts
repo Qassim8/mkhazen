@@ -1,15 +1,32 @@
 import { z } from "zod";
 
+/* =========================================================
+   INVENTORY ADJUSTMENT
+========================================================= */
+
 export const inventoryAdjustmentSchema = z.object({
-  productId: z.string().uuid("معرف المنتج غير صالح"),
+  variantId: z.string().uuid("معرف المتغير غير صالح"),
+
   adjustmentType: z.enum(["IN", "OUT"], {
-    errorMap: () => ({
-      message: "نوع التسوية يجب أن يكون إدخال (IN) أو إخراج (OUT)",
-    }),
+    message: "نوع التسوية يجب أن يكون إدخال (IN) أو إخراج (OUT)",
   }),
-  quantity: z.number().positive("الكمية يجب أن تكون أكبر من صفر"),
-  notes: z.string().min(3, "يرجى كتابة سبب التسوية (مثل: تلف، عجز جرد، إضافة)"),
+
+  quantity: z
+    .number({
+      message: "الكمية مطلوبة",
+    })
+    .positive("الكمية يجب أن تكون أكبر من صفر"),
+
+  notes: z
+    .string()
+    .trim()
+    .min(3, "يرجى كتابة سبب التسوية")
+    .max(500, "سبب التسوية طويل جدًا"),
 });
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 export type InventoryAdjustmentInput = z.infer<
   typeof inventoryAdjustmentSchema
