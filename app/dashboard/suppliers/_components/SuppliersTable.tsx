@@ -5,7 +5,7 @@ import { useModalStore } from "@/store/useModalStore";
 import { createColumnHelper } from "@tanstack/react-table";
 import { LuEye, LuMail, LuPhone, LuSquarePen, LuTrash2 } from "react-icons/lu";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
-import { deleteSupplier } from "../service/supplier.services";
+import { deleteSupplier } from "../services/supplier.services";
 import SupplierModalContent from "./SupplierModalContent";
 import SupplierViewContent from "./SupplierDetails";
 import { Supplier } from "../schemas/supplier.schemas";

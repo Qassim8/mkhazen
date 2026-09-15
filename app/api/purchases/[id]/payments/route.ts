@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-
 import { revalidatePath, revalidateTag } from "next/cache";
 
-import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 
 import { createPurchasePaymentSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
 
-import { fetchPurchaseOrderById } from "../../_lib/purchase-order";
-
-/* =========================================================
-   GET PAYMENTS
-========================================================= */
+import {
+  fetchPurchaseOrderById,
+  recordPurchasePayment,
+} from "../../_lib/purchase-order";
 
 export async function GET(
   _request: Request,
@@ -37,9 +34,9 @@ export async function GET(
 
     const { id } = await params;
 
-    const { data: order, error: orderError } = await fetchPurchaseOrderById(id);
+    const { data: order, error } = await fetchPurchaseOrderById(id);
 
-    if (orderError || !order) {
+    if (error || !order) {
       return NextResponse.json(
         {
           message: "طلب الشراء غير موجود",
@@ -70,10 +67,6 @@ export async function GET(
     );
   }
 }
-
-/* =========================================================
-   POST PAYMENT
-========================================================= */
 
 export async function POST(
   request: Request,
@@ -110,13 +103,19 @@ export async function POST(
       );
     }
 
-    /*
-     * We don't allow payments on cancelled orders.
-     */
     if (order.status === "CANCELLED") {
       return NextResponse.json(
         {
           message: "لا يمكن تسجيل دفعة على طلب شراء ملغي",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (order.status === "DRAFT") {
+      return NextResponse.json(
+        {
+          message: "لا يمكن تسجيل دفعة قبل اعتماد طلب الشراء",
         },
         { status: 400 },
       );
@@ -128,84 +127,65 @@ export async function POST(
       body.paymentDate = undefined;
     }
 
-    if (body.paymentMethod === "") {
-      body.paymentMethod = null;
+    if (body.reference === "") {
+      body.reference = undefined;
     }
 
-    const validation = createPurchasePaymentSchema.safeParse(body);
+    if (body.notes === "") {
+      body.notes = undefined;
+    }
+
+    const validation = createPurchasePaymentSchema.safeParse({
+      ...body,
+      purchaseOrderId: id,
+    });
 
     if (!validation.success) {
       return NextResponse.json(
         {
           message: "بيانات الدفعة غير صالحة",
-
           errors: validation.error.flatten().fieldErrors,
         },
         { status: 422 },
       );
     }
 
-    const { amount, paymentDate, paymentMethod, notes } = validation.data;
+    const { amount, paymentDate, paymentMethod, reference, notes } =
+      validation.data;
 
-    const paidAmount = order.paidAmount ?? 0;
+    const payment = await recordPurchasePayment({
+      purchaseOrderId: id,
 
-    const remainingAmount =
-      order.remainingAmount ?? Math.max(0, order.totalAmount - paidAmount);
+      amount,
 
-    /*
-     * Do not allow overpayment.
-     */
-    if (amount > remainingAmount) {
-      return NextResponse.json(
-        {
-          message: `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(2)} ريال)`,
-        },
-        { status: 400 },
-      );
-    }
+      paymentDate,
 
-    const { data: payment, error: paymentError } = await supabaseAdmin
-      .from("purchase_order_payments")
-      .insert({
-        purchase_order_id: id,
+      paymentMethod,
 
-        amount: Number(amount.toFixed(2)),
+      reference,
 
-        payment_date: paymentDate
-          ? new Date(paymentDate).toISOString()
-          : new Date().toISOString(),
+      notes,
 
-        payment_method: paymentMethod ?? null,
-
-        notes: notes ?? null,
-
-        created_by: user.userId ?? null,
-      })
-      .select()
-      .single();
-
-    if (paymentError || !payment) {
-      console.error("Create purchase payment:", paymentError);
-
-      return NextResponse.json(
-        {
-          message: paymentError?.message ?? "تعذر تسجيل الدفعة",
-        },
-        { status: 400 },
-      );
-    }
+      createdBy: user.userId ?? null,
+    });
 
     revalidateTag("purchases-list", "default");
+
+    revalidateTag("accounting-summary", "default");
 
     revalidatePath("/dashboard/orders");
 
     revalidatePath(`/dashboard/orders/${id}`);
 
+    revalidatePath("/dashboard/accounting");
+
+    revalidatePath("/dashboard/accounting/overview");
+
     const { data: updatedOrder } = await fetchPurchaseOrderById(id);
 
     return NextResponse.json(
       {
-        message: "تم تسجيل الدفعة بنجاح",
+        message: "تم تسجيل الدفعة والقيد المحاسبي بنجاح",
 
         payment,
 
@@ -218,7 +198,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        message: "خطأ في السيرفر",
+        message: error instanceof Error ? error.message : "خطأ في السيرفر",
       },
       { status: 500 },
     );

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LuArrowRight } from "react-icons/lu";
 import AddProductClient from "../_components/AddProductClient";
 import { getCategories } from "../../categories/services/categories.services";
-import { getSuppliers } from "../../suppliers/service/supplier.services";
+import { getSuppliers } from "../../suppliers/services/supplier.services";
 
 export default async function AddProductPage() {
   const [categoriesRes, suppliersRes] = await Promise.all([

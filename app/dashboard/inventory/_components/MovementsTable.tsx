@@ -1,82 +1,176 @@
 "use client";
 
 import { useState } from "react";
-import Table from "@/components/shared/Table";
-import { createColumnHelper } from "@tanstack/react-table";
-import { InventoryMovement } from "../services/inventory.services";
-import MovementDetailsModal from "./MovementDetailsModal";
+
 import {
   LuArrowDownLeft,
   LuArrowUpRight,
-  LuCalendar,
-  LuHash,
-  LuRefreshCcw,
   LuEye,
+  LuRefreshCcw,
 } from "react-icons/lu";
+
+import Table from "@/components/shared/Table";
+
+import { createColumnHelper } from "@tanstack/react-table";
+
+import { InventoryMovement } from "../services/inventory.services";
+
+import MovementDetailsModal from "./MovementDetailsModal";
 
 const columnHelper = createColumnHelper<InventoryMovement>();
 
-interface MovementTableProps {
+interface Props {
   movements: InventoryMovement[];
 }
 
-const MovementTable = ({ movements }: MovementTableProps) => {
+const getMovementInfo = (type: InventoryMovement["movement_type"]) => {
+  switch (type) {
+    case "PURCHASE":
+      return {
+        label: "شراء",
+        icon: LuArrowDownLeft,
+        incoming: true,
+        className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      };
+
+    case "SALE":
+      return {
+        label: "بيع",
+        icon: LuArrowUpRight,
+        incoming: false,
+        className: "border-rose-200 bg-rose-50 text-rose-700",
+      };
+
+    case "PURCHASE_RETURN":
+      return {
+        label: "مرتجع شراء",
+        icon: LuArrowUpRight,
+        incoming: false,
+        className: "border-rose-200 bg-rose-50 text-rose-700",
+      };
+
+    case "SALE_RETURN":
+      return {
+        label: "مرتجع بيع",
+        icon: LuArrowDownLeft,
+        incoming: true,
+        className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      };
+
+    case "ADJUSTMENT_IN":
+      return {
+        label: "تسوية إدخال",
+        icon: LuRefreshCcw,
+        incoming: true,
+        className: "border-amber-200 bg-amber-50 text-amber-700",
+      };
+
+    case "ADJUSTMENT_OUT":
+      return {
+        label: "تسوية إخراج",
+        icon: LuRefreshCcw,
+        incoming: false,
+        className: "border-amber-200 bg-amber-50 text-amber-700",
+      };
+  }
+};
+
+const formatDate = (value: string) => {
+  return new Date(value).toLocaleDateString("en-GB");
+};
+
+const formatNumber = (value: number) => {
+  return Number(value || 0).toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  });
+};
+
+export default function MovementTable({ movements }: Props) {
   const [selectedMovement, setSelectedMovement] =
     useState<InventoryMovement | null>(null);
 
   const columns = [
     columnHelper.accessor("created_at", {
       header: "التاريخ",
-      cell: (info) => {
-        const dateVal = new Date(info.getValue());
+
+      cell: (info) => (
+        <span className="font-mono text-sm text-gray-600">
+          {formatDate(info.getValue())}
+        </span>
+      ),
+    }),
+
+    columnHelper.display({
+      id: "product",
+
+      header: "المنتج",
+
+      cell: ({ row }) => {
+        const movement = row.original;
+
+        const product = movement.product_variants?.product_templates?.name;
+
+        const color = movement.product_variants?.colorName;
+
+        const size = movement.product_variants?.size;
+
+        const attributes = [
+          color && `اللون: ${color}`,
+          size && `المقاس: ${size}`,
+        ]
+          .filter(Boolean)
+          .join(" | ");
+
         return (
-          <div className="flex items-center gap-2 text-gray-600 text-sm">
-            <LuCalendar className="h-4 w-4 text-gray-400" />
-            <span>
-              {dateVal.toLocaleDateString("ar-EG", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })}
+          <div className="max-w-60">
+            <p className="truncate font-semibold text-gray-900">
+              {product || "منتج غير معروف"}
+            </p>
+
+            {attributes && (
+              <p className="mt-0.5 truncate text-xs text-gray-500">
+                {attributes}
+              </p>
+            )}
+            <span className="font-mono text-xs text-gray-500">
+              {row.original.product_variants?.sku || "-"}
             </span>
           </div>
         );
       },
     }),
 
-    columnHelper.accessor("products.name", {
-      header: "المنتج",
-      cell: (info) => (
-        <span className="font-semibold text-gray-900 truncate max-w-50 block">
-          {info.getValue() || "منتج غير محدد"}
+    columnHelper.display({
+      id: "variant",
+
+      header: "بواسطة",
+
+      cell: ({ row }) => (
+        <span className="font-mono text-xs text-gray-500">
+          {row.original.users?.name || "-"}
         </span>
       ),
     }),
 
     columnHelper.accessor("movement_type", {
       header: "نوع الحركة",
+
       cell: (info) => {
-        const type = info.getValue();
-        if (type === "STOCK_IN") {
-          return (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
-              <LuArrowDownLeft className="h-4 w-4 text-emerald-600" />
-              Stock In
-            </span>
-          );
+        const movement = getMovementInfo(info.getValue());
+
+        if (!movement) {
+          return null;
         }
-        if (type === "STOCK_OUT") {
-          return (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 border border-rose-200">
-              <LuArrowUpRight className="h-4 w-4 text-rose-600" />
-              Stock Out
-            </span>
-          );
-        }
+
+        const Icon = movement.icon;
+
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 border border-amber-200">
-            <LuRefreshCcw className="h-3.5 w-3.5 text-amber-600" />
-            Adjustment
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${movement.className}`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+
+            {movement.label}
           </span>
         );
       },
@@ -84,37 +178,54 @@ const MovementTable = ({ movements }: MovementTableProps) => {
 
     columnHelper.accessor("quantity", {
       header: "الكمية",
+
       cell: (info) => {
-        const qty = info.getValue();
+        const quantity = Number(info.getValue());
+
+        const movement = getMovementInfo(info.row.original.movement_type);
+
         return (
           <span
-            className={`font-mono font-bold ${qty < 0 ? "text-rose-600" : "text-emerald-600"}`}
+            className={`font-mono font-bold ${
+              movement?.incoming ? "text-emerald-600" : "text-rose-600"
+            }`}
           >
-            {qty > 0 ? `+${qty}` : qty}
+            {movement?.incoming ? "+" : "-"}
+            {formatNumber(quantity)}
           </span>
         );
       },
     }),
 
+    columnHelper.accessor("unit_cost", {
+      header: "التكلفة",
+
+      cell: (info) => (
+        <span className="font-mono text-sm text-gray-700">
+          {formatNumber(Number(info.getValue()))} ر.س
+        </span>
+      ),
+    }),
+
     columnHelper.accessor("reference", {
       header: "المرجع",
+
       cell: (info) => (
-        <div className="flex items-center gap-1 text-xs font-mono text-gray-500 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 w-fit">
-          <LuHash className="h-3 w-3" />
-          {info.getValue() || "آلي"}
-        </div>
+        <span className="text-xs text-gray-500">{info.getValue() || "-"}</span>
       ),
     }),
 
     columnHelper.display({
       id: "actions",
+
       cell: ({ row }) => (
-        <div className="flex items-center justify-center">
+        <div className="flex justify-center">
           <button
             type="button"
-            aria-label="عرض التفاصيل"
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition"
+            title="عرض التفاصيل"
+            aria-label="عرض تفاصيل الحركة"
             onClick={() => setSelectedMovement(row.original)}
+            className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
           >
             <LuEye className="h-5 w-5" />
           </button>
@@ -126,12 +237,11 @@ const MovementTable = ({ movements }: MovementTableProps) => {
   return (
     <>
       <Table columns={columns} data={movements} />
+
       <MovementDetailsModal
         movement={selectedMovement}
         onClose={() => setSelectedMovement(null)}
       />
     </>
   );
-};
-
-export default MovementTable;
+}

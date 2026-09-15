@@ -7,7 +7,6 @@ import PageHeader from "@/components/shared/PageHeader";
 import Pagination from "@/components/shared/Pagination";
 import TableFilter from "@/components/shared/TableFilter";
 import TableSearchbar from "@/components/shared/TableSearchbar";
-import { useModalStore } from "@/store/useModalStore";
 
 import OrdersTable from "./OrdersTable";
 import { PurchaseOrder } from "../schemas/orders.schemas";
@@ -23,7 +22,6 @@ interface Props {
 }
 
 export default function OrdersPageClient({ orders, meta }: Props) {
-  const openModal = useModalStore((state) => state.openModal);
   const router = useRouter();
 
   return (
@@ -80,6 +78,28 @@ export default function OrdersPageClient({ orders, meta }: Props) {
                 { label: "الأقدم", value: "date_asc" },
                 { label: "الإجمالي الأعلى", value: "total_desc" },
                 { label: "الإجمالي الأقل", value: "total_asc" },
+              ]}
+            />
+            <TableFilter
+              label="حالة الدفع"
+              paramKey="paymentStatus"
+              options={[
+                {
+                  label: "كل حالات الدفع",
+                  value: "ALL",
+                },
+                {
+                  label: "غير مدفوع",
+                  value: "UNPAID",
+                },
+                {
+                  label: "مدفوع جزئيًا",
+                  value: "PARTIAL",
+                },
+                {
+                  label: "مدفوع بالكامل",
+                  value: "PAID",
+                },
               ]}
             />
           </div>

@@ -1,5 +1,5 @@
 import SuppliersPageClient from "./_components/SuppliersPageClient";
-import { getSuppliers } from "./service/supplier.services";
+import { getSuppliers } from "./services/supplier.services";
 
 interface SuppliersPageProps {
   searchParams: Promise<{

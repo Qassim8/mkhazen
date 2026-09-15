@@ -1,5 +1,5 @@
 import { getProducts } from "../../products/services/products.services";
-import { getSuppliers } from "../../suppliers/service/supplier.services";
+import { getSuppliers } from "../../suppliers/services/supplier.services";
 
 import CreateOrderClient from "../_components/CreateOrderClient";
 

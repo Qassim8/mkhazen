@@ -1,24 +1,19 @@
-"use server";
-
 import { serverFetch } from "@/lib/api-client";
 
 import {
   CreatePurchaseOrderInput,
   CreatePurchasePaymentInput,
+  PaymentStatus,
   PurchaseOrder,
-  PurchaseOrderStatus,
   PurchaseOrderPayment,
+  PurchaseOrderStatus,
   UpdatePurchaseOrderInput,
 } from "../schemas/orders.schemas";
-
-/* =========================================================
-   API
-========================================================= */
 
 const API_BASE_URL = "/api/purchases";
 
 /* =========================================================
-   Response Types
+   RESPONSE TYPES
 ========================================================= */
 
 export interface PurchasesResponse {
@@ -39,10 +34,9 @@ export interface PurchaseOrderResponse {
 
 export interface PurchasePaymentResponse {
   message?: string;
-
   payment?: PurchaseOrderPayment;
-
   data?: PurchaseOrder;
+  warning?: boolean;
 }
 
 export interface PurchasePaymentsResponse {
@@ -56,60 +50,70 @@ export interface PurchasePaymentsResponse {
 }
 
 /* =========================================================
-   Query
+   QUERY
 ========================================================= */
 
 export interface GetPurchasesParams {
   search?: string;
+
   status?: PurchaseOrderStatus | "ALL";
+
   purchaseType?: "DIRECT" | "WORKFLOW" | "ALL";
+
+  paymentStatus?: PaymentStatus | "ALL";
+
   supplierId?: string;
+
   sort?: "date_desc" | "date_asc" | "total_desc" | "total_asc";
+
   page?: number;
+
   limit?: number;
 }
 
 /* =========================================================
-   GET ALL PURCHASE ORDERS
+   GET ALL
 ========================================================= */
 
-export async function getPurchaseOrders(params?: GetPurchasesParams) {
-  const searchParams = new URLSearchParams();
+export async function getPurchaseOrders(
+  params?: GetPurchasesParams,
+): Promise<PurchasesResponse> {
+  return serverFetch<PurchasesResponse>(API_BASE_URL, {
+    method: "GET",
 
-  if (params?.search) {
-    searchParams.set("search", params.search);
-  }
+    params: {
+      search: params?.search,
 
-  if (params?.status && params.status !== "ALL") {
-    searchParams.set("status", params.status);
-  }
+      status:
+        params?.status && params.status !== "ALL" ? params.status : undefined,
 
-  if (params?.purchaseType && params.purchaseType !== "ALL") {
-    searchParams.set("purchaseType", params.purchaseType);
-  }
+      purchaseType:
+        params?.purchaseType && params.purchaseType !== "ALL"
+          ? params.purchaseType
+          : undefined,
 
-  if (params?.supplierId) {
-    searchParams.set("supplierId", params.supplierId);
-  }
+      paymentStatus:
+        params?.paymentStatus && params.paymentStatus !== "ALL"
+          ? params.paymentStatus
+          : undefined,
 
-  if (params?.sort) {
-    searchParams.set("sort", params.sort);
-  }
+      supplierId: params?.supplierId,
 
-  searchParams.set("page", String(params?.page ?? 1));
-  searchParams.set("limit", String(params?.limit ?? 10));
+      sort: params?.sort,
 
-  return serverFetch<PurchasesResponse>(
-    `${API_BASE_URL}?${searchParams.toString()}`,
-    {
-      method: "GET",
+      page: params?.page ?? 1,
+
+      limit: params?.limit ?? 10,
+    },
+
+    next: {
       tags: ["purchases-list"],
     },
-  );
+  });
 }
 
 /* =========================================================
-   GET ONE PURCHASE ORDER
+   GET ONE
 ========================================================= */
 
 export async function getPurchaseOrderById(
@@ -125,7 +129,7 @@ export async function getPurchaseOrderById(
 }
 
 /* =========================================================
-   CREATE PURCHASE ORDER
+   CREATE
 ========================================================= */
 
 export async function createPurchaseOrder(
@@ -133,13 +137,12 @@ export async function createPurchaseOrder(
 ): Promise<PurchaseOrderResponse> {
   return serverFetch<PurchaseOrderResponse>(API_BASE_URL, {
     method: "POST",
-
     body: JSON.stringify(payload),
   });
 }
 
 /* =========================================================
-   UPDATE DRAFT PURCHASE ORDER
+   UPDATE DRAFT
 ========================================================= */
 
 export async function updatePurchaseOrder(
@@ -148,13 +151,12 @@ export async function updatePurchaseOrder(
 ): Promise<PurchaseOrderResponse> {
   return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}/${id}`, {
     method: "PATCH",
-
     body: JSON.stringify(payload),
   });
 }
 
 /* =========================================================
-   DELETE DRAFT PURCHASE ORDER
+   DELETE
 ========================================================= */
 
 export async function deletePurchaseOrder(id: string): Promise<{
@@ -168,20 +170,31 @@ export async function deletePurchaseOrder(id: string): Promise<{
 }
 
 /* =========================================================
-   STATUS ACTIONS
+   STATUS
 ========================================================= */
 
-export type PurchaseOrderActionStatus = "APPROVED" | "RECEIVED" | "CANCELLED";
+export type PurchaseOrderActionStatus =
+  | "DRAFT"
+  | "APPROVED"
+  | "RECEIVED"
+  | "CANCELLED";
+
+export type PurchaseStatusPaymentInput = Omit<
+  CreatePurchasePaymentInput,
+  "purchaseOrderId"
+>;
 
 export async function updatePurchaseOrderStatus(
   id: string,
   status: PurchaseOrderActionStatus,
+  payment?: PurchaseStatusPaymentInput,
 ): Promise<PurchaseOrderResponse> {
   return serverFetch<PurchaseOrderResponse>(`${API_BASE_URL}/${id}/status`, {
     method: "PATCH",
 
     body: JSON.stringify({
       status,
+      payment,
     }),
   });
 }
@@ -211,7 +224,7 @@ export async function getPurchaseOrderPayments(
 
 export async function createPurchaseOrderPayment(
   id: string,
-  payload: CreatePurchasePaymentInput,
+  payload: Omit<CreatePurchasePaymentInput, "purchaseOrderId">,
 ): Promise<PurchasePaymentResponse> {
   return serverFetch<PurchasePaymentResponse>(
     `${API_BASE_URL}/${id}/payments`,

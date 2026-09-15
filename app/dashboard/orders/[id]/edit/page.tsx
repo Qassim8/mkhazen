@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { getPurchaseOrderById } from "../../services/order.services";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
-import { getSuppliers } from "@/app/dashboard/suppliers/service/supplier.services";
+import { getSuppliers } from "@/app/dashboard/suppliers/services/supplier.services";
 
 import EditPurchaseOrderForm from "../../_components/EditPurchaseOrder";
 

@@ -1,58 +1,88 @@
 import { NextResponse } from "next/server";
+
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+interface Props {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export async function GET(request: Request, { params }: Props) {
   try {
     const user = await getSession();
-    if (!user) {
+
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "غير مصرح بالدخول" },
-        { status: 401 },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
+        { status: 403 },
       );
     }
 
     const { id: variantId } = await params;
 
-    // 1. جلب بيانات المنتج الحالية
-    const { data: variant, error: productError } = await supabaseAdmin
+    if (!variantId) {
+      return NextResponse.json(
+        {
+          message: "معرف المتغير مطلوب",
+        },
+        { status: 400 },
+      );
+    }
+
+    /* =====================================================
+       VARIANT
+    ===================================================== */
+
+    const { data: variant, error: variantError } = await supabaseAdmin
       .from("product_variants")
       .select(
         `
-        id,
-        "templateId",
-        sku,
-        barcode,
-        "colorName",
-        "colorCode",
-        size,
-        length,
-        width,
-        "stockQuantity",
-        "minStockLevel",
-        "purchasePrice",
-        "sellingPrice",
-        product_templates (
           id,
-          name,
-          "conversionFactor"
-        )
-      `,
+          "templateId",
+          sku,
+          barcode,
+          "packBarcode",
+          "colorName",
+          "colorCode",
+          size,
+          length,
+          width,
+          "stockQuantity",
+          "minStockLevel",
+          "purchasePrice",
+          "sellingPrice",
+          "minSellingPrice",
+          "isActive",
+          product_templates (
+            id,
+            name,
+            "purchaseUnit",
+            "sellingUnit",
+            "conversionFactor",
+            "isActive"
+          )
+        `,
       )
       .eq("id", variantId)
       .single();
 
-    if (productError || !variant) {
+    if (variantError || !variant) {
       return NextResponse.json(
-        { message: "المنتج غير موجود" },
+        {
+          message: "المتغير غير موجود",
+        },
         { status: 404 },
       );
     }
 
-    // 2. جلب سجل حركات هذا المنتج مرتبة من الأحدث للأقدم
+    /* =====================================================
+       MOVEMENTS
+    ===================================================== */
+
     const { data: movements, error: movementsError } = await supabaseAdmin
       .from("inventory_movements")
       .select(
@@ -70,25 +100,33 @@ export async function GET(
           )
         `,
       )
-      .eq("template_id", variantId)
-      .order("created_at", { ascending: false });
+      .eq("variant_id", variantId)
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(100);
 
     if (movementsError) {
+      console.error("Inventory movements GET:", movementsError);
+
       return NextResponse.json(
-        { message: movementsError.message },
-        { status: 400 },
+        {
+          message: "حدث خطأ أثناء جلب حركات المخزون",
+        },
+        { status: 500 },
       );
     }
 
     return NextResponse.json({
       variant,
-      movements: movements || [],
+      movements: movements ?? [],
     });
-  } catch (err: unknown) {
+  } catch (error: unknown) {
+    console.error("Inventory detail GET unexpected:", error);
+
     return NextResponse.json(
       {
-        message: "خطأ في السيرفر",
-        error: err instanceof Error ? err.message : String(err),
+        message: "خطأ غير متوقع في السيرفر",
       },
       { status: 500 },
     );

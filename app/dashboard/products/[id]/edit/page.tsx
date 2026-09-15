@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getCategories } from "@/app/dashboard/categories/services/categories.services";
-import { getSuppliers } from "@/app/dashboard/suppliers/service/supplier.services";
+import { getSuppliers } from "@/app/dashboard/suppliers/services/supplier.services";
 
 import EditProductForm from "../../_components/EditProductForm";
 

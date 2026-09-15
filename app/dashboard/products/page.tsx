@@ -7,7 +7,7 @@ import { redirectToNewProductPage } from "./_components/RedirectFunc";
 
 import { getProducts } from "./services/products.services";
 import { getCategories } from "../categories/services/categories.services";
-import { getSuppliers } from "../suppliers/service/supplier.services";
+import { getSuppliers } from "../suppliers/services/supplier.services";
 
 interface ProductsPageProps {
   searchParams: Promise<{

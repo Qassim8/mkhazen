@@ -13,8 +13,9 @@ const pageNames: Record<string, string> = {
   "/dashboard/reports": "التقارير",
   "/dashboard/settings": "الإعدادات",
   "/dashboard/pos": "نقطة البيع",
-  "/dashboard/accounting": "الحسابات",
-  "/dashboard/accounting/accounts": ` الحسابات ${`>`} الشجرة المحاسبية`,
+  "/dashboard/accounting": "المحاسبة",
+  "/dashboard/accounting/accounts": ` المحاسبة ${`>`} القيود المحاسبية`,
+  "/dashboard/accounting/assets": ` المحاسبة ${`>`} الاصول`,
 };
 
 const PageName = () => {

@@ -14,21 +14,62 @@ export const PurchaseOrderStatusEnum = z.enum([
   "RECEIVED",
   "CANCELLED",
 ]);
+
+export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusEnum>;
+
 const PurchaseSortEnum = z.enum([
   "date_desc",
   "date_asc",
   "total_desc",
   "total_asc",
 ]);
-export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusEnum>;
 
 /* =========================================================
-   PAYMENT METHOD
+   PAYMENT
 ========================================================= */
 
-export const PaymentMethodEnum = z.enum(["CASH", "BANK", "TRANSFER", "OTHER"]);
+export const PaymentMethodEnum = z.enum(["CASH", "BANK"]);
 
 export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
+
+export const PaymentStatusEnum = z.enum(["UNPAID", "PARTIAL", "PAID"]);
+
+export type PaymentStatus = z.infer<typeof PaymentStatusEnum>;
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const dateStringSchema = z
+  .string({
+    error: "التاريخ مطلوب",
+  })
+  .trim()
+  .min(1, "التاريخ مطلوب")
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "صيغة التاريخ غير صحيحة");
+
+const nullableOptionalDateString = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "صيغة التاريخ غير صحيحة")
+    .nullable()
+    .optional(),
+);
+
+export const nullableOptionalString = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.string().trim().nullable().optional(),
+);
+
+const nullableOptionalUuid = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? null : value,
+  z.string().uuid("معرف المورد غير صالح").nullable().optional(),
+);
 
 /* =========================================================
    PURCHASE ITEM
@@ -43,95 +84,184 @@ export const purchaseOrderItemSchema = z.object({
     .number({
       error: "الكمية مطلوبة",
     })
+    .finite("الكمية غير صالحة")
     .positive("الكمية يجب أن تكون أكبر من 0"),
 
   unitCost: z
     .number({
       error: "سعر الشراء مطلوب",
     })
+    .finite("سعر الشراء غير صالح")
     .min(0, "سعر الوحدة يجب أن يكون 0 أو أكثر"),
 });
 
 /* =========================================================
-   CREATE PURCHASE ORDER
-
-   status is NOT accepted from the client.
-   Server decides:
-   DIRECT   -> RECEIVED
-   WORKFLOW -> DRAFT
+   PAYMENT FIELDS
 ========================================================= */
-const nullableOptionalUuid = z.preprocess(
-  (value) =>
-    value === "" || value === null || value === undefined ? null : value,
-  z.string().uuid("معرف المورد غير صالح").nullable().optional(),
-);
 
-export const createPurchaseOrderSchema = z.object({
-  supplierId: nullableOptionalUuid,
+export const purchasePaymentFields = z.object({
+  amount: z
+    .number({
+      error: "مبلغ الدفعة مطلوب",
+    })
+    .finite("مبلغ الدفعة غير صالح")
+    .positive("مبلغ الدفعة يجب أن يكون أكبر من صفر"),
 
-  orderNumber: z.string().trim().max(50, "رقم الطلب طويل جدًا").optional(),
+  paymentDate: dateStringSchema,
 
-  purchaseType: PurchaseOrderTypeEnum.default("WORKFLOW"),
+  paymentMethod: PaymentMethodEnum,
 
-  orderDate: z.string().min(1, "يرجى تحديد تاريخ الشراء"),
+  reference: z
+    .string()
+    .trim()
+    .max(100, "المرجع طويل جدًا")
+    .nullable()
+    .optional(),
 
-  expectedDate: z.string().nullable().optional(),
-
-  notes: z.string().nullable().optional(),
-
-  deliveryCost: z
-    .number()
-    .min(0, "تكلفة الشحن لا يمكن أن تكون سالبة")
-    .default(0),
-
-  discountAmount: z
-    .number()
-    .min(0, "مبلغ الخصم لا يمكن أن يكون سالبًا")
-    .default(0),
-
-  items: z
-    .array(purchaseOrderItemSchema)
-    .min(1, "يرجى إضافة منتج واحد على الأقل للطلب"),
+  notes: z.string().trim().nullable().optional(),
 });
+
+export const createPurchasePaymentSchema = purchasePaymentFields.extend({
+  purchaseOrderId: z.string().uuid("معرف طلب الشراء غير صالح"),
+});
+
+export type CreatePurchasePaymentInput = z.input<
+  typeof createPurchasePaymentSchema
+>;
+
+export type CreatePurchasePaymentOutput = z.output<
+  typeof createPurchasePaymentSchema
+>;
+
+export type CreatePurchasePaymentFormInput = z.input<
+  typeof purchasePaymentFields
+>;
+
+/* =========================================================
+   CREATE PURCHASE ORDER
+========================================================= */
+
+export const createPurchaseOrderSchema = z
+  .object({
+    supplierId: nullableOptionalUuid,
+
+    orderNumber: z.string().trim().max(50, "رقم الطلب طويل جدًا").optional(),
+
+    purchaseType: PurchaseOrderTypeEnum.default("WORKFLOW"),
+
+    orderDate: dateStringSchema,
+
+    expectedDate: nullableOptionalDateString,
+
+    notes: nullableOptionalString,
+
+    deliveryCost: z
+      .number({
+        error: "تكلفة الشحن مطلوبة",
+      })
+      .finite("تكلفة الشحن غير صالحة")
+      .min(0, "تكلفة الشحن لا يمكن أن تكون سالبة")
+      .default(0),
+
+    discountAmount: z
+      .number({
+        error: "مبلغ الخصم مطلوب",
+      })
+      .finite("مبلغ الخصم غير صالح")
+      .min(0, "مبلغ الخصم لا يمكن أن يكون سالبًا")
+      .default(0),
+
+    items: z
+      .array(purchaseOrderItemSchema)
+      .min(1, "يرجى إضافة منتج واحد على الأقل للطلب"),
+  })
+  .superRefine((data, ctx) => {
+    const subtotal = data.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitCost,
+      0,
+    );
+
+    const beforeDiscount = subtotal + data.deliveryCost;
+
+    if (data.discountAmount > beforeDiscount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["discountAmount"],
+        message: "مبلغ الخصم لا يمكن أن يتجاوز قيمة الطلب",
+      });
+    }
+  });
 
 /* =========================================================
    UPDATE PURCHASE ORDER
 
-   Only DRAFT orders can be edited.
+   Only editable fields.
+   Status/payment are handled by dedicated APIs.
 ========================================================= */
 
-export const updatePurchaseOrderSchema = createPurchaseOrderSchema
-  .partial()
-  .extend({
+export const updatePurchaseOrderSchema = z
+  .object({
     id: z.string().uuid("معرف الطلب غير صالح"),
+
+    supplierId: nullableOptionalUuid,
+
+    orderDate: dateStringSchema,
+
+    expectedDate: nullableOptionalDateString,
+
+    notes: nullableOptionalString,
+
+    deliveryCost: z
+      .number({
+        error: "تكلفة الشحن مطلوبة",
+      })
+      .finite("تكلفة الشحن غير صالحة")
+      .min(0, "تكلفة الشحن لا يمكن أن تكون سالبة")
+      .default(0),
+
+    discountAmount: z
+      .number({
+        error: "مبلغ الخصم مطلوب",
+      })
+      .finite("مبلغ الخصم غير صالح")
+      .min(0, "مبلغ الخصم لا يمكن أن يكون سالبًا")
+      .default(0),
+
+    items: z
+      .array(purchaseOrderItemSchema)
+      .min(1, "يرجى إضافة منتج واحد على الأقل للطلب"),
+  })
+  .superRefine((data, ctx) => {
+    const subtotal = data.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitCost,
+      0,
+    );
+
+    const beforeDiscount = subtotal + data.deliveryCost;
+
+    if (data.discountAmount > beforeDiscount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["discountAmount"],
+        message: "مبلغ الخصم لا يمكن أن يتجاوز قيمة الطلب",
+      });
+    }
   });
 
 /* =========================================================
    STATUS UPDATE
+
+   Optional payment is only used when moving to RECEIVED.
+   Normal payment API remains independent and can be used
+   once the order is APPROVED or RECEIVED.
 ========================================================= */
 
 export const updatePurchaseOrderStatusSchema = z.object({
   id: z.string().uuid("معرف الطلب غير صالح"),
 
-  status: z.enum(["APPROVED", "RECEIVED", "CANCELLED"]),
-});
+  status: PurchaseOrderStatusEnum,
 
-/* =========================================================
-   PAYMENT
-========================================================= */
-
-export const createPurchasePaymentSchema = z.object({
-  amount: z
-    .number({
-      error: "مبلغ الدفعة مطلوب",
-    })
-    .positive("مبلغ الدفعة يجب أن يكون أكبر من 0"),
-
-  paymentDate: z.string().min(1, "تاريخ الدفعة مطلوب").optional(),
-
-  paymentMethod: PaymentMethodEnum.nullable().optional(),
-
-  notes: z.string().nullable().optional(),
+  payment: purchasePaymentFields.nullable().optional(),
 });
 
 /* =========================================================
@@ -149,14 +279,12 @@ export const purchaseQuerySchema = z.object({
 
   purchaseType: PurchaseOrderTypeEnum.or(z.literal("ALL")).optional(),
 
+  paymentStatus: PaymentStatusEnum.or(z.literal("ALL")).optional(),
+
   supplierId: z.string().uuid().optional(),
 
   sort: PurchaseSortEnum.default("date_desc"),
 });
-
-/* =========================================================
-   INFERRED TYPES
-========================================================= */
 
 /* =========================================================
    INFERRED TYPES
@@ -184,14 +312,6 @@ export type UpdatePurchaseOrderStatusInput = z.infer<
   typeof updatePurchaseOrderStatusSchema
 >;
 
-export type CreatePurchasePaymentInput = z.output<
-  typeof createPurchasePaymentSchema
->;
-
-export type CreatePurchasePaymentFormInput = z.input<
-  typeof createPurchasePaymentSchema
->;
-
 export type PurchaseQueryInput = z.output<typeof purchaseQuerySchema>;
 
 /* =========================================================
@@ -200,96 +320,56 @@ export type PurchaseQueryInput = z.output<typeof purchaseQuerySchema>;
 
 export interface PurchaseOrderItem {
   id: string;
-
   purchaseOrderId: string;
-
   templateId: string;
-
   variantId: string;
-
   productName?: string;
-
   sku?: string;
-
   colorName?: string | null;
-
   size?: string | null;
-
   quantity: number;
-
   receivedQuantity: number;
-
   unitCost: number;
-
   allocatedDeliveryCost: number;
-
   effectiveUnitCost: number;
-
   subtotal: number;
-
   createdAt?: string;
 }
 
 export interface PurchaseOrderPayment {
   id: string;
-
   purchaseOrderId: string;
-
   amount: number;
-
   paymentDate: string;
-
   paymentMethod: PaymentMethod | null;
-
+  reference: string | null;
   notes: string | null;
-
   createdBy: string | null;
-
   createdAt: string;
 }
 
 export interface PurchaseOrder {
   id: string;
-
   orderNumber: string;
-
   supplierId: string | null;
-
   supplierName?: string;
-
   status: PurchaseOrderStatus;
-
   purchaseType: PurchaseOrderType;
-
   orderDate: string;
-
   expectedDate: string | null;
-
   subtotal: number;
-
   deliveryCost: number;
-
   discountAmount: number;
-
   totalAmount: number;
-
   notes: string | null;
-
   createdBy: string | null;
-
   receivedBy: string | null;
-
   journalEntryId: string | null;
-
   items?: PurchaseOrderItem[];
-
   payments?: PurchaseOrderPayment[];
-
   paidAmount?: number;
-
   remainingAmount?: number;
-
+  paymentStatus?: PaymentStatus;
   createdAt: string;
-
   updatedAt: string;
 }

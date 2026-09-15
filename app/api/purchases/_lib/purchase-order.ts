@@ -1,12 +1,20 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
 import {
+  PaymentMethod,
+  PaymentStatus,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderPayment,
   PurchaseOrderStatus,
-  PaymentMethod,
 } from "@/app/dashboard/orders/schemas/orders.schemas";
+
+import {
+  createJournalEntry,
+  getAccountBalance,
+} from "@/app/api/accounting/_lib/accounting";
+
+import { MAIN_BRANCH_ID } from "@/lib/constants";
 
 /* =========================================================
    STATUS FLOW
@@ -22,7 +30,7 @@ export const allowedStatusTransitions: Record<
 
   RECEIVED: [],
 
-  CANCELLED: [],
+  CANCELLED: ["DRAFT"],
 };
 
 /* =========================================================
@@ -35,6 +43,25 @@ export function canEditPurchaseOrder(status: PurchaseOrderStatus) {
 
 export function canDeletePurchaseOrder(status: PurchaseOrderStatus) {
   return status === "DRAFT";
+}
+
+/* =========================================================
+   PAYMENT STATUS
+========================================================= */
+
+export function getPurchasePaymentStatus(
+  totalAmount: number,
+  paidAmount: number,
+): PaymentStatus {
+  if (paidAmount <= 0) {
+    return "UNPAID";
+  }
+
+  if (paidAmount >= totalAmount) {
+    return "PAID";
+  }
+
+  return "PARTIAL";
 }
 
 /* =========================================================
@@ -61,20 +88,16 @@ export function calculatePurchaseTotal(
 }
 
 /* =========================================================
-   ALLOCATE DELIVERY COST EQUALLY
+   ALLOCATE PURCHASE COSTS
 
-   Example:
-   Delivery = 90
-   Items = 3
+   Delivery:
+   - equal between items
 
-   Each item gets:
-   allocatedDeliveryCost = 30
+   Discount:
+   - proportional to item subtotal
 
-   If item quantity = 10:
-   delivery/unit = 3
-
-   effective unit cost:
-   unitCost + 3
+   effectiveUnitCost:
+   unit cost + shipping/unit - discount/unit
 ========================================================= */
 
 export function allocateDeliveryCost(
@@ -83,26 +106,45 @@ export function allocateDeliveryCost(
     quantity: number;
     unitCost: number;
   }[],
+  discountAmount = 0,
 ) {
-  if (deliveryCost <= 0 || items.length === 0) {
-    return items.map((item) => ({
-      ...item,
-      allocatedDeliveryCost: 0,
-      effectiveUnitCost: item.unitCost,
-    }));
+  if (items.length === 0) {
+    return [];
   }
 
-  const deliveryPerItem = deliveryCost / items.length;
+  const safeDelivery = Math.max(0, Number(deliveryCost || 0));
+
+  const safeDiscount = Math.max(0, Number(discountAmount || 0));
+
+  const totalItemSubtotal = items.reduce(
+    (sum, item) => sum + item.quantity * item.unitCost,
+    0,
+  );
+
+  const deliveryPerItem = safeDelivery / items.length;
 
   return items.map((item) => {
+    const itemSubtotal = item.quantity * item.unitCost;
+
     const deliveryPerUnit =
       item.quantity > 0 ? deliveryPerItem / item.quantity : 0;
 
+    const discountShare =
+      totalItemSubtotal > 0
+        ? (itemSubtotal / totalItemSubtotal) * safeDiscount
+        : 0;
+
+    const discountPerUnit =
+      item.quantity > 0 ? discountShare / item.quantity : 0;
+
+    const effectiveUnitCost = item.unitCost + deliveryPerUnit - discountPerUnit;
+
     return {
       ...item,
+
       allocatedDeliveryCost: Number(deliveryPerItem.toFixed(2)),
 
-      effectiveUnitCost: Number((item.unitCost + deliveryPerUnit).toFixed(2)),
+      effectiveUnitCost: Number(Math.max(0, effectiveUnitCost).toFixed(2)),
     };
   });
 }
@@ -202,6 +244,8 @@ export function mapPurchaseOrder(rawOrder: RawPurchaseOrder): PurchaseOrder {
       payment.paymentMethod ??
       null) as PaymentMethod | null,
 
+    reference: (payment.reference ?? null) as string | null,
+
     notes: (payment.notes ?? null) as string | null,
 
     createdBy: (payment.created_by ?? null) as string | null,
@@ -265,6 +309,8 @@ export function mapPurchaseOrder(rawOrder: RawPurchaseOrder): PurchaseOrder {
 
     remainingAmount: Number(remainingAmount.toFixed(2)),
 
+    paymentStatus: getPurchasePaymentStatus(totalAmount, paidAmount),
+
     createdAt: String(rawOrder.created_at ?? rawOrder.createdAt ?? ""),
 
     updatedAt: String(rawOrder.updated_at ?? rawOrder.updatedAt ?? ""),
@@ -310,6 +356,7 @@ export const PURCHASE_ORDER_SELECT = `
     amount,
     payment_date,
     payment_method,
+    reference,
     notes,
     created_by,
     created_at
@@ -338,6 +385,138 @@ export async function fetchPurchaseOrderById(id: string) {
     data: mapPurchaseOrder(data as RawPurchaseOrder),
     error: null,
   };
+}
+
+/* =========================================================
+   RECORD PURCHASE PAYMENT
+
+   Allowed:
+   APPROVED
+   RECEIVED
+
+   Forbidden:
+   DRAFT
+   CANCELLED
+========================================================= */
+
+export async function recordPurchasePayment(params: {
+  purchaseOrderId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  reference?: string | null;
+  notes?: string | null;
+  createdBy: string | null;
+}) {
+  const {
+    purchaseOrderId,
+    amount,
+    paymentDate,
+    paymentMethod,
+    reference,
+    notes,
+    createdBy,
+  } = params;
+
+  const { data: order, error: orderError } =
+    await fetchPurchaseOrderById(purchaseOrderId);
+
+  if (orderError || !order) {
+    throw new Error("طلب الشراء غير موجود");
+  }
+
+  if (order.status !== "APPROVED" && order.status !== "RECEIVED") {
+    if (order.status === "DRAFT") {
+      throw new Error("لا يمكن تسجيل دفعة قبل اعتماد طلب الشراء");
+    }
+
+    throw new Error("لا يمكن تسجيل دفعة على طلب شراء ملغي");
+  }
+
+  const normalizedAmount = Number(amount.toFixed(2));
+
+  if (normalizedAmount <= 0) {
+    throw new Error("مبلغ الدفعة يجب أن يكون أكبر من صفر");
+  }
+
+  const paidAmount = order.paidAmount ?? 0;
+
+  const remainingAmount = Math.max(0, order.totalAmount - paidAmount);
+
+  if (normalizedAmount > remainingAmount) {
+    throw new Error(
+      `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(2)} ريال)`,
+    );
+  }
+
+  const account = paymentMethod === "BANK" ? "BANK" : "CASH";
+
+  const availableBalance = await getAccountBalance(account);
+
+  if (normalizedAmount > availableBalance) {
+    const accountLabel = account === "BANK" ? "البنك" : "الصندوق";
+
+    throw new Error(
+      `الرصيد غير كافٍ في ${accountLabel}. الرصيد الحالي ${availableBalance.toFixed(
+        2,
+      )} ريال`,
+    );
+  }
+
+  const { data: payment, error: paymentError } = await supabaseAdmin
+    .from("purchase_order_payments")
+    .insert({
+      purchase_order_id: purchaseOrderId,
+
+      amount: normalizedAmount,
+
+      payment_date: new Date(paymentDate).toISOString(),
+
+      payment_method: paymentMethod,
+
+      reference: reference || null,
+
+      notes: notes || null,
+
+      created_by: createdBy,
+    })
+    .select()
+    .single();
+
+  if (paymentError || !payment) {
+    throw new Error(paymentError?.message ?? "تعذر تسجيل الدفعة");
+  }
+
+  try {
+    await createJournalEntry({
+      entryType: "PURCHASE_PAYMENT",
+
+      amount: normalizedAmount,
+
+      description: `دفعة للمورد عن طلب الشراء ${order.orderNumber}`,
+
+      reference: reference || null,
+
+      purchaseOrderId,
+
+      debitAccount: "SUPPLIERS",
+
+      creditAccount: account,
+
+      createdBy,
+    });
+  } catch (journalError) {
+    await supabaseAdmin
+      .from("purchase_order_payments")
+      .delete()
+      .eq("id", payment.id);
+
+    throw journalError instanceof Error
+      ? journalError
+      : new Error("تعذر إنشاء القيد المحاسبي للدفعة");
+  }
+
+  return payment;
 }
 
 /* =========================================================
@@ -374,7 +553,16 @@ export async function notifyOwnerForDraft(
 export async function processPurchaseReceipt(orderId: string, userId: string) {
   const { data: order, error: orderError } = await supabaseAdmin
     .from("purchase_orders")
-    .select("status, purchase_type")
+    .select(
+      `
+      id,
+      order_number,
+      status,
+      purchase_type,
+      total_amount,
+      journal_entry_id
+      `,
+    )
     .eq("id", orderId)
     .single();
 
@@ -395,9 +583,6 @@ export async function processPurchaseReceipt(orderId: string, userId: string) {
     throw new Error("لم يتم العثور على بنود لطلب الشراء هذا");
   }
 
-  /*
-   * Prevent duplicate receipt.
-   */
   const alreadyReceived = items.some(
     (item) => Number(item.received_quantity ?? 0) > 0,
   );
@@ -406,14 +591,18 @@ export async function processPurchaseReceipt(orderId: string, userId: string) {
     throw new Error("تم استلام بنود هذا الطلب مسبقًا");
   }
 
+  /* =======================================================
+     UPDATE STOCK + MOVEMENTS
+  ======================================================= */
+
   for (const item of items) {
-    const { data: variant, error: variantFetchError } = await supabaseAdmin
+    const { data: variant, error: variantError } = await supabaseAdmin
       .from("product_variants")
       .select('id, "stockQuantity"')
       .eq("id", item.variant_id)
       .single();
 
-    if (variantFetchError || !variant) {
+    if (variantError || !variant) {
       throw new Error(`تعذر العثور على متغيّر المنتج (${item.variant_id})`);
     }
 
@@ -449,7 +638,7 @@ export async function processPurchaseReceipt(orderId: string, userId: string) {
 
         unit_cost: Number(item.effective_unit_cost ?? item.unit_cost ?? 0),
 
-        reference: `PO-${orderId}`,
+        reference: `PO-${order.order_number}`,
 
         created_by: userId,
       });
@@ -458,17 +647,84 @@ export async function processPurchaseReceipt(orderId: string, userId: string) {
       throw new Error(`فشل تسجيل حركة المخزون: ${movementError.message}`);
     }
 
-    const { error: receivedUpdateError } = await supabaseAdmin
+    const { error: receivedError } = await supabaseAdmin
       .from("purchase_order_items")
       .update({
         received_quantity: receivedQuantity,
       })
       .eq("id", item.id);
 
-    if (receivedUpdateError) {
+    if (receivedError) {
+      throw new Error(`فشل تحديث كمية الاستلام: ${receivedError.message}`);
+    }
+  }
+
+  /* =======================================================
+     PURCHASE JOURNAL
+
+     DR INVENTORY
+     CR SUPPLIERS
+  ======================================================= */
+
+  const totalAmount = Number(order.total_amount ?? 0);
+
+  if (totalAmount <= 0) {
+    throw new Error("لا يمكن إنشاء قيد شراء بمبلغ صفر");
+  }
+
+  let journalEntryId = order.journal_entry_id ?? null;
+
+  if (!journalEntryId) {
+    const { data: existingJournal, error: existingJournalError } =
+      await supabaseAdmin
+        .from("journal_entries")
+        .select("id")
+        .eq("purchase_order_id", orderId)
+        .eq("entry_type", "PURCHASE")
+        .eq("branch_id", MAIN_BRANCH_ID)
+        .maybeSingle();
+
+    if (existingJournalError) {
       throw new Error(
-        `فشل تحديث كمية الاستلام: ${receivedUpdateError.message}`,
+        `تعذر التحقق من القيد المحاسبي: ${existingJournalError.message}`,
       );
     }
+
+    if (existingJournal) {
+      journalEntryId = existingJournal.id;
+    }
+  }
+
+  if (!journalEntryId) {
+    const journalEntry = await createJournalEntry({
+      entryType: "PURCHASE",
+
+      amount: Number(totalAmount.toFixed(2)),
+
+      description: `شراء ${order.order_number}`,
+
+      reference: `PO-${order.order_number}`,
+
+      purchaseOrderId: orderId,
+
+      debitAccount: "INVENTORY",
+
+      creditAccount: "SUPPLIERS",
+
+      createdBy: userId,
+    });
+
+    journalEntryId = journalEntry.id;
+  }
+
+  const { error: linkError } = await supabaseAdmin
+    .from("purchase_orders")
+    .update({
+      journal_entry_id: journalEntryId,
+    })
+    .eq("id", orderId);
+
+  if (linkError) {
+    console.error("Failed to link purchase journal:", linkError);
   }
 }

@@ -11,7 +11,7 @@ import {
   CreateSupplierFormInput,
   Supplier,
 } from "../schemas/supplier.schemas";
-import { createSupplier, updateSupplier } from "../service/supplier.services";
+import { createSupplier, updateSupplier } from "../services/supplier.services";
 
 interface SupplierModalContentProps {
   initialData?: Supplier | null;

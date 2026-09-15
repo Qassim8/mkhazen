@@ -13,6 +13,7 @@ interface Props {
     sort?: string;
     page?: string;
     limit?: string;
+    paymentStatus?: string;
   }>;
 }
 
@@ -32,8 +33,16 @@ const validSorts = [
   "total_asc",
 ] as const;
 
+const validPaymentStatuses = ["UNPAID", "PARTIAL", "PAID"] as const;
+
 export default async function PurchaseOrdersPage({ searchParams }: Props) {
   const query = await searchParams;
+
+  const paymentStatus = validPaymentStatuses.includes(
+    query.paymentStatus as (typeof validPaymentStatuses)[number],
+  )
+    ? (query.paymentStatus as (typeof validPaymentStatuses)[number])
+    : undefined;
 
   const status = validStatuses.includes(query.status as PurchaseOrderStatus)
     ? (query.status as PurchaseOrderStatus)
@@ -56,6 +65,7 @@ export default async function PurchaseOrdersPage({ searchParams }: Props) {
     search: query.search,
     status,
     purchaseType,
+    paymentStatus,
     sort,
     page,
     limit,

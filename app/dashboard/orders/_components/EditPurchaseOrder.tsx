@@ -19,7 +19,6 @@ import {
 import { updatePurchaseOrder } from "../services/order.services";
 
 import { z } from "zod";
-import { LuArrowRight } from "react-icons/lu";
 
 /* =========================================================
    TYPES
@@ -130,8 +129,6 @@ export default function EditPurchaseOrderForm({
       id: initialOrder.id,
 
       supplierId: initialOrder.supplierId || null,
-
-      orderNumber: initialOrder.orderNumber,
 
       orderDate: initialOrder.orderDate
         ? new Date(initialOrder.orderDate).toISOString().split("T")[0]

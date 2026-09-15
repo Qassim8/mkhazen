@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { categories, products } from "@/data/data";
-import Card from "./components/Card";
-import CartList from "./components/CartList";
+import Card from "./_components/Card";
+import CartList from "./_components/CartList";
 import { LuList, LuShoppingCart } from "react-icons/lu";
 import Image from "next/image";
 import { Product } from "@/types/types";

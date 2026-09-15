@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
@@ -14,6 +13,7 @@ import {
   allowedStatusTransitions,
   fetchPurchaseOrderById,
   processPurchaseReceipt,
+  recordPurchasePayment,
 } from "../../_lib/purchase-order";
 
 export async function PATCH(
@@ -50,19 +50,18 @@ export async function PATCH(
     if (!validation.success) {
       return NextResponse.json(
         {
-          message: "حالة الطلب غير صالحة",
-
+          message: "بيانات تغيير الحالة غير صالحة",
           errors: validation.error.flatten().fieldErrors,
         },
         { status: 422 },
       );
     }
 
-    const { status: newStatus } = validation.data;
+    const { status: newStatus, payment } = validation.data;
 
     const { data: existingOrder, error: fetchError } = await supabaseAdmin
       .from("purchase_orders")
-      .select("status, purchase_type")
+      .select("id, status, purchase_type")
       .eq("id", id)
       .single();
 
@@ -77,23 +76,30 @@ export async function PATCH(
 
     const currentStatus = existingOrder.status as PurchaseOrderStatus;
 
-    /* =====================================================
-       Same status
-    ===================================================== */
-
     if (newStatus === currentStatus) {
-      const { data } = await fetchPurchaseOrderById(id);
-
       return NextResponse.json({
         message: "حالة الطلب لم تتغير",
 
-        data,
+        data: (await fetchPurchaseOrderById(id)).data,
       });
     }
 
     /* =====================================================
-       Validate transition
+       PAYMENT WITH STATUS REQUEST
+
+       Optional payment is only processed when the request
+       moves the order to RECEIVED.
     ===================================================== */
+
+    if (payment && newStatus !== "RECEIVED") {
+      return NextResponse.json(
+        {
+          message:
+            "الدفعة المرفقة تستخدم فقط عند استلام طلب الشراء. ويمكن تسجيل الدفعة بشكل مستقل بعد اعتماد الطلب.",
+        },
+        { status: 400 },
+      );
+    }
 
     const allowed = allowedStatusTransitions[currentStatus] ?? [];
 
@@ -113,10 +119,35 @@ export async function PATCH(
       }
 
       if (currentStatus === "CANCELLED") {
-        message = "الطلب الملغي لا يمكن إعادة تنشيطه.";
+        message = "الطلب الملغي يمكن إعادته إلى المسودة فقط.";
       }
 
       return NextResponse.json({ message }, { status: 400 });
+    }
+
+    /* =====================================================
+       DRAFT
+       CANCELLED -> DRAFT
+    ===================================================== */
+
+    if (newStatus === "DRAFT") {
+      const { error } = await supabaseAdmin
+        .from("purchase_orders")
+        .update({
+          status: "DRAFT",
+
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) {
+        return NextResponse.json(
+          {
+            message: error.message,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     /* =====================================================
@@ -169,29 +200,12 @@ export async function PATCH(
 
     /* =====================================================
        RECEIVED
-
-       This is the ONLY point where stock increases
-       for workflow purchases.
     ===================================================== */
 
     if (newStatus === "RECEIVED") {
-      try {
-        await processPurchaseReceipt(id, user.userId);
-      } catch (receiptError) {
-        console.error("Purchase receipt error:", receiptError);
+      await processPurchaseReceipt(id, user.userId);
 
-        return NextResponse.json(
-          {
-            message:
-              receiptError instanceof Error
-                ? receiptError.message
-                : "تعذر استلام الطلب وتحديث المخزون",
-          },
-          { status: 500 },
-        );
-      }
-
-      const { error: receiveUpdateError } = await supabaseAdmin
+      const { error: receiveError } = await supabaseAdmin
         .from("purchase_orders")
         .update({
           status: "RECEIVED",
@@ -202,21 +216,73 @@ export async function PATCH(
         })
         .eq("id", id);
 
-      if (receiveUpdateError) {
+      if (receiveError) {
         return NextResponse.json(
           {
             message:
-              "تم تحديث المخزون لكن تعذر تحديث حالة الطلب. يجب معالجة هذه الحالة قبل إعادة الاستلام.",
+              "تم تحديث المخزون لكن تعذر تحديث حالة الطلب. لا تحاول الاستلام مرة أخرى قبل معالجة هذه الحالة.",
           },
           { status: 500 },
         );
       }
 
+      /* ===================================================
+         OPTIONAL PAYMENT AFTER RECEIPT
+      =================================================== */
+
+      if (payment) {
+        try {
+          await recordPurchasePayment({
+            purchaseOrderId: id,
+
+            amount: payment.amount,
+
+            paymentDate: payment.paymentDate,
+
+            paymentMethod: payment.paymentMethod,
+
+            reference: payment.reference,
+
+            notes: payment.notes,
+
+            createdBy: user.userId ?? null,
+          });
+        } catch (paymentError) {
+          console.error("Receive payment error:", paymentError);
+
+          revalidateTag("products-list", "default");
+
+          revalidateTag("purchases-list", "default");
+
+          revalidatePath("/dashboard/orders");
+
+          revalidatePath(`/dashboard/orders/${id}`);
+
+          return NextResponse.json(
+            {
+              message:
+                paymentError instanceof Error
+                  ? `تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة: ${paymentError.message}`
+                  : "تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة.",
+              warning: true,
+              data: (await fetchPurchaseOrderById(id)).data,
+            },
+            { status: 400 },
+          );
+        }
+      }
+
       revalidateTag("products-list", "default");
+
+      revalidateTag("accounting-summary", "default");
 
       revalidatePath("/dashboard/products");
 
       revalidatePath("/dashboard/inventory");
+
+      revalidatePath("/dashboard/accounting");
+
+      revalidatePath("/dashboard/accounting/overview");
     }
 
     /* =====================================================
@@ -227,14 +293,20 @@ export async function PATCH(
 
     revalidatePath("/dashboard/orders");
 
+    revalidatePath(`/dashboard/orders/${id}`);
+
     const { data } = await fetchPurchaseOrderById(id);
 
     const messages: Record<string, string> = {
+      DRAFT: "تمت إعادة طلب الشراء إلى المسودة.",
+
       APPROVED: "تمت الموافقة على طلب الشراء.",
 
-      RECEIVED: "تم استلام الطلب وتحديث المخزون بنجاح.",
+      RECEIVED: payment
+        ? "تم استلام الطلب وتسجيل الدفعة بنجاح."
+        : "تم استلام الطلب وتحديث المخزون بنجاح.",
 
-      CANCELLED: "تم إلغاء مسودة طلب الشراء.",
+      CANCELLED: "تم إلغاء طلب الشراء.",
     };
 
     return NextResponse.json({
@@ -247,7 +319,7 @@ export async function PATCH(
 
     return NextResponse.json(
       {
-        message: "خطأ في السيرفر",
+        message: error instanceof Error ? error.message : "خطأ في السيرفر",
       },
       { status: 500 },
     );

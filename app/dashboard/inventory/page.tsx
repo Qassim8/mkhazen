@@ -1,55 +1,64 @@
-"use client";
+import {
+  getInventory,
+  getInventoryMovements,
+} from "./services/inventory.services";
 
-import { useState } from "react";
-import AreaChartComponent from "./_components/BarChart";
-import Filters from "../products/_components/Filters";
-import Movement from "./_components/Movement";
-import MovementTable from "./_components/MovementsTable";
-import PageHeader from "@/components/shared/PageHeader";
-import AdjustmentModal from "./_components/AdjustmentModal";
-import { InventoryMovement } from "./services/inventory.services";
+import WarehouseClient from "./_components/WarehouseClient";
 
-interface WarehouseClientProps {
-  movements: InventoryMovement[];
-  products: Array<{ id: string; name: string; stockQuantity: number }>;
+interface Props {
+  searchParams: Promise<{
+    page?: string;
+    limit?: string;
+    type?: string;
+  }>;
 }
 
-export default function WarehouseClient({
-  movements = [],
-  products = [],
-}: WarehouseClientProps) {
-  const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
+export default async function InventoryPage({ searchParams }: Props) {
+  const query = await searchParams;
+
+  const validTypes = [
+    "ALL",
+    "PURCHASE",
+    "SALE",
+    "PURCHASE_RETURN",
+    "SALE_RETURN",
+    "ADJUSTMENT_IN",
+    "ADJUSTMENT_OUT",
+  ] as const;
+
+  const type = validTypes.includes(query.type as (typeof validTypes)[number])
+    ? (query.type as (typeof validTypes)[number])
+    : "ALL";
+
+  const page = Math.max(Number(query.page) || 1, 1);
+
+  const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
+
+  const [inventoryResponse, movementsResponse] = await Promise.all([
+    getInventory({
+      page: 1,
+      limit: 100,
+    }),
+
+    getInventoryMovements({
+      page,
+      limit,
+      type,
+    }),
+  ]);
 
   return (
-    <main>
-      <PageHeader
-        title="تحركات المخزن"
-        subtitle="تتبع كل التحركات والتغيرات في مخزنك"
-        buttonTitle="عملية جديدة"
-        redirect={() => setIsAdjustmentOpen(true)}
-      />
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
-        <div className="md:col-span-2">
-          <AreaChartComponent movements={movements} />
-        </div>
-        <div className="frame">
-          <Movement movements={movements.slice(0, 6)} />
-        </div>
-      </div>
-
-      <div className="frame my-8 p-0!">
-        <div className="p-5">
-          <Filters />
-        </div>
-        <MovementTable movements={movements} />
-      </div>
-
-      <AdjustmentModal
-        isOpen={isAdjustmentOpen}
-        onClose={() => setIsAdjustmentOpen(false)}
-        products={products}
-      />
-    </main>
+    <WarehouseClient
+      movements={movementsResponse?.data || []}
+      movementMeta={
+        movementsResponse?.meta || {
+          total: 0,
+          page: 1,
+          limit,
+          totalPages: 0,
+        }
+      }
+      inventory={inventoryResponse?.data || []}
+    />
   );
 }

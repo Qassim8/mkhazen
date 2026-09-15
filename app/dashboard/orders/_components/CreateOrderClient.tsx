@@ -16,7 +16,6 @@ import {
   LuCheck,
   LuLoader,
   LuSearch,
-  LuShoppingCart,
   LuTruck,
   LuWalletCards,
 } from "react-icons/lu";
@@ -25,9 +24,7 @@ import PurchaseCart, { PurchaseItem } from "./Cart";
 
 import {
   CreatePurchaseOrderInput,
-  CreatePurchasePaymentInput,
   createPurchaseOrderSchema,
-  PurchaseOrderType,
   CreatePurchaseOrderFormInput,
 } from "../schemas/orders.schemas";
 
@@ -381,20 +378,27 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
   const onSubmit = async (data: CreatePurchaseOrderInput) => {
     if (purchaseItems.length === 0) {
       toast.error("أضف Variant واحدًا على الأقل إلى الطلب");
+
+      return;
+    }
+
+    const isDirect = data.purchaseType === "DIRECT";
+
+    const paymentAmount = isDirect
+      ? Number(currentPaymentAmount.toFixed(2))
+      : 0;
+
+    if (isDirect && paymentMode === "PARTIAL" && paymentAmount <= 0) {
+      toast.error("أدخل مبلغ الدفعة الجزئية");
+
       return;
     }
 
     const payload: CreatePurchaseOrderInput = {
       ...data,
 
-      /*
-       * Items come from our cart.
-       */
       items: mapItemsToPayload(purchaseItems),
 
-      /*
-       * Backend controls status.
-       */
       supplierId: data.supplierId || null,
 
       expectedDate: data.expectedDate || null,
@@ -406,47 +410,51 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
       discountAmount: Number(data.discountAmount || 0),
     };
 
-    /*
-     * Final validation before sending.
-     */
     const validation = createPurchaseOrderSchema.safeParse(payload);
 
     if (!validation.success) {
       toast.error("تحقق من بيانات الطلب قبل الحفظ");
+
       return;
     }
 
     try {
-      /* ===================================================
-         1. Create order
-      =================================================== */
-
       const response = await createPurchaseOrder(validation.data);
 
       const createdOrder = response.data;
 
-      /* ===================================================
-         2. Initial payment
-      =================================================== */
+      if (!createdOrder) {
+        throw new Error("تم إنشاء الطلب لكن لم يتم إرجاع بياناته");
+      }
 
-      if (createdOrder && currentPaymentAmount > 0) {
-        const paymentPayload: CreatePurchasePaymentInput = {
-          amount: Number(currentPaymentAmount.toFixed(2)),
-
-          paymentDate: data.orderDate,
-
-          paymentMethod: paymentMethod,
-
-          notes: null,
-        };
-
+      if (isDirect && paymentAmount > 0) {
         try {
-          await createPurchaseOrderPayment(createdOrder.id, paymentPayload);
-        } catch (paymentError) {
-          console.error("Initial payment error:", paymentError);
+          await createPurchaseOrderPayment(createdOrder.id, {
+            amount: paymentAmount,
 
+            paymentDate: data.orderDate,
+
+            paymentMethod: paymentMethod,
+
+            reference: null,
+
+            notes: data.notes || null,
+          });
+
+          toast.success(
+            "تم تسجيل الشراء المباشر وزيادة المخزون وتسجيل الدفعة بنجاح",
+          );
+
+          router.push("/dashboard/orders");
+
+          router.refresh();
+
+          return;
+        } catch (paymentError) {
           toast.error(
-            "تم إنشاء طلب الشراء، لكن تعذر تسجيل الدفعة. يمكنك تسجيلها من تفاصيل الطلب.",
+            paymentError instanceof Error
+              ? `تم تسجيل الشراء وزيادة المخزون، لكن تعذر تسجيل الدفعة: ${paymentError.message}`
+              : "تم تسجيل الشراء وزيادة المخزون، لكن تعذر تسجيل الدفعة.",
           );
 
           router.push(`/dashboard/orders/${createdOrder.id}`);
@@ -457,12 +465,8 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
         }
       }
 
-      /* ===================================================
-         Success
-      =================================================== */
-
       toast.success(
-        purchaseType === "DIRECT"
+        isDirect
           ? "تم تسجيل الشراء المباشر وزيادة المخزون بنجاح"
           : "تم حفظ طلب الشراء كمسودة",
       );
@@ -471,8 +475,6 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
 
       router.refresh();
     } catch (error: unknown) {
-      console.error("Create purchase order error:", error);
-
       toast.error(
         error instanceof Error
           ? error.message
@@ -754,138 +756,150 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
           </div>
 
           {/* Payment */}
-          <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4">
-            <div className="flex items-center gap-2">
-              <LuWalletCards className="h-5 w-5 text-gray-500" />
 
+          {purchaseType === "DIRECT" ? (
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4">
+              <div className="flex items-center gap-2">
+                <LuWalletCards className="h-5 w-5 text-gray-500" />
+
+                <div>
+                  <h3 className="text-sm font-bold text-gray-800">الدفع</h3>
+
+                  <p className="text-[10px] text-gray-400">
+                    يمكن تسجيل دفعة كاملة أو جزئية.
+                  </p>
+                </div>
+              </div>
+
+              {/* Payment method */}
               <div>
-                <h3 className="text-sm font-bold text-gray-800">الدفع</h3>
-
-                <p className="text-[10px] text-gray-400">
-                  يمكن تسجيل دفعة كاملة أو جزئية.
+                <p className="mb-2 text-xs font-semibold text-gray-600">
+                  طريقة الدفع
                 </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setPaymentMethod("CASH")}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                      paymentMethod === "CASH"
+                        ? "border-(--primary-red) bg-white text-(--primary-red)"
+                        : "border-gray-200 bg-white text-gray-600"
+                    }`}
+                  >
+                    <LuBanknote className="h-4 w-4" />
+                    كاش
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setPaymentMethod("BANK")}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                      paymentMethod === "BANK"
+                        ? "border-(--primary-red) bg-white text-(--primary-red)"
+                        : "border-gray-200 bg-white text-gray-600"
+                    }`}
+                  >
+                    <LuBanknote className="h-4 w-4" />
+                    بنك / تحويل
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Payment method */}
-            <div>
-              <p className="mb-2 text-xs font-semibold text-gray-600">
-                طريقة الدفع
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setPaymentMethod("CASH")}
-                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                    paymentMethod === "CASH"
-                      ? "border-(--primary-red) bg-white text-(--primary-red)"
-                      : "border-gray-200 bg-white text-gray-600"
-                  }`}
-                >
-                  <LuBanknote className="h-4 w-4" />
-                  كاش
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setPaymentMethod("BANK")}
-                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                    paymentMethod === "BANK"
-                      ? "border-(--primary-red) bg-white text-(--primary-red)"
-                      : "border-gray-200 bg-white text-gray-600"
-                  }`}
-                >
-                  <LuBanknote className="h-4 w-4" />
-                  بنك / تحويل
-                </button>
-              </div>
-            </div>
-
-            {/* Payment mode */}
-            <div>
-              <p className="mb-2 text-xs font-semibold text-gray-600">
-                قيمة الدفعة
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={isSubmitting || totalAmount <= 0}
-                  onClick={() => setPaymentMode("FULL")}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                    paymentMode === "FULL"
-                      ? "border-(--primary-red) bg-white text-(--primary-red)"
-                      : "border-gray-200 bg-white text-gray-600"
-                  }`}
-                >
-                  كامل
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isSubmitting || totalAmount <= 0}
-                  onClick={() => setPaymentMode("PARTIAL")}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                    paymentMode === "PARTIAL"
-                      ? "border-(--primary-red) bg-white text-(--primary-red)"
-                      : "border-gray-200 bg-white text-gray-600"
-                  }`}
-                >
-                  جزئي
-                </button>
-              </div>
-            </div>
-
-            {/* Partial amount */}
-            {paymentMode === "PARTIAL" && (
+              {/* Payment mode */}
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                  مبلغ الدفعة
-                </label>
+                <p className="mb-2 text-xs font-semibold text-gray-600">
+                  قيمة الدفعة
+                </p>
 
-                <input
-                  type="number"
-                  min="0"
-                  max={totalAmount}
-                  step="0.01"
-                  value={partialPaymentAmount}
-                  onChange={(event) =>
-                    setPartialPaymentAmount(Number(event.target.value || 0))
-                  }
-                  disabled={isSubmitting}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
-                />
-              </div>
-            )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isSubmitting || totalAmount <= 0}
+                    onClick={() => setPaymentMode("FULL")}
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                      paymentMode === "FULL"
+                        ? "border-(--primary-red) bg-white text-(--primary-red)"
+                        : "border-gray-200 bg-white text-gray-600"
+                    }`}
+                  >
+                    كامل
+                  </button>
 
-            {/* Payment summary */}
-            <div className="space-y-1.5 rounded-xl bg-white p-3 text-xs">
-              <div className="flex justify-between text-gray-500">
-                <span>إجمالي الطلب</span>
-
-                <span className="font-semibold text-gray-800">
-                  {totalAmount.toFixed(2)} ريال
-                </span>
-              </div>
-
-              <div className="flex justify-between text-gray-500">
-                <span>الدفعة الحالية</span>
-
-                <span className="font-semibold text-emerald-600">
-                  {currentPaymentAmount.toFixed(2)} ريال
-                </span>
+                  <button
+                    type="button"
+                    disabled={isSubmitting || totalAmount <= 0}
+                    onClick={() => setPaymentMode("PARTIAL")}
+                    className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                      paymentMode === "PARTIAL"
+                        ? "border-(--primary-red) bg-white text-(--primary-red)"
+                        : "border-gray-200 bg-white text-gray-600"
+                    }`}
+                  >
+                    جزئي
+                  </button>
+                </div>
               </div>
 
-              <div className="flex justify-between border-t border-gray-100 pt-1.5 font-bold text-gray-800">
-                <span>المتبقي</span>
+              {/* Partial amount */}
+              {paymentMode === "PARTIAL" && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                    مبلغ الدفعة
+                  </label>
 
-                <span>{remainingAfterPayment.toFixed(2)} ريال</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max={totalAmount}
+                    step="0.01"
+                    value={partialPaymentAmount}
+                    onChange={(event) =>
+                      setPartialPaymentAmount(Number(event.target.value || 0))
+                    }
+                    disabled={isSubmitting}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
+                  />
+                </div>
+              )}
+
+              {/* Payment summary */}
+              <div className="space-y-1.5 rounded-xl bg-white p-3 text-xs">
+                <div className="flex justify-between text-gray-500">
+                  <span>إجمالي الطلب</span>
+
+                  <span className="font-semibold text-gray-800">
+                    {totalAmount.toFixed(2)} ريال
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-gray-500">
+                  <span>الدفعة الحالية</span>
+
+                  <span className="font-semibold text-emerald-600">
+                    {currentPaymentAmount.toFixed(2)} ريال
+                  </span>
+                </div>
+
+                <div className="flex justify-between border-t border-gray-100 pt-1.5 font-bold text-gray-800">
+                  <span>المتبقي</span>
+
+                  <span>{remainingAfterPayment.toFixed(2)} ريال</span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-semibold text-blue-800">الدفع</p>
+
+              <p className="mt-1 text-xs leading-6 text-blue-700">
+                يمكن تسجيل الدفعة بعد اعتماد طلب الشراء. لا يمكن تسجيل دفعة على
+                المسودة.
+              </p>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
