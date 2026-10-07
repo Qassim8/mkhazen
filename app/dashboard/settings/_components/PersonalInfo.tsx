@@ -1,7 +1,8 @@
 "use client";
 
+import { errorMessage } from "@/lib/errors";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LuLoader, LuUserRound } from "react-icons/lu";
 import {
@@ -40,8 +41,8 @@ const PersonalInfo = () => {
             phone: data?.phone || "",
           });
         }
-      } catch (error: any) {
-        toast.error(error.message || "فشل جلب بيانات المستخدم");
+      } catch (error: unknown) {
+        toast.error(errorMessage(error, "فشل جلب بيانات المستخدم"));
       } finally {
         setIsLoading(false);
       }
@@ -62,15 +63,15 @@ const PersonalInfo = () => {
       });
       toast.success(res.message || "تم تحديث البيانات بنجاح");
       window.dispatchEvent(new Event("user-updated"));
-    } catch (error: any) {
-      toast.error(error.message || "حدث خطأ أثناء تحديث البيانات");
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, "حدث خطأ أثناء تحديث البيانات"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // التقاط الأخطاء في حال فشل الـ Validation
-  const onError = (formErrors: any) => {
+  const onError = (formErrors: FieldErrors<UpdateProfileInput>) => {
     console.log("Validation Errors:", formErrors);
   };
 

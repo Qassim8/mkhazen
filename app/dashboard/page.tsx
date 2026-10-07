@@ -1,522 +1,368 @@
 import Link from "next/link";
+import {
+  LuArrowLeft,
+  LuTriangleAlert,
+} from "react-icons/lu";
 
 import PageHeader from "@/components/shared/PageHeader";
 import { getSession } from "@/lib/auth";
 
-import StatsCard from "./components/StatsCard";
 import AreaChartComponent from "./components/AreaChart";
 import PieChartComponent from "./components/PieChart";
-
-import { actions } from "@/data/data";
-
-import { getAccountingOverview } from "./accounting/services/accounting.services";
-
+import StatsCard from "./components/StatsCard";
 import {
-  getInventory,
-  getInventoryMovements,
-} from "./inventory/services/inventory.services";
+  DashboardMetric,
+  DashboardPeriod,
+  getDashboardOverview,
+} from "./services/dashboard.services";
+import QuickActions from "./components/QuickActions";
 
-import { getPosProducts, getSalesOrders } from "./pos/services/pos.services";
-
-/* =========================================================
-   HELPERS
-========================================================= */
+const PERIODS: { value: DashboardPeriod; label: string }[] = [
+  { value: "week", label: "أسبوع" },
+  { value: "month", label: "شهر" },
+  { value: "quarter", label: "ربع سنة" },
+  { value: "year", label: "سنة" },
+];
 
 function formatCurrency(value: number) {
-  return `${Number(value || 0).toLocaleString("ar-SA", {
-    minimumFractionDigits: 0,
+  return `${Number(value || 0).toLocaleString("ar-SA-u-nu-latn", {
     maximumFractionDigits: 2,
-  })} ر.س`;
+  })} $`;
 }
 
-function formatActivityTime(dateString: string) {
-  const date = new Date(dateString);
+function formatDate(value: string | null) {
+  if (!value) return "غير محدد";
 
-  if (Number.isNaN(date.getTime())) {
-    return "وقت غير معروف";
-  }
+  const date = new Date(`${value}T12:00:00+03:00`);
+  if (Number.isNaN(date.getTime())) return "غير محدد";
 
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) {
-    return "الآن";
-  }
-
-  if (diffMinutes < 60) {
-    return `منذ ${diffMinutes} دقيقة`;
-  }
-
-  const diffHours = Math.floor(diffMinutes / 60);
-
-  if (diffHours < 24) {
-    return `منذ ${diffHours} ساعة`;
-  }
-
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffDays < 7) {
-    return `منذ ${diffDays} يوم`;
-  }
-
-  return date.toLocaleDateString("ar-SA");
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+    day: "numeric",
+    month: "short",
+  }).format(date);
 }
 
-/* =========================================================
-   ACTIVITY
-========================================================= */
-
-function mapMovementActivity(
-  movement: Awaited<ReturnType<typeof getInventoryMovements>>["data"][number],
-) {
-  const productName =
-    movement.product_variants?.product_templates?.name ?? "منتج غير معروف";
-
-  const responsible = movement.users?.name ?? "النظام";
-
-  switch (movement.movement_type) {
-    case "SALE":
-      return {
-        id: movement.id,
-        name: `بيع ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-
-    case "PURCHASE":
-      return {
-        id: movement.id,
-        name: `استلام شراء ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-
-    case "PURCHASE_RETURN":
-      return {
-        id: movement.id,
-        name: `مرتجع شراء ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-
-    case "SALE_RETURN":
-      return {
-        id: movement.id,
-        name: `مرتجع بيع ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-
-    case "ADJUSTMENT_IN":
-      return {
-        id: movement.id,
-        name: `زيادة مخزون ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-
-    case "ADJUSTMENT_OUT":
-      return {
-        id: movement.id,
-        name: `خفض مخزون ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-
-    default:
-      return {
-        id: movement.id,
-        name: `حركة مخزون ${productName}`,
-        responsable: responsible,
-        time: formatActivityTime(movement.created_at),
-        createdAt: movement.created_at,
-      };
-  }
+function metricType(metric: DashboardMetric) {
+  if (metric.change === null || metric.change === 0) return "stable" as const;
+  return metric.change > 0 ? ("increase" as const) : ("decrease" as const);
 }
 
-/* =========================================================
-   TOP SELLING
-========================================================= */
-
-function buildTopSellingData(
-  salesOrders: Awaited<ReturnType<typeof getSalesOrders>>["data"],
-  posProducts: Awaited<ReturnType<typeof getPosProducts>>["data"],
-) {
-  const productNames = new Map<string, string>();
-
-  for (const variant of posProducts) {
-    productNames.set(variant.template.id, variant.template.name);
-  }
-
-  const quantities = new Map<string, number>();
-
-  for (const order of salesOrders) {
-    if (order.status !== "COMPLETED") {
-      continue;
-    }
-
-    for (const item of order.items ?? []) {
-      const current = quantities.get(item.templateId) ?? 0;
-
-      quantities.set(item.templateId, current + Number(item.quantity || 0));
-    }
-  }
-
-  const colors = [
-    "var(--primary-red)",
-    "var(--primary-pink)",
-    "#f5a50f",
-    "var(--primary-red-hover)",
-    "#8b5cf6",
-  ];
-
-  return [...quantities.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([templateId, value], index) => ({
-      name: productNames.get(templateId) ?? "منتج",
-      value,
-      fill: colors[index % colors.length],
-    }));
+function statusClass(status: "NEW" | "UNDER_TAILORING" | "READY_FOR_PICKUP") {
+  if (status === "READY_FOR_PICKUP") return "bg-emerald-50 text-emerald-700";
+  if (status === "UNDER_TAILORING") return "bg-violet-50 text-violet-700";
+  return "bg-sky-50 text-sky-700";
 }
 
-/* =========================================================
-   DASHBOARD
-========================================================= */
+interface DashboardPageProps {
+  searchParams: Promise<{ period?: string | string[] }>;
+}
 
-const Dashboard = async () => {
-  const user = await getSession();
-
-  const currentYear = new Date().getFullYear();
-
-  const [
-    accountingResponse,
-    // lowStockResponse,
-    // outOfStockResponse,
-    // // salesResponse,
-    // movementsResponse,
-    // posProductsResponse,
-  ] = await Promise.all([
-    getAccountingOverview(currentYear),
-
-    // getInventory({
-    //   status: "LOW_STOCK",
-    //   limit: 5,
-    // }),
-
-    // getInventory({
-    //   status: "OUT_OF_STOCK",
-    //   limit: 5,
-    // }),
-
-    // getSalesOrders({
-    //   status: "COMPLETED",
-    //   limit: 100,
-    // }),
-
-    // getInventoryMovements({
-    //   limit: 10,
-    //   type: "ALL",
-    // }),
-
-    // getPosProducts({
-    //   page: 1,
-    //   limit: 100,
-    // }),
+export default async function Dashboard({ searchParams }: DashboardPageProps) {
+  const query = await searchParams;
+  const periodParam = Array.isArray(query.period)
+    ? query.period[0]
+    : query.period;
+  const period = PERIODS.some((item) => item.value === periodParam)
+    ? (periodParam as DashboardPeriod)
+    : "month";
+  const [user, dashboardResponse] = await Promise.all([
+    getSession(),
+    getDashboardOverview(period),
   ]);
-
-  const accounting = accountingResponse.data;
-
-  /* =======================================================
-     STATS
-  ======================================================= */
+  const dashboard = dashboardResponse.data;
 
   const stats = [
     {
       title: "الإيرادات",
-      value: formatCurrency(accounting.cards.revenue),
-      description: "إجمالي إيرادات السنة الحالية",
-      statType: "increase" as const,
-      statNumber: undefined,
+      value: formatCurrency(dashboard.cards.revenue.value),
+      description: `إجمالي المبيعات والإيرادات خلال ${dashboard.periodLabel}`,
+      metric: dashboard.cards.revenue,
+      isFavorable:
+        dashboard.cards.revenue.change === null ||
+        dashboard.cards.revenue.change >= 0,
     },
-
     {
       title: "المصروفات",
-      value: formatCurrency(accounting.cards.expenses),
-      description: "إجمالي المصروفات المسجلة",
-      statType: "stable" as const,
-      statNumber: undefined,
+      value: formatCurrency(dashboard.cards.expenses.value),
+      description: `المصروفات التشغيلية المسجلة خلال ${dashboard.periodLabel}`,
+      metric: dashboard.cards.expenses,
+      isFavorable:
+        dashboard.cards.expenses.change === null ||
+        dashboard.cards.expenses.change <= 0,
     },
-
     {
       title: "صافي الربح",
-      value: formatCurrency(accounting.cards.netProfit),
-      description: "الإيرادات - تكلفة المبيعات - المصروفات",
-      statType: "increase" as const,
-      statNumber: undefined,
+      value: formatCurrency(dashboard.cards.netProfit.value),
+      description: "الإيرادات بعد تكلفة المبيعات والمصروفات",
+      metric: dashboard.cards.netProfit,
+      isFavorable:
+        dashboard.cards.netProfit.change === null ||
+        dashboard.cards.netProfit.change >= 0,
     },
-
+    {
+      title: "عمليات البيع المكتملة",
+      value:
+        dashboard.cards.completedSales.value.toLocaleString("ar-SA-u-nu-latn"),
+      description: `طلبات البيع التي اكتملت خلال ${dashboard.periodLabel}`,
+      metric: dashboard.cards.completedSales,
+      isFavorable:
+        dashboard.cards.completedSales.change === null ||
+        dashboard.cards.completedSales.change >= 0,
+    },
     {
       title: "طلبات التفصيل النشطة",
-      value: "—",
-      description: "سيتم ربطها عند بناء نظام التفصيل",
-      statType: "stable" as const,
-      statNumber: undefined,
+      value:
+        dashboard.summary.activeTailoringOrders.toLocaleString(
+          "ar-SA-u-nu-latn",
+        ),
+      description: "إجمالي طلبات التفصيل والتصنيع النشطة الحالية",
     },
   ];
 
-  /* =======================================================
-     LOW / OUT OF STOCK
-  ======================================================= */
-
-  // const stockProducts = [
-  //   ...outOfStockResponse.data.map((variant) => ({
-  //     id: variant.id,
-  //     title: variant.product_templates?.name ?? "منتج غير معروف",
-  //     variantLabel: [
-  //       variant.colorName,
-  //       variant.size,
-  //       variant.sku ? `SKU: ${variant.sku}` : null,
-  //     ]
-  //       .filter(Boolean)
-  //       .join(" | "),
-  //     stockQuantity: Number(variant.stockQuantity || 0),
-  //     minStockLevel: Number(variant.minStockLevel || 0),
-  //     status: "OUT_OF_STOCK" as const,
-  //   })),
-
-  //   ...lowStockResponse.data.map((variant) => ({
-  //     id: variant.id,
-  //     title: variant.product_templates?.name ?? "منتج غير معروف",
-  //     variantLabel: [
-  //       variant.colorName,
-  //       variant.size,
-  //       variant.sku ? `SKU: ${variant.sku}` : null,
-  //     ]
-  //       .filter(Boolean)
-  //       .join(" | "),
-  //     stockQuantity: Number(variant.stockQuantity || 0),
-  //     minStockLevel: Number(variant.minStockLevel || 0),
-  //     status: "LOW_STOCK" as const,
-  //   })),
-  // ].slice(0, 5);
-
-  /* =======================================================
-     ACTIVITIES
-  ======================================================= */
-
-  // const activities = movementsResponse.data
-  //   .map(mapMovementActivity)
-  //   .sort(
-  //     (a, b) =>
-  //       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  //   )
-  //   .slice(0, 5);
-
-  /* =======================================================
-     TOP SELLING
-  ======================================================= */
-
-  // const topSelling = buildTopSellingData(
-  //   salesResponse.data,
-  //   posProductsResponse.data,
-  // );
-
-  /* =======================================================
-     RENDER
-  ======================================================= */
-
   return (
-    <div>
+    <div className="pb-8">
       <PageHeader
-        title={`مرحبا بك مجدداً، ${user?.name ?? "مستخدم"} 👋`}
-        subtitle="اطلع على آخر المستجدات في متجرك اليوم"
+        title={`مرحباً بعودتك، ${user?.name ?? "مستخدم"} 👋`}
+        subtitle="نظرة تشغيلية ومالية مختصرة تساعدك على اتخاذ قرار اليوم"
       />
 
-      {/* ===================================================
-          STATS
-      =================================================== */}
+      <section className="flex flex-col gap-3 border-y border-slate-200 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-gray-600">
+          عرض بيانات {dashboard.periodLabel}
+        </p>
+        <nav
+          className="flex w-full rounded-lg bg-slate-100 p-1 sm:w-auto"
+          aria-label="اختيار فترة لوحة التحكم"
+        >
+          {PERIODS.map((item) => {
+            const active = item.value === dashboard.period;
 
-      <section className="mt-6 grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+            return (
+              <Link
+                key={item.value}
+                href={`/dashboard?period=${item.value}`}
+                aria-current={active ? "page" : undefined}
+                className={`flex-1 rounded-md px-3 py-1.5 text-center text-xs font-medium transition sm:flex-none ${
+                  active
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-900"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </section>
+
+      {/* تحديث شبكة الكاردات لتتاسب مع 5 عناصر بشكل متناسق */}
+      <section className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => (
           <StatsCard
             key={stat.title}
             title={stat.title}
             value={stat.value}
             description={stat.description}
-            statType={stat.statType}
-            statNumber={stat.statNumber}
+            statType={stat.metric ? metricType(stat.metric) : "stable"}
+            statNumber={stat.metric?.change}
+            comparisonLabel={dashboard.comparisonLabel}
+            isFavorable={stat.isFavorable}
           />
         ))}
       </section>
 
-      {/* ===================================================
-          CHARTS
-      =================================================== */}
-
-      <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <AreaChartComponent data={accounting.monthly} />
+      <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <AreaChartComponent
+            data={dashboard.trend}
+            periodLabel={dashboard.periodLabel}
+          />
         </div>
-
-        <div className="col-span-1">
-          {/* <PieChartComponent data={topSelling} /> */}
-        </div>
+        <PieChartComponent
+          data={dashboard.topProducts}
+          periodLabel={dashboard.periodLabel}
+        />
       </section>
 
-      {/* ===================================================
-          BOTTOM
-      =================================================== */}
-
-      <section className="my-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-        {/* ===============================================
-            LEFT
-        =============================================== */}
-
-        <div className="col-span-1 space-y-5">
-          {/* Quick Actions */}
-
-          <div className="frame">
-            <p className="mb-5 text-sm text-gray-500">تنفيذ سريع</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              {actions.map(({ name, href }) => (
-                <Link
-                  href={href}
-                  key={name}
-                  className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm transition duration-300 hover:border-0 hover:bg-(--primary-red) hover:text-white"
-                >
-                  {name}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Activities */}
-
-          <div className="frame">
-            <p className="mb-5 text-sm text-gray-500">أحدث الأنشطة</p>
-
-            <div className="space-y-3">
-              {/* {activities.length === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-400">
-                  لا توجد أنشطة حديثة
-                </p>
-              ) : (
-                activities.map((active) => (
-                  <div className="flex gap-3" key={active.id}>
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-(--primary-pink)/10 text-sm font-semibold text-(--primary-pink)">
-                      {active.responsable.charAt(0).toUpperCase()}
-                    </div>
-
-                    <div className="min-w-0">
-                      <h3 className="font-semibold">{active.name}</h3>
-
-                      <p className="my-0 py-0 text-sm text-(--primary-red)">
-                        {active.responsable}
-                      </p>
-
-                      <span className="text-xs text-gray-500">
-                        {active.time}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )} */}
-            </div>
-          </div>
-        </div>
-
-        {/* ===============================================
-            STOCK
-        =============================================== */}
-
-        <div className="frame md:col-span-2">
-          <div className="mb-5 flex items-center justify-between">
-            <div className="flex flex-col gap-2">
-              <p className="text-sm text-gray-500">بحاجة للشراء</p>
-
-              <h2 className="font-semibold text-gray-900">
-                كمية قليلة / نفذ من المخزن
+      <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div className="frame xl:col-span-2">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-500">
+                متابعة الإنتاج والتسليم (عملاء وتصنيع)
+              </p>
+              <h2 className="mt-1 font-semibold text-gray-900">
+                طلبات التفصيل النشطة
+                <span className="mr-2 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  {dashboard.summary.activeTailoringOrders.toLocaleString(
+                    "ar-SA-u-nu-latn",
+                  )}
+                </span>
               </h2>
             </div>
-
             <Link
-              href="/dashboard/inventory"
-              className="text-(--primary-red) transition-colors duration-300 hover:text-(--primary-red-hover)"
+              href="/dashboard/tailoring"
+              className="inline-flex items-center gap-1 text-sm font-medium text-(--primary-red) hover:text-(--primary-red-hover)"
             >
-              إدارة المخزون
+              عرض الطلبات
+              <LuArrowLeft className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="space-y-2">
-            {/* {stockProducts.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-400">
-                لا توجد منتجات منخفضة المخزون
-              </div>
-            ) : (
-              stockProducts.map((product, index) => (
+          {dashboard.tailoringOrders.length === 0 ? (
+            <p className="py-10 text-center text-sm text-gray-400">
+              لا توجد طلبات تفصيل نشطة حالياً
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {dashboard.tailoringOrders.map((order) => (
                 <Link
-                  href="/dashboard/inventory"
-                  key={product.id}
-                  className={`flex items-center justify-between gap-4 pt-2 pb-3 ${
-                    index !== stockProducts.length - 1
-                      ? "border-b border-b-gray-200"
-                      : ""
-                  }`}
+                  key={order.id}
+                  href={`/dashboard/tailoring/${order.id}`}
+                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 hover:bg-slate-50"
                 >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="h-10 w-10 shrink-0 rounded-2xl bg-slate-400/30 md:h-16 md:w-16" />
-
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold md:text-base">
-                        {product.title}
-                      </h2>
-
-                      {product.variantLabel && (
-                        <p className="truncate text-sm text-gray-500">
-                          {product.variantLabel}
-                        </p>
-                      )}
-
-                      <p className="mt-1 text-xs text-gray-400">
-                        الحد الأدنى: {product.minStockLevel}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-3">
-                    <p className="text-sm font-medium">
-                      <span className="text-gray-500">المتاح:</span>{" "}
-                      {product.stockQuantity}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-gray-900">
+                      {order.itemName}
                     </p>
-
-                    <div
-                      className={`rounded-full px-3 py-1 text-xs md:text-sm ${
-                        product.status === "OUT_OF_STOCK"
-                          ? "bg-red-500/15 text-red-500"
-                          : "bg-amber-400/15 text-amber-500"
-                      }`}
-                    >
-                      {product.status === "OUT_OF_STOCK"
-                        ? "نفذت الكمية"
-                        : "كمية قليلة"}
+                    <p className="mt-1 text-xs text-gray-500">
+                      {order.orderNumber}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-2">
+                      {/* عرض تصنيف الغرض (للعميل / تصنيع داخلي) القادم من نقطة النهاية */}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                        {order.purposeLabel}
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusClass(order.status)}`}
+                      >
+                        {order.statusLabel}
+                      </span>
                     </div>
+                    <span
+                      className={`text-xs ${order.isOverdue ? "font-medium text-rose-600" : "text-gray-500"}`}
+                    >
+                      التسليم: {formatDate(order.expectedDeliveryDate)}
+                    </span>
                   </div>
                 </Link>
-              ))
-            )} */}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        <div className="frame">
+          <div className="mb-5">
+            <p className="text-sm text-gray-500">آخر الحركات المسجلة</p>
+            <h2 className="mt-1 font-semibold text-gray-900">النشاط الأخير</h2>
+          </div>
+
+          {dashboard.recentActivities.length === 0 ? (
+            <p className="py-10 text-center text-sm text-gray-400">
+              لا توجد حركات حديثة
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {dashboard.recentActivities.map((activity) => (
+                <div key={activity.id} className="flex gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-xs font-bold text-amber-700">
+                    {activity.actor.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-800">
+                        {activity.title}
+                      </p>
+                      <span className="shrink-0 text-[11px] text-gray-400">
+                        {activity.time}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">
+                      {activity.productName} ·{" "}
+                      {activity.quantity.toLocaleString("ar-SA-u-nu-latn")} وحدة
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <div className="frame xl:col-span-2">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-gray-500">
+                إجراء مطلوب قبل نفاد الكمية
+              </p>
+              <h2 className="mt-1 flex items-center gap-2 font-semibold text-gray-900">
+                تنبيهات المخزون
+                {(dashboard.summary.lowStockItems > 0 ||
+                  dashboard.summary.outOfStockItems > 0) && (
+                  <LuTriangleAlert className="h-4 w-4 text-amber-500" />
+                )}
+              </h2>
+            </div>
+            <Link
+              href="/dashboard/inventory"
+              className="inline-flex items-center gap-1 text-sm font-medium text-(--primary-red) hover:text-(--primary-red-hover)"
+            >
+              إدارة المخزون
+              <LuArrowLeft className="h-4 w-4" />
+            </Link>
+          </div>
+
+          {dashboard.stockAlerts.length === 0 ? (
+            <p className="py-10 text-center text-sm text-emerald-600">
+              ممتاز، لا توجد أصناف منخفضة أو نافدة.
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {dashboard.stockAlerts.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/dashboard/orders/new?variantId=${encodeURIComponent(item.id)}`}
+                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 hover:bg-slate-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {item.name}
+                    </p>
+                    {item.variantLabel && (
+                      <p className="mt-1 truncate text-xs text-gray-500">
+                        {item.variantLabel}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <p className="text-xs text-gray-500">
+                      المتاح{" "}
+                      <span className="font-semibold text-gray-800">
+                        {item.stockQuantity.toLocaleString("ar-SA-u-nu-latn")}
+                      </span>
+                      <span className="mx-1">/</span>
+                      الحد{" "}
+                      {item.minStockLevel.toLocaleString("ar-SA-u-nu-latn")}
+                    </p>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status === "OUT_OF_STOCK" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}
+                    >
+                      {item.status === "OUT_OF_STOCK"
+                        ? "نفد المخزون"
+                        : "كمية منخفضة"}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <QuickActions />
       </section>
     </div>
   );
-};
-
-export default Dashboard;
+}

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getCategories } from "@/app/dashboard/categories/services/categories.services";
-import { getSuppliers } from "@/app/dashboard/suppliers/services/supplier.services";
+import { getSupplierOptions } from "@/app/dashboard/suppliers/services/supplier.services";
 
 import EditProductForm from "../../_components/EditProductForm";
 import BackLink from "@/components/shared/BackLink";
@@ -20,7 +20,7 @@ export default async function EditProductPage({
   const { id } = await params;
 
   const [productResponse, categoriesResponse, suppliersResponse] =
-    await Promise.all([getProductById(id), getCategories(), getSuppliers()]);
+    await Promise.all([getProductById(id), getCategories(), getSupplierOptions()]);
 
   const product = productResponse?.data;
 
@@ -35,7 +35,9 @@ export default async function EditProductPage({
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
       <div className="border-b border-gray-100 pb-4">
-        <BackLink href="/dashboard/products" label="العودة لقائمة المنتجات" />
+        <div className="mb-3">
+          <BackLink href="/dashboard/products" label="العودة إلى المنتجات" />
+        </div>
 
         <h1 className="text-2xl font-bold text-gray-900">تعديل المنتج</h1>
 

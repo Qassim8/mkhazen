@@ -1,33 +1,61 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/shared/PageHeader";
-import { LuLock, LuUserRound } from "react-icons/lu";
-import PersonalInfo from "./components/PersonalInfo";
-import Password from "./components/Password";
+import { LuBadgeDollarSign, LuLock, LuUserRound } from "react-icons/lu";
+import PersonalInfo from "./_components/PersonalInfo";
+import Password from "./_components/Password";
+import ExchangeRateSettings from "./_components/ExchangeRate";
 import { getMe } from "@/app/(login)/services/auth.services";
+import { can, homePageFor } from "@/lib/permissions";
 
-const tabs = [
+const baseTabs = [
   { id: "personal", title: "المعلومات الشخصية", icon: LuUserRound },
   { id: "password", title: "إعدادات كلمة السر", icon: LuLock },
 ];
 
+const adminTabs = [
+  { id: "exchange-rate", title: "سعر الصرف", icon: LuBadgeDollarSign },
+];
+
+// useSearchParams محتاج Suspense عشان الصفحة تتبني (next build)
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsContent />
+    </Suspense>
+  );
+}
+
+function tabsFor(role: string | null) {
+  return can(role, "exchangeRate.manage") ? [...baseTabs, ...adminTabs] : baseTabs;
+}
+
+function SettingsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
 
   const [activeTab, setActiveTab] = useState("personal");
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
+
+  const tabs = tabsFor(role);
 
   useEffect(() => {
     const checkUserStatus = async () => {
       try {
         const user = await getMe();
-        console.log(user);
-        console.log(user.isPassowrdChanged);
+        const userRole = user?.role ?? null;
+        setRole(userRole);
+
         if (user && !user.isPasswordChanged) {
           setMustChangePassword(true);
           setActiveTab("password");
+        } else if (tabParam && tabsFor(userRole).some((t) => t.id === tabParam)) {
+          // إذا وُجد بارامتر في الرابط ومتاح لصلاحيات المستخدم، اجعله هو النشط
+          setActiveTab(tabParam);
         } else {
           setMustChangePassword(false);
         }
@@ -37,7 +65,7 @@ export default function SettingsPage() {
     };
 
     checkUserStatus();
-  }, []);
+  }, [tabParam]);
 
   return (
     <main>
@@ -64,7 +92,15 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 disabled={isDisabled}
-                onClick={() => !isDisabled && setActiveTab(tab.id)}
+                onClick={() => {
+                  if (!isDisabled) {
+                    setActiveTab(tab.id);
+                    // تحديث الـ URL بسلاسة بدون إعادة تحميل الصفحة
+                    router.replace(`/dashboard/settings?tab=${tab.id}`, {
+                      scroll: false,
+                    });
+                  }
+                }}
                 className={`grow flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ${
                   isDisabled
                     ? "opacity-40 cursor-not-allowed text-gray-400"
@@ -80,22 +116,20 @@ export default function SettingsPage() {
           })}
         </div>
 
-        <div className="mb-5 p-6 bg-white rounded-3xl border border-gray-200 custom-shadow min-h-75">
+        <div className="mb-5 p-6 bg-white rounded-3xl border border-gray-200 min-h-75">
           {activeTab === "personal" && <PersonalInfo />}
+
+          {activeTab === "exchange-rate" &&
+            can(role, "exchangeRate.manage") && (
+              <ExchangeRateSettings />
+            )}
 
           {activeTab === "password" && (
             <Password
               onSuccess={(userRole: string) => {
-                const roleRoutes: Record<string, string> = {
-                  admin: "/dashboard",
-                  cashier: "/dashboard/pos",
-                  tailor: "/dashboard/orders",
-                };
-
                 setMustChangePassword(false);
-
                 router.refresh();
-                router.push(roleRoutes[userRole] || "/dashboard");
+                router.push(homePageFor(userRole));
               }}
             />
           )}

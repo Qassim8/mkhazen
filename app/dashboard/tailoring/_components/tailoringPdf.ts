@@ -7,12 +7,12 @@ const PDF_HEIGHT = 841.89;
 const MARGIN = 90;
 
 function money(value: number) {
-  return `${value.toFixed(2)} ر.س`;
+  return `${value.toFixed(2)} ج.س`;
 }
 
 function formatDate(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

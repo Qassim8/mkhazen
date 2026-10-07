@@ -5,10 +5,17 @@ import Image from "next/image";
 import { LuGift, LuMinus, LuPlus, LuTrash2 } from "react-icons/lu";
 import toast from "react-hot-toast";
 import type { POSCartItem } from "./POSClient";
+import { formatSDG, roundMoney, usdToSdg } from "@/lib/currency";
+import {
+  formatProductSize,
+  isCustomProductSize,
+} from "../../products/utils/product-size";
 
 interface CartItemProps {
   item: POSCartItem;
   maxQuantity: number;
+  /** سعر الصرف الحالي — سعر المنتج مخزّن بالدولار ويُعرض للزبون بالجنيه */
+  exchangeRate: number | null;
   onUpdateQty: (variantId: string, isGift: boolean, amount: number) => void;
   onSetQty: (variantId: string, isGift: boolean, quantity: number) => void;
   onRemove: (variantId: string, isGift: boolean) => void;
@@ -101,14 +108,15 @@ export default function CartItem({
   onSetQty,
   onRemove,
   maxQuantity,
+  exchangeRate,
 }: CartItemProps) {
   const productName = item.product.name;
   const variant = item.variant;
   const isMeterProduct = isMeterBasedProduct(item);
 
-  const itemTotal = item.isGift
-    ? 0
-    : Number((Number(variant.sellingPrice) * item.qty).toFixed(2));
+  // نفس معادلة السيرفر: سعر الوحدة بالجنيه (مقرّب) × الكمية
+  const unitPriceSdg = usdToSdg(variant.sellingPrice, exchangeRate);
+  const itemTotal = item.isGift ? 0 : roundMoney(unitPriceSdg * item.qty);
 
   return (
     <div
@@ -158,7 +166,12 @@ export default function CartItem({
           <div className="flex items-center gap-2 truncate text-[9px] text-gray-400">
             {variant.sku && <span>{variant.sku}</span>}
             {variant.colorName && <span>{variant.colorName}</span>}
-            {variant.size && <span>مقاس {variant.size}</span>}
+            {formatProductSize(variant.size) && (
+              <span>
+                {isCustomProductSize(variant.size) ? "مقاسات" : "مقاس"}{" "}
+                {formatProductSize(variant.size)}
+              </span>
+            )}
             {variant.length != null && <span>طول {variant.length}</span>}
             {variant.width != null && <span>عرض {variant.width}</span>}
           </div>
@@ -175,7 +188,7 @@ export default function CartItem({
                 item.isGift ? "text-amber-700" : "text-emerald-600"
               }`}
             >
-              {itemTotal.toFixed(2)}
+              {item.isGift ? "هدية" : formatSDG(itemTotal)}
             </span>
 
             {isMeterProduct ? (

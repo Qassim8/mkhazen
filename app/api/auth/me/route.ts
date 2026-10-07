@@ -51,7 +51,7 @@ export async function PUT(req: Request) {
     }
 
     const { name, email, phone } = validation.data;
-    const updateData: Record<string, any> = { name, email, phone };
+    const updateData = { name, email, phone };
 
     const { error: updateError } = await supabaseAdmin
       .from("users")
@@ -73,7 +73,7 @@ export async function PUT(req: Request) {
     revalidatePath("/dashboard", "layout");
 
     return NextResponse.json({ message: "تم تحديث بيانات الحساب بنجاح" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Profile Update Error:", err);
     return NextResponse.json(
       { message: "فشل في تحديث بيانات الحساب" },

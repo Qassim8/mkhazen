@@ -1,164 +1,152 @@
 "use client";
 
-interface ProductSizesProps {
-  categoryName: string; // اسم الفئة (مثل: أحذية، صديري، جلاليب، قماش، عطور)
+import { LuPlus, LuRuler, LuTrash2 } from "react-icons/lu";
+import {
+  decodeProductMeasurements,
+  encodeProductMeasurements,
+  ProductMeasurement,
+} from "../utils/product-size";
 
-  selectedSizes: string[];
-  onToggleSize: (size: string) => void;
+interface ProductSizesProps {
+  value?: unknown;
+  legacyLength?: number | string | null;
+  legacyWidth?: number | string | null;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}
+
+const inputClassName =
+  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium outline-hidden focus:border-(--primary-red) disabled:bg-gray-100";
+
+function getInitialMeasurements(
+  value: unknown,
+  legacyLength: number | string | null | undefined,
+  legacyWidth: number | string | null | undefined,
+): ProductMeasurement[] {
+  const saved = decodeProductMeasurements(value);
+  if (saved) return saved;
+
+  const measurements: ProductMeasurement[] = [];
+  if (typeof value === "string" && value.trim()) {
+    measurements.push({ label: "المقاس", value: value.trim() });
+  }
+  if (legacyLength != null) {
+    measurements.push({ label: "الطول", value: String(legacyLength) });
+  }
+  if (legacyWidth != null) {
+    measurements.push({ label: "العرض", value: String(legacyWidth) });
+  }
+
+  return measurements.length
+    ? measurements
+    : [
+        { label: "الطول", value: "" },
+        { label: "الصدر", value: "" },
+      ];
 }
 
 export default function ProductSizes({
-  categoryName,
-  selectedSizes,
-  onToggleSize,
+  value,
+  legacyLength,
+  legacyWidth,
+  disabled = false,
+  onChange,
 }: ProductSizesProps) {
-  // المقاسات المعيارية
-  const vestSizes = ["S", "M", "L", "XL", "2XL", "3XL"];
-  const shoeSizes = ["38", "39", "40", "41", "42", "43", "44", "45"];
+  const measurements = getInitialMeasurements(value, legacyLength, legacyWidth);
 
-  const cat = categoryName.toLowerCase();
-
-  // الفلاتر الشاملة لمسميات الفئات
-  const isVest =
-    cat.includes("صديري") || cat.includes("سديري") || cat.includes("vest");
-  const isShoes =
-    cat.includes("حذاء") ||
-    cat.includes("احذية") ||
-    cat.includes("أحذية") ||
-    cat.includes("مركوب") ||
-    cat.includes("shoes");
-  const isJallabiya =
-    cat.includes("جلابية") ||
-    cat.includes("جلاليب") ||
-    cat.includes("ثوب") ||
-    cat.includes("ثياب") ||
-    cat.includes("thobe");
-  const isFabric =
-    cat.includes("قماش") ||
-    cat.includes("أقمشة") ||
-    cat.includes("اقمشة") ||
-    cat.includes("أقمشه") ||
-    cat.includes("اقمشه") ||
-    cat.includes("fabric");
-  const isPerfume =
-    cat.includes("عطر") || cat.includes("عطور") || cat.includes("perfume");
-
-  // حالة عدم اختيار فئة أو اختيار فئة لا تحتاج مقاسات (قماش / عطور)
-  if (!categoryName) {
-    return (
-      <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-5 text-center text-xs font-semibold text-gray-400">
-        اختر فئة للمنتج لعرض خيارات المقاسات والأبعاد المناسبة.
-      </div>
-    );
-  }
-
-  if (isFabric || isPerfume) {
-    return (
-      <div className="rounded-2xl border border-gray-200 bg-blue-50/60 p-4 text-xs font-semibold text-blue-900 leading-relaxed">
-        {isFabric
-          ? "💡 هذه الفئة (أقمشة) تعتمد على وحدات القياس (المتر / الطاقة) من قسم التسعير ولا تتطلب مقاسات محددة."
-          : "💡 هذه الفئة (عطور) لا تتطلب مقاسات أو أبعاد."}
-      </div>
-    );
-  }
+  const updateMeasurements = (next: ProductMeasurement[]) => {
+    onChange(encodeProductMeasurements(next));
+  };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
-      <div>
-        <h3 className="text-base font-bold text-gray-900">المقاسات والأبعاد</h3>
-        <p className="text-xs text-gray-400 mt-0.5">
-          المقاسات المتاحة المخصصة لفئة ({categoryName}):
-        </p>
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h4 className="flex items-center gap-2 text-sm font-bold text-gray-800">
+            <LuRuler className="h-4 w-4 text-(--primary-red)" />
+            مقاسات الجلابية
+          </h4>
+          <p className="mt-1 text-xs text-gray-500">
+            أضف اسم كل قياس وقيمته، مثل الطول والصدر.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() =>
+            updateMeasurements([...measurements, { label: "", value: "" }])
+          }
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-(--primary-red) transition hover:bg-red-100 disabled:opacity-50"
+        >
+          <LuPlus className="h-3.5 w-3.5" />
+          إضافة قياس
+        </button>
       </div>
 
-      {/* 1. أبعاد الجلابية */}
-      {/* {isJallabiya && (
-        <div className="space-y-2 border-t border-gray-100 pt-3">
-          <label className="text-xs font-bold text-gray-700 block">
-            أبعاد الجلابية / الثوب:
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className="text-[11px] text-gray-400 block mb-1">
-                الطول (مثال: 160 سم أو 3 متر)
-              </span>
-              <input
-                type="text"
-                value={length}
-                onChange={(e) => onLengthChange(e.target.value)}
-                placeholder="مثال: 160 سم"
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:border-(--primary-red) transition"
-              />
+      {measurements.length === 0 ? (
+        <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
+          لم تتم إضافة مقاسات. استخدم زر «إضافة قياس» للبدء.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {measurements.map((measurement, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[1fr_1fr_auto] items-end gap-2"
+            >
+              <label className="block text-xs font-semibold text-gray-600">
+                اسم القياس
+                <input
+                  type="text"
+                  disabled={disabled}
+                  value={measurement.label}
+                  onChange={(event) => {
+                    const next = measurements.map((row, rowIndex) =>
+                      rowIndex === index
+                        ? { ...row, label: event.target.value }
+                        : row,
+                    );
+                    updateMeasurements(next);
+                  }}
+                  placeholder="مثال: الطول"
+                  className={`${inputClassName} mt-1`}
+                />
+              </label>
+              <label className="block text-xs font-semibold text-gray-600">
+                القيمة
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={disabled}
+                  value={measurement.value}
+                  onChange={(event) => {
+                    const next = measurements.map((row, rowIndex) =>
+                      rowIndex === index
+                        ? { ...row, value: event.target.value }
+                        : row,
+                    );
+                    updateMeasurements(next);
+                  }}
+                  placeholder="مثال: 1.5"
+                  className={`${inputClassName} mt-1`}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() =>
+                  updateMeasurements(
+                    measurements.filter((_, rowIndex) => rowIndex !== index),
+                  )
+                }
+                aria-label="حذف القياس"
+                className="mb-0.5 rounded-lg p-2 text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+              >
+                <LuTrash2 className="h-4 w-4" />
+              </button>
             </div>
-            <div>
-              <span className="text-[11px] text-gray-400 block mb-1">
-                العرض (مثال: 58 سم)
-              </span>
-              <input
-                type="text"
-                value={width}
-                onChange={(e) => onWidthChange(e.target.value)}
-                placeholder="مثال: 58 سم"
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:border-(--primary-red) transition"
-              />
-            </div>
-          </div>
-        </div>
-      )} */}
-
-      {/* 2. مقاسات الصديري */}
-      {isVest && (
-        <div className="space-y-2 border-t border-gray-100 pt-3">
-          <label className="text-xs font-bold text-gray-700 block">
-            مقاسات الصديري المتوفرة:
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {vestSizes.map((size) => {
-              const isSelected = selectedSizes.includes(size);
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => onToggleSize(size)}
-                  className={`h-9 min-w-10 px-3 rounded-xl border text-xs font-bold transition transform active:scale-95 cursor-pointer ${
-                    isSelected
-                      ? "border-(--primary-red) bg-red-50 text-(--primary-red)"
-                      : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 3. مقاسات الأحذية والمركوب */}
-      {isShoes && (
-        <div className="space-y-2 border-t border-gray-100 pt-3">
-          <label className="text-xs font-bold text-gray-700 block">
-            مقاسات الأحذية / المركوب المتوفرة:
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {shoeSizes.map((size) => {
-              const isSelected = selectedSizes.includes(size);
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => onToggleSize(size)}
-                  className={`h-9 min-w-10 px-3 rounded-xl border text-xs font-bold transition transform active:scale-95 cursor-pointer ${
-                    isSelected
-                      ? "border-(--primary-red) bg-red-50 text-(--primary-red)"
-                      : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
+          ))}
         </div>
       )}
     </div>

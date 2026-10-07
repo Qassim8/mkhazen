@@ -19,6 +19,7 @@ import {
 import { updatePurchaseOrder } from "../services/order.services";
 
 import { z } from "zod";
+import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 /* =========================================================
    TYPES
@@ -77,7 +78,8 @@ export default function EditPurchaseOrderForm({
       initialOrder.items?.map((item) => {
         const attributesStr = [
           item.colorName && `اللون: ${item.colorName}`,
-          item.size && `المقاس: ${item.size}`,
+          formatProductSize(item.size) &&
+            `المقاس: ${formatProductSize(item.size)}`,
         ]
           .filter(Boolean)
           .join(" | ");
@@ -231,7 +233,8 @@ export default function EditPurchaseOrderForm({
         const attributesStr = [
           variant.colorName && `اللون: ${variant.colorName}`,
 
-          variant.size && `المقاس: ${variant.size}`,
+          formatProductSize(variant.size) &&
+            `المقاس: ${formatProductSize(variant.size)}`,
         ]
           .filter(Boolean)
           .join(" | ");
@@ -296,7 +299,8 @@ export default function EditPurchaseOrderForm({
     const attributesStr = [
       foundVariant.colorName && `اللون: ${foundVariant.colorName}`,
 
-      foundVariant.size && `المقاس: ${foundVariant.size}`,
+      formatProductSize(foundVariant.size) &&
+        `المقاس: ${formatProductSize(foundVariant.size)}`,
     ]
       .filter(Boolean)
       .join(" | ");
@@ -481,7 +485,7 @@ export default function EditPurchaseOrderForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  تكلفة الشحن
+                  تكلفة الشحن ($)
                 </label>
 
                 <input
@@ -553,7 +557,7 @@ export default function EditPurchaseOrderForm({
                           <span>{item.productName}</span>
 
                           <span className="font-semibold text-emerald-600">
-                            {item.price} ر.س
+                            {item.price} $
                           </span>
                         </div>
 

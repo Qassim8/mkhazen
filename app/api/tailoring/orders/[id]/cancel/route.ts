@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { cancelTailoringOrderSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
 export async function POST(
@@ -16,8 +18,8 @@ export async function POST(
     if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
-    if (role !== "admin" && role !== "cashier") {
-      return NextResponse.json({ message: "إلغاء طلبات التفصيل متاح للكاشير أو المدير فقط." }, { status: 403 });
+    if (!can(role, "tailoring.manage")) {
+      return NextResponse.json({ message: "إلغاء طلبات التفصيل متاح للمدير أو المالك فقط." }, { status: 403 });
     }
 
     const parsed = cancelTailoringOrderSchema.safeParse(await request.json());
@@ -37,6 +39,13 @@ export async function POST(
       console.error("cancel_tailoring_order RPC:", error);
       return NextResponse.json({ message: error.message || "تعذر إلغاء الطلب." }, { status: 400 });
     }
+
+    await notifyTailoringUpdate({
+      orderId: id,
+      event: "CANCELLED",
+      actor: user,
+      details: parsed.data.reason ? `السبب: ${parsed.data.reason}` : null,
+    });
 
     return NextResponse.json({ message: `تم إلغاء الطلب ${data.order_number}.`, data });
   } catch (error: unknown) {

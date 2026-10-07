@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyTailorPayment } from "@/app/api/tailoring/_lib/notify";
 import { payTailorPaymentSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
 export async function POST(request: Request) {
@@ -25,9 +27,9 @@ export async function POST(request: Request) {
 
     const role = String(user.role).toLowerCase();
 
-    if (role !== "admin" && role !== "cashier") {
+    if (!can(role, "tailoring.manage")) {
       return NextResponse.json(
-        { message: "دفع مستحقات الخياط متاح للكاشير أو المدير فقط." },
+        { message: "دفع مستحقات الخياط متاح للمدير أو المالك فقط." },
         { status: 403 },
       );
     }
@@ -55,6 +57,7 @@ export async function POST(request: Request) {
       p_payment_method: value.paymentMethod,
       p_sales_order_id: value.salesOrderId ?? null,
       p_notes: value.notes ?? null,
+      p_currency: value.currency,
     });
 
     if (error) {
@@ -64,6 +67,15 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    await notifyTailorPayment({
+      tailorId: value.tailorId,
+      amount: Number(value.amount),
+      currency: value.currency,
+      salesOrderId: value.salesOrderId ?? null,
+      isAdvance: data?.payment_type === "ADVANCE",
+      actor: user,
+    });
 
     return NextResponse.json(
       {

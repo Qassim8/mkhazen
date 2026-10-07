@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { LuCheck, LuLoaderCircle, LuSearch, LuX } from "react-icons/lu";
+import { getProducts } from "@/app/dashboard/products/services/products.services";
+import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 type FabricVariant = {
   id: string;
@@ -51,42 +53,31 @@ export default function FabricSearch({ value, onChange, disabled, initialSelecti
       return;
     }
 
-    const controller = new AbortController();
+    let active = true;
     const timer = window.setTimeout(async () => {
       setLoading(true);
 
       try {
-        const params = new URLSearchParams({
+        const payload = await getProducts({
           search: search.trim(),
-          page: "1",
-          limit: "20",
+          page: 1,
+          limit: 20,
         });
 
-        const response = await fetch(`/api/products?${params.toString()}`, {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload?.message || "تعذر البحث عن القماش");
-        }
-
-        setResults((payload?.data ?? []) as FabricProduct[]);
+        if (active) setResults(payload.data);
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        console.error("Fabric search:", error);
-        setResults([]);
+        if (active) {
+          console.error("Fabric search:", error);
+          setResults([]);
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }, 250);
 
     return () => {
+      active = false;
       window.clearTimeout(timer);
-      controller.abort();
     };
   }, [search]);
 
@@ -188,7 +179,9 @@ export default function FabricSearch({ value, onChange, disabled, initialSelecti
                         >
                           <span className="min-w-0 truncate text-xs text-gray-700">
                             {variant.colorName ?? "متغير"}
-                            {variant.size ? ` · ${variant.size}` : ""}
+                            {formatProductSize(variant.size)
+                              ? ` · ${formatProductSize(variant.size)}`
+                              : ""}
                             {variant.sku ? ` · ${variant.sku}` : ""}
                           </span>
                           <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-emerald-600">

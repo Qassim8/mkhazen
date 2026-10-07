@@ -535,21 +535,22 @@ export async function recordPurchasePayment(params: {
 
   if (normalizedAmount > remainingAmount) {
     throw new Error(
-      `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(2)} ريال)`,
+      `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(2)} $)`,
     );
   }
 
   const account = paymentMethod === "BANK" ? "BANK" : "CASH";
 
-  const availableBalance = await getAccountBalance(account);
+  // المشتريات والموردين بالدولار دائمًا → نفحص رصيد الدولار فقط
+  const availableBalance = await getAccountBalance(account, "USD");
 
   if (normalizedAmount > availableBalance) {
-    const accountLabel = account === "BANK" ? "البنك" : "الصندوق";
+    const accountLabel = account === "BANK" ? "البنك" : "الخزينة";
 
     throw new Error(
-      `الرصيد غير كافٍ في ${accountLabel}. الرصيد الحالي ${availableBalance.toFixed(
+      `الرصيد غير كافٍ في ${accountLabel} (دولار). الرصيد الحالي ${availableBalance.toFixed(
         2,
-      )} ريال`,
+      )} $ — يمكنك تحويل جنيه إلى دولار من صفحة المحاسبة`,
     );
   }
 
@@ -624,9 +625,13 @@ export async function notifyOwnerForDraft(
 
     type: "PURCHASE_ORDER",
 
-    link: "/dashboard/orders",
+    link: `/dashboard/orders/${orderId}`,
+
+    // طلبات الاعتماد للمالك فقط
+    target_roles: ["owner"],
 
     metadata: {
+      key: `PO_APPROVAL:${orderId}`,
       purchase_order_id: orderId,
     },
   });
@@ -989,5 +994,39 @@ export async function processPurchaseReceipt(orderId: string, userId: string) {
 
   if (linkError) {
     throw new Error(`تعذر ربط قيد الشراء بطلب الشراء: ${linkError.message}`);
+  }
+}
+
+/* =========================================================
+   إشعارات قرار المالك (للمدير) + قفل إشعار طلب الاعتماد
+========================================================= */
+
+export async function notifyPurchaseDecision(
+  orderNumber: string,
+  orderId: string,
+  decision: "APPROVED" | "CANCELLED",
+) {
+  // إشعار "بانتظار الاعتماد" عند المالك اتحسم → يتقفل
+  await supabaseAdmin
+    .from("notifications")
+    .update({ isRead: true })
+    .eq("metadata->>key", `PO_APPROVAL:${orderId}`)
+    .eq("isRead", false);
+
+  const { error } = await supabaseAdmin.from("notifications").insert({
+    title: decision === "APPROVED" ? "تم اعتماد طلب الشراء" : "تم رفض طلب الشراء",
+    message:
+      decision === "APPROVED"
+        ? `اعتمد المالك طلب الشراء ${orderNumber}، ويمكن استلامه الآن.`
+        : `رفض المالك طلب الشراء ${orderNumber} وتم إلغاؤه.`,
+    type: "PURCHASE_ORDER",
+    link: `/dashboard/orders/${orderId}`,
+    // قرارات المالك للمدير فقط
+    target_roles: ["admin"],
+    metadata: { purchase_order_id: orderId, decision },
+  });
+
+  if (error) {
+    console.error("Failed to notify purchase decision:", error);
   }
 }

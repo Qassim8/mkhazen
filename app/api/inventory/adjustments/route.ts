@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
 import { inventoryAdjustmentSchema } from "@/app/dashboard/inventory/schema/inventory.schemas";
@@ -15,10 +16,10 @@ export async function POST(request: Request) {
 
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         { status: 403 },
       );

@@ -1,5 +1,6 @@
 "use client";
 
+import BackLink from "@/components/shared/BackLink";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -8,7 +9,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import {
-  LuArrowRight,
   LuBan,
   LuCheck,
   LuCircleAlert,
@@ -47,6 +47,8 @@ import {
   getTailoringPdfFileName,
 } from "./tailoringPdf";
 import ProductionCompletionForm from "./ProductionCompletionForm";
+import { formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
+import { useExchangeRate } from "@/components/shared/useExchangeRate";
 
 interface CategoryOption {
   id: string;
@@ -56,6 +58,7 @@ interface CategoryOption {
 interface Props {
   order: TailoringOrder;
   canManageAll: boolean;
+  canCollect: boolean;
   canManageStatus: boolean;
   categories: CategoryOption[];
 }
@@ -78,13 +81,19 @@ const statusClasses: Record<TailoringOrder["tailoringStatus"], string> = {
   CONVERTED_TO_PRODUCT: "",
 };
 
+/** تكاليف الخياطة والقماش والأرباح بالدولار */
+function usd(value: number) {
+  return formatUSD(value);
+}
+
+/** مبالغ الزبون (الإجمالي/العربون/الباقي) بالجنيه */
 function money(value: number) {
-  return `${value.toFixed(2)} ر.س`;
+  return `${value.toFixed(2)} ج.س`;
 }
 
 function dateLabel(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -93,7 +102,7 @@ function dateLabel(value: string) {
 
 function dateTimeLabel(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -133,10 +142,12 @@ function ModalShell({ children }: { children: ReactNode }) {
 export default function TailoringOrderDetail({
   order,
   canManageAll,
+  canCollect,
   canManageStatus,
   categories,
 }: Props) {
   const router = useRouter();
+  const { rate: exchangeRate } = useExchangeRate();
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
@@ -166,7 +177,7 @@ export default function TailoringOrderDetail({
     reset: resetTailorPayment,
   } = useForm<PayTailorPaymentFormValues>({
     resolver: zodResolver(payTailorPaymentFormSchema),
-    defaultValues: { amount: "", paymentMethod: "CASH", notes: "" },
+    defaultValues: { amount: "", paymentMethod: "CASH", currency: "SDG", notes: "" },
   });
 
   const {
@@ -191,7 +202,7 @@ export default function TailoringOrderDetail({
 
   const overdue = useMemo(() => {
     const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Riyadh",
+      timeZone: "Africa/Khartoum",
     }).format(new Date());
     return (
       order.tailoringStatus !== "RECEIVED" &&
@@ -201,6 +212,7 @@ export default function TailoringOrderDetail({
   }, [order.expectedDeliveryDate, order.tailoringStatus]);
 
   const isProduction = order.tailoringPurpose === "PRODUCTION";
+  const canContactCustomer = canManageAll || canCollect;
   const productionCompleted = Boolean(order.producedProduct?.variantId);
   const canEdit = canManageAll && order.tailoringStatus === "NEW";
   const canCancel = canEdit;
@@ -216,7 +228,7 @@ export default function TailoringOrderDetail({
   const canCreateReplacement = canRefundAdvance;
   const canPayTailor =
     canManageAll &&
-    order.tailorRemainingAmount > 0 &&
+    order.tailorRemainingAmountSdg > 0 &&
     (order.tailoringStatus !== "CANCELLED" ||
       Boolean(order.convertedToProductAt || order.producedProduct?.variantId));
 
@@ -288,7 +300,9 @@ export default function TailoringOrderDetail({
       try {
         await completeTailoringPickup(order.id, values.paymentMethod);
         toast.success(
-          `تم تسليم الطلب وتحصيل ${money(order.remainingAmount)} وتثبيت تكلفة الخياطة.`,
+          order.remainingAmount > 0
+            ? `تم تسليم الطلب وتحصيل ${money(order.remainingAmount)}.`
+            : "تم تسليم الطلب دون مبلغ متبقٍ.",
         );
         setPickupOpen(false);
         router.refresh();
@@ -305,12 +319,14 @@ export default function TailoringOrderDetail({
   );
 
   function openTailorPayment() {
+    // أجرة الخياط متفق عليها وتُدفع بالجنيه؛ الافتراضي = المتبقي بالجنيه
     resetTailorPayment({
       amount:
-        order.tailorRemainingAmount > 0
-          ? order.tailorRemainingAmount.toFixed(2)
+        order.tailorRemainingAmountSdg > 0
+          ? order.tailorRemainingAmountSdg.toFixed(2)
           : "",
       paymentMethod: "CASH",
+      currency: "SDG",
       notes: "",
     });
     setPaymentOpen(true);
@@ -326,12 +342,14 @@ export default function TailoringOrderDetail({
           salesOrderId: order.id,
           amount,
           paymentMethod: values.paymentMethod,
+          currency: "SDG",
           notes: values.notes?.trim() || null,
         });
+        const paid = formatSDG(amount);
         toast.success(
           order.tailoringCostRecognized
-            ? `تم سداد ${money(amount)} من مستحقات الخياط.`
-            : `تم تسجيل دفعة مقدمة للخياط بقيمة ${money(amount)}.`,
+            ? `تم سداد ${paid} من مستحقات الخياط.`
+            : `تم تسجيل دفعة مقدمة للخياط بقيمة ${paid}.`,
         );
         setPaymentOpen(false);
         router.refresh();
@@ -491,12 +509,8 @@ export default function TailoringOrderDetail({
     <div className="space-y-5 p-4 pb-16">
       <header className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-gray-400">
-            <Link href="/dashboard/tailoring" className="hover:text-gray-700">
-              طلبات التفصيل
-            </Link>
-            <LuArrowRight className="h-3.5 w-3.5" />
-            <span>{order.orderNumber}</span>
+          <div className="mb-3">
+            <BackLink href="/dashboard/tailoring" label="العودة إلى طلبات التفصيل" />
           </div>
           <h1 className="text-2xl font-black text-gray-950">
             {order.tailoringItemName}
@@ -505,7 +519,9 @@ export default function TailoringOrderDetail({
             {order.orderNumber} ·{" "}
             {isProduction
               ? "تصنيع للمخزون"
-              : `${order.customer?.name ?? "-"} · ${order.customer?.whatsappNumber ?? "-"}`}
+              : canContactCustomer
+                ? `${order.customer?.name ?? "-"} · ${order.customer?.whatsappNumber ?? "-"}`
+                : order.customer?.name ?? "-"}
           </p>
           {order.tailoringItemDescription && (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
@@ -532,7 +548,7 @@ export default function TailoringOrderDetail({
         </div>
       </header>
 
-      {order.tailoringStatus === "CANCELLED" && (
+      {canManageAll && order.tailoringStatus === "CANCELLED" && (
         <section className="rounded-2xl border border-red-200 bg-red-50 p-4">
           <div className="flex items-start gap-3">
             {order.convertedToProductAt ? (
@@ -606,8 +622,7 @@ export default function TailoringOrderDetail({
 
           {!isProduction &&
             order.tailoringStatus === "READY_FOR_PICKUP" &&
-            canManageAll &&
-            order.remainingAmount > 0 && (
+            canCollect && (
               <button
                 type="button"
                 disabled={actionLoading}
@@ -615,7 +630,9 @@ export default function TailoringOrderDetail({
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"
               >
                 <LuCheck className="h-4 w-4" />
-                تسليم الطلب وتحصيل الباقي
+                {order.remainingAmount > 0
+                  ? "تسليم الطلب وتحصيل الباقي"
+                  : "تأكيد تسليم الطلب"}
               </button>
             )}
 
@@ -668,7 +685,7 @@ export default function TailoringOrderDetail({
             </button>
           )}
 
-          {order.tailorPhone && (
+          {canManageAll && order.tailorPhone && (
             <a
               href={whatsappLink(order.tailorPhone, tailorOrderMessage)}
               target="_blank"
@@ -680,7 +697,9 @@ export default function TailoringOrderDetail({
             </a>
           )}
 
-          {!isProduction && order.customer?.whatsappNumber && (
+          {canContactCustomer &&
+            !isProduction &&
+            order.customer?.whatsappNumber && (
             <>
               <button
                 type="button"
@@ -775,12 +794,14 @@ export default function TailoringOrderDetail({
                 {dateLabel(order.intakeDate)}
               </p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-[11px] font-bold text-gray-400">الخياط</p>
-              <p className="mt-1 text-sm font-black">
-                {order.tailorName ?? "-"}
-              </p>
-            </div>
+            {canManageAll && (
+              <div className="rounded-xl bg-gray-50 p-3">
+                <p className="text-[11px] font-bold text-gray-400">الخياط</p>
+                <p className="mt-1 text-sm font-black">
+                  {order.tailorName ?? "-"}
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -791,12 +812,16 @@ export default function TailoringOrderDetail({
               <>
                 <p className="text-sm font-black">{order.fabric.name}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  {order.fabric.sku ? `SKU: ${order.fabric.sku} · ` : ""}الكمية:{" "}
-                  {order.fabricQuantity?.toFixed(2) ?? "0.00"} متر
+                  {canManageAll && order.fabric.sku
+                    ? `SKU: ${order.fabric.sku} · `
+                    : ""}
+                  الكمية: {order.fabricQuantity?.toFixed(2) ?? "0.00"} متر
                 </p>
-                <p className="mt-2 text-xs font-bold text-gray-700">
-                  تكلفة الخامة المسجلة: {money(order.fabricCost)}
-                </p>
+                {canManageAll && (
+                  <p className="mt-2 text-xs font-bold text-gray-700">
+                    تكلفة الخامة المسجلة: {usd(order.fabricCost)}
+                  </p>
+                )}
               </>
             ) : (
               <>
@@ -831,7 +856,7 @@ export default function TailoringOrderDetail({
               </div>
             ))}
           </div>
-          {order.notes && (
+          {canManageAll && order.notes && (
             <div className="mt-4 rounded-xl border border-gray-200 bg-white p-3">
               <p className="text-[11px] font-bold text-gray-400">ملاحظات</p>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">
@@ -841,25 +866,44 @@ export default function TailoringOrderDetail({
           )}
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-black">الملخص المالي</h2>
-          <div className="mt-4 space-y-3 text-xs">
+        {canManageAll && (
+          <section className="rounded-2xl border border-gray-200 bg-white p-5">
+            <h2 className="text-sm font-black">الملخص المالي</h2>
+            <div className="mt-4 space-y-3 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-gray-500">قيمة الطلب</span>
               <strong>
                 {isProduction
-                  ? money(order.totalCost)
+                  ? usd(order.totalCost)
                   : money(order.totalAmount)}
               </strong>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-500">تكلفة القماش</span>
-              <strong>{money(order.fabricCost)}</strong>
+              <strong>{usd(order.fabricCost)}</strong>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-500">تكلفة الخياطة</span>
-              <strong>{money(order.tailoringCost)}</strong>
+              <span className="text-gray-500">أجرة الخياطة</span>
+              <strong dir="ltr">
+                {formatSDG(order.tailoringCostSdg)}
+                <span className="mr-1 text-[10px] font-semibold text-gray-400">
+                  ≈ {usd(order.tailoringCost)}
+                </span>
+              </strong>
             </div>
+            {!isProduction && order.grossProfit != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">
+                  {order.revenueIsFinal ? "الربح الفعلي" : "الربح المتوقع"}
+                  {order.exchangeRateUsed
+                    ? ` (بسعر ${order.exchangeRateUsed.toLocaleString("en-US")})`
+                    : ""}
+                </span>
+                <strong className={order.grossProfit < 0 ? "text-red-600" : "text-emerald-700"}>
+                  {usd(order.grossProfit)}
+                </strong>
+              </div>
+            )}
             {!isProduction && (
               <>
                 <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
@@ -884,10 +928,10 @@ export default function TailoringOrderDetail({
                   )}
               </>
             )}
-            {order.tailorPaidAmount > 0 && (
+            {order.tailorPaidAmountSdg > 0 && (
               <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
                 <span className="text-gray-500">المدفوع للخياط</span>
-                <strong>{money(order.tailorPaidAmount)}</strong>
+                <strong>{formatSDG(order.tailorPaidAmountSdg)}</strong>
               </div>
             )}
             <div className="rounded-xl bg-gray-50 p-3">
@@ -895,14 +939,15 @@ export default function TailoringOrderDetail({
                 متبقي للخياط
               </p>
               <p className="mt-1 text-sm font-black">
-                {money(order.tailorRemainingAmount)}
+                {formatSDG(order.tailorRemainingAmountSdg)}
               </p>
             </div>
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
       </div>
 
-      {order.convertedToProductAt && order.producedProduct && (
+      {canManageAll && order.convertedToProductAt && order.producedProduct && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-start gap-3">
             <LuPackage className="mt-0.5 h-5 w-5 text-emerald-700" />
@@ -912,10 +957,10 @@ export default function TailoringOrderDetail({
                 المنتج: <strong>{order.producedProduct.name}</strong> — الكمية:{" "}
                 <strong>{order.producedProduct.quantity}</strong> قطعة — تكلفة
                 الوحدة:{" "}
-                <strong>{money(order.producedProduct.averageCost)}</strong>
+                <strong>{usd(order.producedProduct.averageCost)}</strong>
               </p>
               <p className="mt-1">
-                سعر البيع: {money(order.producedProduct.sellingPrice)}{" "}
+                سعر البيع: {usd(order.producedProduct.sellingPrice)}{" "}
                 {order.producedProduct.sku
                   ? `· SKU: ${order.producedProduct.sku}`
                   : ""}
@@ -925,7 +970,7 @@ export default function TailoringOrderDetail({
         </section>
       )}
 
-      {order.customerAdvanceMovements.length > 0 && (
+      {canManageAll && order.customerAdvanceMovements.length > 0 && (
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-5 py-4">
             <h2 className="text-sm font-black">
@@ -984,7 +1029,10 @@ export default function TailoringOrderDetail({
         </section>
       )}
 
-      {!isProduction && order.payments && order.payments.length > 0 && (
+      {canManageAll &&
+        !isProduction &&
+        order.payments &&
+        order.payments.length > 0 && (
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-5 py-4">
             <h2 className="text-sm font-black">دفعات العميل النقدية/البنكية</h2>
@@ -1029,14 +1077,14 @@ export default function TailoringOrderDetail({
         </section>
       )}
 
-      {order.tailorPayments && order.tailorPayments.length > 0 && (
+      {canManageAll && order.tailorPayments && order.tailorPayments.length > 0 && (
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
           <div className="border-b border-gray-100 px-5 py-4">
             <h2 className="text-sm font-black">دفعات الخياط</h2>
             <p className="mt-1 text-xs text-gray-400">
-              التكلفة المتفق عليها: {money(order.tailoringCost)} — المدفوع:{" "}
-              {money(order.tailorPaidAmount)} — المتبقي:{" "}
-              {money(order.tailorRemainingAmount)}
+              التكلفة المتفق عليها: {formatSDG(order.tailoringCostSdg)} — المدفوع:{" "}
+              {formatSDG(order.tailorPaidAmountSdg)} — المتبقي:{" "}
+              {formatSDG(order.tailorRemainingAmountSdg)}
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -1062,7 +1110,17 @@ export default function TailoringOrderDetail({
                         : "سداد مستحق"}
                     </td>
                     <td dir="ltr" className="px-5 py-3 font-black">
-                      {money(payment.amount)}
+                      {payment.currency === "SDG" && payment.amountOriginal != null
+                        ? formatSDG(payment.amountOriginal)
+                        : usd(payment.amount)}
+                      {payment.currency === "SDG" && (
+                        <span dir="ltr" className="block text-[10px] font-semibold text-gray-400">
+                          ≈ {usd(payment.amount)}
+                          {payment.exchangeRateUsed
+                            ? ` @ ${payment.exchangeRateUsed.toLocaleString("en-US")}`
+                            : ""}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 font-semibold">
                       {payment.paymentMethod === "CASH" ? "الخزينة" : "البنك"}
@@ -1143,14 +1201,14 @@ export default function TailoringOrderDetail({
             <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
               <p>
                 التكلفة المتفق عليها:{" "}
-                <strong>{money(order.tailoringCost)}</strong>
+                <strong>{formatSDG(order.tailoringCostSdg)}</strong>
               </p>
               <p className="mt-1">
                 المدفوع حتى الآن:{" "}
-                <strong>{money(order.tailorPaidAmount)}</strong>
+                <strong>{formatSDG(order.tailorPaidAmountSdg)}</strong>
               </p>
               <p className="mt-1">
-                المتبقي: <strong>{money(order.tailorRemainingAmount)}</strong>
+                المتبقي: <strong>{formatSDG(order.tailorRemainingAmountSdg)}</strong>
               </p>
               {!order.tailoringCostRecognized && (
                 <p className="mt-2 font-semibold text-blue-700">
@@ -1161,18 +1219,25 @@ export default function TailoringOrderDetail({
             </div>
             <label className="block">
               <span className="text-xs font-bold text-gray-600">
-                مبلغ الدفعة
+                مبلغ الدفعة (ج.س)
               </span>
               <input
                 {...registerTailorPayment("amount")}
                 disabled={tailorPaymentSubmitting || actionLoading}
                 type="number"
                 min="0.01"
-                max={order.tailorRemainingAmount}
                 step="0.01"
                 className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
               />
               <InlineError message={tailorPaymentErrors.amount?.message} />
+              {order.tailorRemainingAmountSdg > 0 && (
+                <p className="mt-1 text-[11px] font-semibold text-gray-500">
+                  المتبقي للخياط: {formatSDG(order.tailorRemainingAmountSdg)}
+                  {exchangeRate
+                    ? ` (≈ ${usd(sdgToUsd(order.tailorRemainingAmountSdg, exchangeRate))} بسعر اليوم)`
+                    : ""}
+                </p>
+              )}
             </label>
             <label className="block">
               <span className="text-xs font-bold text-gray-600">
@@ -1214,7 +1279,7 @@ export default function TailoringOrderDetail({
                 disabled={
                   tailorPaymentSubmitting ||
                   actionLoading ||
-                  order.tailorRemainingAmount <= 0
+                  order.tailorRemainingAmountSdg <= 0
                 }
                 className="flex-1 rounded-xl bg-gray-900 py-2.5 text-xs font-bold text-white"
               >

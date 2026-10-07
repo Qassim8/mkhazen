@@ -1,29 +1,37 @@
-import { getProducts } from "../../products/services/products.services";
-import { getSuppliers } from "../../suppliers/services/supplier.services";
+import { getProductOptions } from "../../products/services/products.services";
+import { getSupplierOptions } from "../../suppliers/services/supplier.services";
 
 import CreateOrderClient from "./CreateOrderClient";
+import BackLink from "@/components/shared/BackLink";
 
 export const revalidate = 0;
 
-export default async function CreatePurchaseOrderPage() {
+interface CreatePurchaseOrderPageProps {
+  searchParams: Promise<{ variantId?: string | string[] }>;
+}
+
+export default async function CreatePurchaseOrderPage({
+  searchParams,
+}: CreatePurchaseOrderPageProps) {
+  const query = await searchParams;
+  const variantId = Array.isArray(query.variantId)
+    ? query.variantId[0]
+    : query.variantId;
   const [{ data: products = [] }, { data: suppliers = [] }] = await Promise.all(
     [
-      /*
-       * نرفع الحد حتى تكون قائمة اختيار الـVariants مفيدة.
-       * الـAPI عندك يسمح بحد أقصى 100.
-       */
-      getProducts({
-        limit: 100,
-        page: 1,
-      }),
+      // كل المنتجات (مش أول 100 بس) عشان أي منتج يتطلب في الشراء
+      getProductOptions(),
 
-      getSuppliers(),
+      getSupplierOptions(),
     ],
   );
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-4 py-6">
       <div className="border-b border-gray-200 pb-4">
+        <div className="mb-3">
+          <BackLink href="/dashboard/orders" label="العودة إلى طلبات الشراء" />
+        </div>
         <h1 className="text-2xl font-bold text-gray-900">
           إنشاء أمر شراء جديد
         </h1>
@@ -33,7 +41,12 @@ export default async function CreatePurchaseOrderPage() {
         </p>
       </div>
 
-      <CreateOrderClient products={products} suppliers={suppliers} />
+      <CreateOrderClient
+        key={variantId ?? "new"}
+        products={products}
+        suppliers={suppliers}
+        initialVariantId={variantId}
+      />
     </main>
   );
 }

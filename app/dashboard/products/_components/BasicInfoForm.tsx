@@ -7,6 +7,7 @@ import ModalContent from "../../categories/_components/CategoriesModalContent";
 import { useModalStore } from "@/store/useModalStore";
 import { Category } from "../../categories/schemas/category.schemas";
 import CreateSupplierModalContent from "../../suppliers/_components/SupplierModalContent";
+import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
 interface BasicInfoFormProps {
   register: UseFormRegister<ProductFormInputType>;
@@ -14,6 +15,8 @@ interface BasicInfoFormProps {
   categories: Category[];
   suppliers: { id: string; name: string }[];
   loadingOptions: boolean;
+  onCategoryCreated?: (category: Category) => void;
+  onSupplierCreated?: (supplier: Supplier) => void;
 }
 
 export default function BasicInfoForm({
@@ -22,6 +25,8 @@ export default function BasicInfoForm({
   categories,
   suppliers,
   loadingOptions,
+  onCategoryCreated,
+  onSupplierCreated,
 }: BasicInfoFormProps) {
   const { openModal } = useModalStore();
 
@@ -57,7 +62,7 @@ export default function BasicInfoForm({
           onOpenModal={() =>
             openModal("CREATE", {
               title: "انشاء فئة جديدة",
-              content: <ModalContent />,
+              content: <ModalContent onSaved={onCategoryCreated} />,
             })
           }
           register={register}
@@ -74,7 +79,9 @@ export default function BasicInfoForm({
           onOpenModal={() =>
             openModal("CREATE", {
               title: "انشاء مورد جديد",
-              content: <CreateSupplierModalContent />,
+              content: (
+                <CreateSupplierModalContent onSaved={onSupplierCreated} />
+              ),
             })
           }
           register={register}

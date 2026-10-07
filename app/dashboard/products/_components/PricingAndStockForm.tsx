@@ -26,7 +26,7 @@ export default function PricingAndStockForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            سعر التكلفة / الشراء ({selectedPurchaseUnit}) *
+            سعر التكلفة / الشراء بالدولار ({selectedPurchaseUnit}) *
           </label>
           <input
             type="number"
@@ -43,7 +43,7 @@ export default function PricingAndStockForm({
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            سعر البيع ({selectedSellingUnit}) *
+            سعر البيع بالدولار ({selectedSellingUnit}) *
           </label>
           <input
             type="number"
@@ -71,7 +71,7 @@ export default function PricingAndStockForm({
       <div className="grid gap-4 sm:grid-cols-2 border-t border-gray-50 pt-4">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            أقل سعر للبيع (الحد الأدنى)
+            أقل سعر للبيع (الحد الأدنى) — $
           </label>
           <input
             type="number"

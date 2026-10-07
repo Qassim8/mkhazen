@@ -59,7 +59,7 @@ export const printBarcodeOnly = (
       <body>
         <div class="title">${escapeHtml(productName)}</div>
         ${barcodeElem}
-        ${price ? `<div class="price">${price} ر.س</div>` : ""}
+        ${price ? `<div class="price">${price} $</div>` : ""}
         <script>
           window.onload = function () {
             window.print();

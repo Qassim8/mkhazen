@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   getAccountingOverview,
@@ -9,7 +10,12 @@ import {
 import ExpensesAndRevenuesChart from "./ExpensesAndRevenuesChart";
 import ExpensesChart from "./ExpensesChart";
 import OverviewCard from "./OverviewCard";
+import CurrencyExchangeModal from "./CurrencyExchangeModal";
+import { formatRate, formatSDG } from "@/lib/currency";
 import {
+  LuArrowLeftRight,
+  LuHandCoins,
+  LuScissors,
   LuBoxes,
   LuBuilding2,
   LuDollarSign,
@@ -18,7 +24,6 @@ import {
   LuTrendingDown,
   LuTrendingUp,
   LuTruck,
-  LuUsers,
   LuWallet,
 } from "react-icons/lu";
 
@@ -38,7 +43,7 @@ export function formatNumber(value: number) {
 }
 
 export function formatMoney(value: number) {
-  return `${formatNumber(value)} ر.س`;
+  return `${formatNumber(value)} $`;
 }
 
 function getAmountClass(value: number) {
@@ -51,6 +56,10 @@ export default function AccountingOverviewClient({ initialData }: Props) {
   const [year, setYear] = useState(initialData.year);
 
   const [loading, setLoading] = useState(false);
+
+  const [showExchange, setShowExchange] = useState(false);
+
+  const router = useRouter();
 
   useEffect(() => {
     if (year === initialData.year) {
@@ -97,7 +106,23 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            dir="ltr"
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700"
+          >
+            {formatRate(data.exchangeRate ?? null)}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setShowExchange(true)}
+            className="flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-xs font-bold text-white hover:bg-gray-800"
+          >
+            <LuArrowLeftRight className="h-4 w-4" />
+            تحويل عملة
+          </button>
+
           {loading && (
             <span className="text-sm text-muted-foreground">
               جاري التحميل...
@@ -142,31 +167,76 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         />
       </div>
 
-      {/* المجموعة الثانية: رأس المال والسيولة */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <p className="text-xs text-gray-500">
+        كل أرقام الأداء والالتزامات بالدولار. الخزينة والبنك معروضين بعملتين لأنهم
+        فلوس فعلية مختلفة في الدرج.
+      </p>
+
+      {/* المجموعة الثانية: السيولة (كل عملة لوحدها) */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewCard
+          title="الخزينة (دولار)"
+          value={formatMoney(cards.cashUsd)}
+          icon={<LuWallet className="h-5 w-5" />}
+          variant="emerald"
+        />
+
+        <OverviewCard
+          title="الخزينة (جنيه)"
+          value={formatSDG(cards.cashSdg)}
+          icon={<LuWallet className="h-5 w-5" />}
+          variant="emerald"
+        />
+
+        <OverviewCard
+          title="البنك (دولار)"
+          value={formatMoney(cards.bankUsd)}
+          icon={<LuLandmark className="h-5 w-5" />}
+          variant="info"
+        />
+
+        <OverviewCard
+          title="البنك (جنيه)"
+          value={formatSDG(cards.bankSdg)}
+          icon={<LuLandmark className="h-5 w-5" />}
+          variant="info"
+        />
+      </div>
+
+      {/* المجموعة الثالثة: أثر سعر الصرف ورأس المال */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewCard
+          title="إجمالي السيولة بالدولار (بسعر اليوم)"
+          value={formatMoney(cards.totalLiquidityUsd)}
+          icon={<LuDollarSign className="h-5 w-5" />}
+          variant="purple"
+        />
+
+        <OverviewCard
+          title="أثر تغيّر سعر الجنيه (غير محقق)"
+          value={formatMoney(cards.unrealizedFxUsd)}
+          valueClass={getAmountClass(cards.unrealizedFxUsd)}
+          icon={<LuTrendingDown className="h-5 w-5" />}
+          variant={cards.unrealizedFxUsd >= 0 ? "success" : "danger"}
+        />
+
+        <OverviewCard
+          title="فروق صرف محققة (ضمن صافي الربح)"
+          value={formatMoney(cards.realizedFx)}
+          valueClass={getAmountClass(cards.realizedFx)}
+          icon={<LuArrowLeftRight className="h-5 w-5" />}
+          variant={cards.realizedFx >= 0 ? "success" : "danger"}
+        />
+
         <OverviewCard
           title="رأس المال العام"
           value={formatMoney(cards.capital)}
           icon={<LuBuilding2 className="h-5 w-5" />}
           variant="purple"
         />
-
-        <OverviewCard
-          title="البنك"
-          value={formatMoney(cards.bank)}
-          icon={<LuLandmark className="h-5 w-5" />}
-          variant="info"
-        />
-
-        <OverviewCard
-          title="الخزينة"
-          value={formatMoney(cards.cash)}
-          icon={<LuWallet className="h-5 w-5" />}
-          variant="emerald"
-        />
       </div>
 
-      {/* المجموعة الثالثة: الموردين والأصول والمخزون */}
+      {/* المجموعة الرابعة: الالتزامات والأصول (دولار) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <OverviewCard
           title="ديون الموردين"
@@ -176,10 +246,38 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         />
 
         <OverviewCard
+          title="مستحقات الخياطين"
+          value={formatMoney(cards.tailorsPayable)}
+          icon={<LuScissors className="h-5 w-5" />}
+          variant="amber"
+        />
+
+        <OverviewCard
+          title="عربون العملاء (التزام)"
+          value={formatMoney(cards.customerAdvances)}
+          icon={<LuHandCoins className="h-5 w-5" />}
+          variant="amber"
+        />
+
+        <OverviewCard
           title="المخزون"
           value={formatMoney(cards.inventory)}
           icon={<LuBoxes className="h-5 w-5" />}
           variant="warning"
+        />
+
+        <OverviewCard
+          title="إنتاج تحت التشغيل"
+          value={formatMoney(cards.workInProgress)}
+          icon={<LuLayers className="h-5 w-5" />}
+          variant="warning"
+        />
+
+        <OverviewCard
+          title="دفعات مقدمة للخياطين"
+          value={formatMoney(cards.tailorAdvances ?? 0)}
+          icon={<LuScissors className="h-5 w-5" />}
+          variant="slate"
         />
 
         <OverviewCard
@@ -199,6 +297,22 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           <ExpensesChart expenseBreakdown={expenseBreakdown} />
         </Suspense>
       </div>
+
+      {showExchange && (
+        <CurrencyExchangeModal
+          onClose={() => setShowExchange(false)}
+          onCreated={async () => {
+            setShowExchange(false);
+            try {
+              const response = await getAccountingOverview(year);
+              setData(response.data);
+            } catch (error) {
+              console.error("Reload overview:", error);
+            }
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,10 +1,9 @@
+import { errorMessage } from "@/lib/errors";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
+import { requirePermission } from "@/lib/permissions-server";
+import { one, type Relation, type SaleItemRow, type SalePaymentRow } from "../../_lib/sale-rows";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 export async function GET(
   req: NextRequest,
@@ -12,10 +11,13 @@ export async function GET(
 ) {
   void req;
 
+  const guard = await requirePermission("sales.pos");
+  if (!guard.ok) return guard.response;
+
   try {
     const { id: orderId } = await params;
 
-    const { data: order, error } = await supabase
+    const { data: order, error } = await supabaseAdmin
       .from("sales_orders")
       .select(
         `
@@ -36,7 +38,7 @@ export async function GET(
           id,
           name
         ),
-        cashier:users!sales_orders_cashier_id_fkey (
+        cashier:users!cashier_id (
           id,
           name,
           email
@@ -98,8 +100,8 @@ export async function GET(
       orderType: order.order_type,
       createdAt: order.created_at,
       completedAt: order.completed_at ?? null,
-      branchName: (order.branch as any)?.name || "الفرع الرئيسي",
-      cashierName: (order.cashier as any)?.name || "الكاشير",
+      branchName: one(order.branch as Relation<{ name?: string | null }>)?.name || "الفرع الرئيسي",
+      cashierName: one(order.cashier as Relation<{ name?: string | null }>)?.name || "الكاشير",
       customerName: null,
       subtotal: Number(order.subtotal),
       discountAmount: Number(order.discount_amount),
@@ -117,18 +119,18 @@ export async function GET(
       paymentStatus: order.payment_status,
       status: order.status,
       notes: order.notes ?? null,
-      items: (order.items ?? []).map((item: any) => ({
-        productName: item.variant?.template?.name || "",
-        sku: item.variant?.sku ?? null,
-        colorName: item.variant?.colorName ?? null,
-        size: item.variant?.size ?? null,
+      items: ((order.items ?? []) as unknown as SaleItemRow[]).map((item) => ({
+        productName: one(one(item.variant)?.template)?.name || "",
+        sku: one(item.variant)?.sku ?? null,
+        colorName: one(item.variant)?.colorName ?? null,
+        size: one(item.variant)?.size ?? null,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unit_price),
         totalPrice: Number(item.total_price),
         isGift: Boolean(item.is_gift),
         giftNote: item.gift_note ?? null,
       })),
-      payments: (order.payments ?? []).map((payment: any) => ({
+      payments: ((order.payments ?? []) as unknown as SalePaymentRow[]).map((payment) => ({
         id: payment.id,
         amount: Number(payment.amount),
         paymentDate: payment.payment_date,
@@ -141,9 +143,9 @@ export async function GET(
     };
 
     return NextResponse.json({ receipt: formattedReceipt });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: err?.message || "حدث خطأ أثناء قراءة الفاتورة" },
+      { error: errorMessage(err, "حدث خطأ أثناء قراءة الفاتورة") },
       { status: 500 },
     );
   }

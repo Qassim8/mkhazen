@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
+import type { CurrencyCode } from "@/lib/currency";
 import {
   AccountingAccount,
   JournalEntryType,
@@ -28,6 +29,8 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   RENTS: "الايجار",
   OTHER_EXPENSE: "مصروفات أخرى",
   OTHER_INCOME: "إيرادات أخرى",
+  GIFTS: "هدايا للعملاء",
+  CURRENCY_EXCHANGE: "تحويل عملة (فروق صرف)",
 };
 
 /* =========================================================
@@ -78,6 +81,13 @@ interface CreateJournalEntryParams {
   purchaseOrderId?: string | null;
 
   createdBy?: string | null;
+
+  /**
+   * عملة المبلغ. لو مش محددة، الـ trigger في الداتابيز يحددها من
+   * الحسابات (قيود الزبون = جنيه، غير كده = دولار).
+   * لو SDG، سعر الصرف والقيمة بالدولار بيتحسبوا تلقائيًا بالسعر الحالي.
+   */
+  currency?: CurrencyCode;
 }
 
 export async function createJournalEntry({
@@ -89,6 +99,7 @@ export async function createJournalEntry({
   reference,
   purchaseOrderId,
   createdBy,
+  currency,
 }: CreateJournalEntryParams) {
   if (amount <= 0) {
     throw new Error("مبلغ القيد يجب أن يكون أكبر من صفر");
@@ -120,6 +131,8 @@ export async function createJournalEntry({
       debit_account: debitAccount,
 
       credit_account: creditAccount,
+
+      ...(currency ? { currency } : {}),
     })
     .select(
       `
@@ -134,6 +147,9 @@ export async function createJournalEntry({
         reference,
         debit_account,
         credit_account,
+        currency,
+        exchange_rate_used,
+        amount_usd,
         created_at
       `,
     )
@@ -149,29 +165,35 @@ export async function createJournalEntry({
 }
 
 /* =========================================================
-   Check Balance
+   CHECK BALANCE — رصيد الخزينة/البنك لعملة محددة
+   (الجنيه والدولار فلوس مختلفة في الدرج، ما ينفعش يتجمعوا)
 ========================================================= */
-export async function getAccountBalance(account: "BANK" | "CASH") {
-  const { data, error } = await supabaseAdmin
-    .from("journal_entries")
-    .select("amount, debit_account, credit_account")
-    .eq("branch_id", MAIN_BRANCH_ID);
+
+export async function getAccountBalance(
+  account: "BANK" | "CASH",
+  currency: CurrencyCode = "USD",
+) {
+  const { data, error } = await supabaseAdmin.rpc("get_account_balance", {
+    p_branch_id: MAIN_BRANCH_ID,
+    p_account: account,
+    p_currency: currency,
+  });
 
   if (error) {
     throw new Error(`تعذر قراءة رصيد الحساب: ${error.message}`);
   }
 
-  return (data ?? []).reduce((balance, entry) => {
-    const amount = Number(entry.amount ?? 0);
+  return Number(data ?? 0);
+}
 
-    if (entry.debit_account === account) {
-      return balance + amount;
-    }
+export function formatBalanceMessage(
+  account: "BANK" | "CASH",
+  currency: CurrencyCode,
+  balance: number,
+) {
+  const accountLabel = account === "BANK" ? "البنك" : "الخزينة";
+  const symbol = currency === "USD" ? "$" : "ج.س";
+  const currencyLabel = currency === "USD" ? "دولار" : "جنيه";
 
-    if (entry.credit_account === account) {
-      return balance - amount;
-    }
-
-    return balance;
-  }, 0);
+  return `الرصيد غير كافٍ في ${accountLabel} (${currencyLabel}). الرصيد الحالي ${balance.toFixed(2)} ${symbol}`;
 }

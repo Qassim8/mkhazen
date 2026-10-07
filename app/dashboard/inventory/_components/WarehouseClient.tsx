@@ -2,12 +2,14 @@
 
 import { Suspense, useMemo, useState } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
   LuArrowDownToLine,
   LuArrowUpFromLine,
   LuPackage,
+  LuPackagePlus,
   LuSlidersHorizontal,
 } from "react-icons/lu";
 
@@ -83,6 +85,17 @@ export default function WarehouseClient({
         buttonTitle="تسوية مخزنية"
         redirect={() => setIsAdjustmentOpen(true)}
       />
+
+      {/* البضاعة اللي كانت موجودة قبل النظام تتسجل من هنا، مش بتسوية */}
+      <div className="mb-6 flex justify-end">
+        <Link
+          href="/dashboard/inventory/opening-stock"
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+        >
+          <LuPackagePlus className="h-4 w-4" />
+          المخزون الافتتاحي
+        </Link>
+      </div>
 
       {/* =====================================================
           SUMMARY
@@ -204,12 +217,28 @@ export default function WarehouseClient({
                   value: "SALE_RETURN",
                 },
                 {
+                  label: "مخزون افتتاحي",
+                  value: "OPENING_STOCK",
+                },
+                {
                   label: "تسوية إدخال",
                   value: "ADJUSTMENT_IN",
                 },
                 {
                   label: "تسوية إخراج",
                   value: "ADJUSTMENT_OUT",
+                },
+                {
+                  label: "تفصيل وخياطة",
+                  value: "PRODUCTION_ISSUE",
+                },
+                {
+                  label: "تصنيع",
+                  value: "PRODUCTION_RECEIPT",
+                },
+                {
+                  label: "إهداء",
+                  value: "GIFT",
                 },
               ]}
             />

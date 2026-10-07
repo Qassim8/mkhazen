@@ -25,7 +25,7 @@ interface ProductsPageHeader {
   title: string;
   subtitle: string;
   buttonTitle: string;
-  redirect: () => void;
+  href: string;
 }
 
 interface ProductsPageProps {
@@ -49,7 +49,7 @@ const ProductsPageClient = ({
         title={header.title}
         subtitle={header.subtitle}
         buttonTitle={header.buttonTitle}
-        redirect={header.redirect}
+        href={header.href}
       />
 
       <section className="frame p-0! my-8">

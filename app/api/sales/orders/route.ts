@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { fetchAll } from "@/lib/supabase-fetch-all";
 
 const salesOrdersQuerySchema = z.object({
   search: z.string().trim().max(100, "عبارة البحث طويلة جدًا").optional(),
@@ -43,6 +45,8 @@ type SalesOrderRow = {
   discount_amount: number | string;
   tax_amount: number | string;
   total_amount: number | string;
+  total_amount_usd: number | string | null;
+  exchange_rate_used: number | string | null;
   payment_method: "CASH" | "CARD" | "BANK_TRANSFER" | "MIXED";
   payment_status: "UNPAID" | "PARTIAL" | "PAID";
   status: "PENDING" | "COMPLETED" | "CANCELLED" | "RETURNED";
@@ -73,12 +77,13 @@ function getCalculatedPaymentStatus(
   return "PARTIAL";
 }
 
-function getSaudiDayStart(date: string) {
-  return new Date(`${date}T00:00:00+03:00`);
+// بداية اليوم بتوقيت السودان (UTC+2)
+function getSudanDayStart(date: string) {
+  return new Date(`${date}T00:00:00+02:00`);
 }
 
-function getSaudiNextDayStart(date: string) {
-  const start = getSaudiDayStart(date);
+function getSudanNextDayStart(date: string) {
+  const start = getSudanDayStart(date);
   start.setUTCDate(start.getUTCDate() + 1);
   return start;
 }
@@ -98,9 +103,9 @@ export async function GET(req: NextRequest) {
 
     const session = await getSession();
 
-    if (!session || String(session.role).toLowerCase() !== "admin") {
+    if (!session || !can(session.role, "sales.view")) {
       return NextResponse.json(
-        { error: "عذراً، صفحة المبيعات مقتصرة على المدير فقط" },
+        { error: "عذراً، صفحة المبيعات غير متاحة لصلاحياتك" },
         { status: 403 },
       );
     }
@@ -165,6 +170,8 @@ export async function GET(req: NextRequest) {
           discount_amount,
           tax_amount,
           total_amount,
+          total_amount_usd,
+          exchange_rate_used,
           payment_method,
           payment_status,
           status,
@@ -185,8 +192,12 @@ export async function GET(req: NextRequest) {
       query = query.eq("payment_method", paymentMethod);
     }
 
+    if (paymentStatus) {
+      query = query.eq("payment_status", paymentStatus);
+    }
+
     if (fromDate) {
-      const from = getSaudiDayStart(fromDate);
+      const from = getSudanDayStart(fromDate);
 
       if (Number.isNaN(from.getTime())) {
         return NextResponse.json({ error: "تاريخ البداية غير صالح" }, { status: 400 });
@@ -196,7 +207,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (toDate) {
-      const toExclusive = getSaudiNextDayStart(toDate);
+      const toExclusive = getSudanNextDayStart(toDate);
 
       if (Number.isNaN(toExclusive.getTime())) {
         return NextResponse.json({ error: "تاريخ النهاية غير صالح" }, { status: 400 });
@@ -207,50 +218,62 @@ export async function GET(req: NextRequest) {
 
     const safeSearch = search ? cleanSearch(search) : "";
 
-    if (safeSearch) {
-      const { data: customerMatches, error: customerSearchError } =
-        await supabaseAdmin
-          .from("customers")
-          .select("id")
-          .eq("branch_id", MAIN_BRANCH_ID)
-          .ilike("name", `%${safeSearch}%`)
-          .limit(100);
+    // البحث بيتطابق في الكود (رقم الفاتورة أو أي عميل مطابق، من غير حد 100 عميل)
+    const matchingCustomerIds = new Set<string>();
 
-      if (customerSearchError) {
+    if (safeSearch) {
+      try {
+        const customerRows = await fetchAll<{ id: string }>((from, to) =>
+          supabaseAdmin
+            .from("customers")
+            .select("id")
+            .eq("branch_id", MAIN_BRANCH_ID)
+            .ilike("name", `%${safeSearch}%`)
+            .order("id")
+            .range(from, to),
+        );
+        for (const row of customerRows) matchingCustomerIds.add(row.id);
+      } catch (customerSearchError) {
         return NextResponse.json(
-          { error: `فشل البحث في العملاء: ${customerSearchError.message}` },
+          {
+            error: `فشل البحث في العملاء: ${customerSearchError instanceof Error ? customerSearchError.message : customerSearchError}`,
+          },
           { status: 500 },
         );
       }
-
-      const customerIds = (customerMatches ?? []).map((row) => row.id);
-
-      if (customerIds.length > 0) {
-        query = query.or(
-          `order_number.ilike.%${safeSearch}%,customer_id.in.(${customerIds.join(",")})`,
-        );
-      } else {
-        query = query.ilike("order_number", `%${safeSearch}%`);
-      }
     }
 
-    const { data: rawOrders, error: ordersError } = await query.order(
-      "created_at",
-      { ascending: sort === "date-asc" },
-    );
+    // على دفعات: Supabase بيرجّع 1000 صف كحد أقصى
+    let orders: SalesOrderRow[];
+    const sortedQuery = query
+      .order("created_at", { ascending: sort === "date-asc" })
+      .order("id", { ascending: sort === "date-asc" });
 
-    if (ordersError) {
+    try {
+      orders = await fetchAll<SalesOrderRow>((from, to) =>
+        sortedQuery.range(from, to),
+      );
+    } catch (ordersError) {
       return NextResponse.json(
-        { error: `فشل جلب المبيعات: ${ordersError.message}` },
+        {
+          error: `فشل جلب المبيعات: ${ordersError instanceof Error ? ordersError.message : ordersError}`,
+        },
         { status: 500 },
       );
     }
 
-    const orders = (rawOrders ?? []) as SalesOrderRow[];
-
     // صفحة المبيعات تعرض فقط البيع الفعلي:
     // POS مكتمل + طلب تفصيل لعميل تم استلامه.
-    const actualSales = orders.filter((order) => {
+    const needle = safeSearch.toLowerCase();
+    const searchedOrders = safeSearch
+      ? orders.filter(
+          (order) =>
+            String(order.order_number ?? "").toLowerCase().includes(needle) ||
+            (order.customer_id != null && matchingCustomerIds.has(order.customer_id)),
+        )
+      : orders;
+
+    const actualSales = searchedOrders.filter((order) => {
       if (order.order_type === "POS") return true;
       return (
         order.order_type === "TAILORING" &&
@@ -259,7 +282,13 @@ export async function GET(req: NextRequest) {
       );
     });
 
-    const orderIds = actualSales.map((order) => order.id);
+    // الصفحة المطلوبة بس هي اللي بتتجاب دفعاتها وأسماؤها
+    const total = actualSales.length;
+    const totalPages = Math.ceil(total / limit);
+    const offset = (page - 1) * limit;
+    const pageOrders = actualSales.slice(offset, offset + limit);
+
+    const orderIds = pageOrders.map((order) => order.id);
 
     let payments: PaymentRow[] = [];
 
@@ -289,18 +318,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const filteredByPayment = actualSales.filter((order) => {
-      if (!paymentStatus) return true;
-
-      const totalAmount = Number(order.total_amount);
-      const paidAmount = paidAmountMap.get(order.id) ?? 0;
-
-      return getCalculatedPaymentStatus(totalAmount, paidAmount) === paymentStatus;
-    });
-
     const customerIds = [
       ...new Set(
-        filteredByPayment
+        pageOrders
           .map((order) => order.customer_id)
           .filter((id): id is string => Boolean(id)),
       ),
@@ -308,7 +328,7 @@ export async function GET(req: NextRequest) {
 
     const tailorIds = [
       ...new Set(
-        filteredByPayment
+        pageOrders
           .map((order) => order.tailor_id)
           .filter((id): id is string => Boolean(id)),
       ),
@@ -316,7 +336,7 @@ export async function GET(req: NextRequest) {
 
     const cashierIds = [
       ...new Set(
-        filteredByPayment
+        pageOrders
           .map((order) => order.cashier_id)
           .filter((id): id is string => Boolean(id)),
       ),
@@ -355,7 +375,7 @@ export async function GET(req: NextRequest) {
       ((cashiersResult.data ?? []) as PersonRow[]).map((row) => [row.id, row]),
     );
 
-    const enrichedOrders = filteredByPayment.map((order) => {
+    const enrichedOrders = pageOrders.map((order) => {
       const subtotal = Number(order.subtotal);
       const discountAmount = Number(order.discount_amount);
       const taxAmount = Number(order.tax_amount);
@@ -384,6 +404,11 @@ export async function GET(req: NextRequest) {
         discountAmount,
         taxAmount,
         totalAmount,
+        // المبالغ أعلاه بالجنيه؛ القيمة بالدولار بسعر صرف وقت البيع
+        totalAmountUsd:
+          order.total_amount_usd != null ? Number(order.total_amount_usd) : null,
+        exchangeRateUsed:
+          order.exchange_rate_used != null ? Number(order.exchange_rate_used) : null,
         discountPercentage:
           subtotal > 0 ? Number(((discountAmount / subtotal) * 100).toFixed(2)) : 0,
         paidAmount: Number(paidAmount.toFixed(2)),
@@ -398,12 +423,8 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    const total = enrichedOrders.length;
-    const totalPages = Math.ceil(total / limit);
-    const offset = (page - 1) * limit;
-
     return NextResponse.json({
-      data: enrichedOrders.slice(offset, offset + limit),
+      data: enrichedOrders,
       pagination: {
         total,
         page,

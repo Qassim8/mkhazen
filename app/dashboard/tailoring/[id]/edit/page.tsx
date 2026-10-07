@@ -5,6 +5,7 @@ import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getTailoringOrderById } from "../../services/tailoring.services";
 import EditTailoringOrderForm from "../../_components/EditTailoringOrderForm";
+import { can } from "@/lib/permissions";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,7 +16,7 @@ export default async function EditTailoringOrderPage({ params }: Props) {
   if (!user) redirect("/login");
 
   const role = String(user.role).toLowerCase();
-  if (role !== "admin" && role !== "cashier") redirect("/dashboard/tailoring");
+  if (!can(role, "tailoring.manage")) redirect("/dashboard/tailoring");
   if (!MAIN_BRANCH_ID) throw new Error("معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام.");
 
   const { id } = await params;

@@ -1,8 +1,8 @@
 "use client";
 
+import BackLink from "@/components/shared/BackLink";
 import { useEffect } from "react";
-import Link from "next/link";
-import { LuArrowRight, LuGift, LuPrinter } from "react-icons/lu";
+import { LuGift, LuPrinter } from "react-icons/lu";
 
 interface ReceiptItem {
   id: string;
@@ -33,6 +33,7 @@ interface ReceiptData {
   paidAmount: number;
   remainingAmount: number;
   paymentMethod: string;
+  exchangeRate?: number | null;
   paymentStatus: string;
   status: string;
   notes?: string | null;
@@ -44,17 +45,17 @@ interface Props {
 }
 
 function formatMoney(value: number) {
-  return `${Number(value).toFixed(2)} ر.س`;
+  return `${Number(value).toFixed(2)} ج.س`;
 }
 
 function formatDateTime(value: string) {
   const date = new Date(value);
   return {
-    date: date.toLocaleDateString("ar-SA", {
-      timeZone: "Asia/Riyadh",
+    date: date.toLocaleDateString("ar-SA-u-nu-latn", {
+      timeZone: "Africa/Khartoum",
     }),
-    time: date.toLocaleTimeString("ar-SA", {
-      timeZone: "Asia/Riyadh",
+    time: date.toLocaleTimeString("ar-SA-u-nu-latn", {
+      timeZone: "Africa/Khartoum",
       hour: "2-digit",
       minute: "2-digit",
     }),
@@ -98,13 +99,7 @@ export default function ReceiptPrintClient({ receipt }: Props) {
           <LuPrinter className="h-4 w-4" />
           طباعة الفاتورة
         </button>
-        <Link
-          href="/dashboard/pos"
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
-        >
-          <LuArrowRight className="h-4 w-4" />
-          العودة للكاشير
-        </Link>
+        <BackLink href="/dashboard/pos" label="العودة إلى الكاشير" />
       </div>
 
       <main className="min-h-screen bg-gray-100 py-20 print:min-h-0 print:bg-white print:p-0">
@@ -113,7 +108,7 @@ export default function ReceiptPrintClient({ receipt }: Props) {
           dir="rtl"
         >
           <header className="border-b border-dashed border-black pb-3 text-center">
-            <h1 className="text-lg font-bold">متجر الجلابيات</h1>
+            <h1 className="text-lg font-bold">متجري</h1>
             <p className="mt-1 text-xs">فاتورة بيع</p>
           </header>
 
@@ -242,6 +237,12 @@ export default function ReceiptPrintClient({ receipt }: Props) {
             margin: 0;
             padding: 0;
             background: white;
+          }
+          aside,
+          nav,
+          header,
+          .print\:hidden {
+            display: none !important;
           }
 
           .receipt {

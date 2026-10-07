@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
+import { fetchAll, pageByAllowedIds } from "@/lib/supabase-fetch-all";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 
 import {
   createPurchaseOrderSchema,
@@ -104,10 +106,10 @@ export async function GET(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         {
           status: 403,
@@ -118,9 +120,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     const parsed = purchaseQuerySchema.safeParse({
-      page: searchParams.get("page"),
+      page: searchParams.get("page") || undefined,
 
-      limit: searchParams.get("limit"),
+      limit: searchParams.get("limit") || undefined,
 
       search: searchParams.get("search") || undefined,
 
@@ -183,123 +185,108 @@ export async function GET(request: Request) {
 
     const currentSort = sortMap[sort];
 
-    let paymentOrderIds: string[] | null = null;
+    // فلاتر الأعمدة العادية (نفسها في استعلام الصفحة واستعلام الـ IDs)
+    const eqFilters: [string, string][] = [];
+    if (status && status !== "ALL") eqFilters.push(["status", status]);
+    if (purchaseType && purchaseType !== "ALL") eqFilters.push(["purchase_type", purchaseType]);
+    if (supplierId) eqFilters.push(["supplier_id", supplierId]);
+    const searchPattern = search ? `%${search}%` : null;
+
+    let data: unknown[] | null;
+    let count: number | null;
 
     if (paymentStatus && paymentStatus !== "ALL") {
-      const { data: allOrders, error: allOrdersError } = await supabaseAdmin
-        .from("purchase_orders")
-        .select("id, total_amount");
+      // حالة الدفع بتتحسب من الدفعات، فبنجيب الكل على دفعات (حد الـ 1000 صف)
+      // وبنقسّم الصفحات في الكود بدل .in() بقائمة IDs طويلة
+      try {
+        const [allOrders, allPayments] = await Promise.all([
+          fetchAll<{ id: string; total_amount: number | string | null }>((from, to) =>
+            supabaseAdmin
+              .from("purchase_orders")
+              .select("id, total_amount")
+              .order("id")
+              .range(from, to),
+          ),
+          fetchAll<{ purchase_order_id: string; amount: number | string | null }>((from, to) =>
+            supabaseAdmin
+              .from("purchase_order_payments")
+              .select("id, purchase_order_id, amount")
+              .order("id")
+              .range(from, to),
+          ),
+        ]);
 
-      if (allOrdersError) {
-        return NextResponse.json(
-          {
-            message: "تعذر قراءة بيانات حالة الدفع",
-          },
-          {
-            status: 500,
-          },
+        const paidMap = new Map<string, number>();
+        for (const payment of allPayments) {
+          paidMap.set(
+            payment.purchase_order_id,
+            (paidMap.get(payment.purchase_order_id) ?? 0) + Number(payment.amount ?? 0),
+          );
+        }
+
+        const allowed = new Set(
+          allOrders
+            .filter((order) => {
+              const total = Number(order.total_amount ?? 0);
+              const paid = paidMap.get(order.id) ?? 0;
+              const calculatedStatus =
+                paid <= 0 ? "UNPAID" : paid >= total ? "PAID" : "PARTIAL";
+              return calculatedStatus === paymentStatus;
+            })
+            .map((order) => order.id),
         );
-      }
 
-      const { data: allPayments, error: paymentsError } = await supabaseAdmin
-        .from("purchase_order_payments")
-        .select("purchase_order_id, amount");
-
-      if (paymentsError) {
-        return NextResponse.json(
-          {
-            message: "تعذر قراءة دفعات المشتريات",
+        const result = await pageByAllowedIds<{ id: string }>({
+          allowed,
+          page,
+          limit,
+          orderedIds: (from, to) => {
+            let idsQuery = supabaseAdmin.from("purchase_orders").select("id");
+            if (searchPattern) idsQuery = idsQuery.ilike("order_number", searchPattern);
+            for (const [column, value] of eqFilters) idsQuery = idsQuery.eq(column, value);
+            return idsQuery
+              .order(currentSort.column, { ascending: currentSort.ascending })
+              .order("id")
+              .range(from, to);
           },
-          {
-            status: 500,
-          },
-        );
-      }
-
-      const paidMap = new Map<string, number>();
-
-      for (const payment of allPayments ?? []) {
-        paidMap.set(
-          payment.purchase_order_id,
-          (paidMap.get(payment.purchase_order_id) ?? 0) +
-            Number(payment.amount ?? 0),
-        );
-      }
-
-      paymentOrderIds = (allOrders ?? [])
-        .filter((order) => {
-          const total = Number(order.total_amount ?? 0);
-
-          const paid = paidMap.get(order.id) ?? 0;
-
-          const calculatedStatus =
-            paid <= 0 ? "UNPAID" : paid >= total ? "PAID" : "PARTIAL";
-
-          return calculatedStatus === paymentStatus;
-        })
-        .map((order) => order.id);
-
-      if (paymentOrderIds.length === 0) {
-        return NextResponse.json({
-          data: [],
-
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          },
+          fetchRows: (ids) =>
+            supabaseAdmin.from("purchase_orders").select(PURCHASE_ORDER_SELECT).in("id", ids),
         });
+
+        data = result.rows;
+        count = result.total;
+      } catch (filterError) {
+        console.error("Purchase orders payment filter:", filterError);
+        return NextResponse.json(
+          { message: "تعذر قراءة بيانات حالة الدفع" },
+          { status: 500 },
+        );
       }
-    }
+    } else {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
 
-    let query = supabaseAdmin
-      .from("purchase_orders")
-      .select(PURCHASE_ORDER_SELECT, {
-        count: "exact",
-      });
+      let pageQuery = supabaseAdmin
+        .from("purchase_orders")
+        .select(PURCHASE_ORDER_SELECT, { count: "exact" });
+      if (searchPattern) pageQuery = pageQuery.ilike("order_number", searchPattern);
+      for (const [column, value] of eqFilters) pageQuery = pageQuery.eq(column, value);
 
-    if (search) {
-      query = query.ilike("order_number", `%${search}%`);
-    }
+      const result = await pageQuery
+        .order(currentSort.column, { ascending: currentSort.ascending })
+        .order("id")
+        .range(from, to);
 
-    if (status && status !== "ALL") {
-      query = query.eq("status", status);
-    }
+      if (result.error) {
+        console.error("Purchase orders GET:", result.error);
+        return NextResponse.json(
+          { message: "حدث خطأ أثناء جلب طلبات الشراء" },
+          { status: 500 },
+        );
+      }
 
-    if (purchaseType && purchaseType !== "ALL") {
-      query = query.eq("purchase_type", purchaseType);
-    }
-
-    if (supplierId) {
-      query = query.eq("supplier_id", supplierId);
-    }
-
-    if (paymentOrderIds) {
-      query = query.in("id", paymentOrderIds);
-    }
-
-    const from = (page - 1) * limit;
-
-    const to = from + limit - 1;
-
-    const { data, count, error } = await query
-      .order(currentSort.column, {
-        ascending: currentSort.ascending,
-      })
-      .range(from, to);
-
-    if (error) {
-      console.error("Purchase orders GET:", error);
-
-      return NextResponse.json(
-        {
-          message: "حدث خطأ أثناء جلب طلبات الشراء",
-        },
-        {
-          status: 500,
-        },
-      );
+      data = result.data;
+      count = result.count;
     }
 
     return NextResponse.json({
@@ -339,10 +326,10 @@ export async function POST(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         {
           status: 403,
@@ -643,7 +630,8 @@ export async function POST(request: Request) {
        WORKFLOW DRAFT
     ===================================================== */
 
-    if (purchaseType === "WORKFLOW") {
+    // المالك نفسه مش محتاج إشعار يعتمد طلبه
+    if (purchaseType === "WORKFLOW" && !can(user.role, "purchases.approve")) {
       await notifyOwnerForDraft(finalOrderNumber, newOrder.id);
     }
 

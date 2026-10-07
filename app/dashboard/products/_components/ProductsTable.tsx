@@ -52,7 +52,7 @@ const ProductsTable = ({
         const image =
           variants.find((variant) => variant.images?.length)?.images?.[0] ||
           product.images?.[0] ||
-          "/placeholder.png";
+          "/images/placeholder.png";
 
         const variantsCount = variants.length;
 
@@ -155,7 +155,7 @@ const ProductsTable = ({
         return (
           <div className="flex flex-col">
             <span className="text-sm font-bold text-gray-900">
-              {totalStock.toLocaleString()} {product.sellingUnit || ""}
+              {totalStock.toLocaleString("en-US")} {product.sellingUnit || ""}
             </span>
 
             {variants.length > 1 && (
@@ -196,12 +196,12 @@ const ProductsTable = ({
           <div className="flex flex-col text-xs">
             <span className="font-bold text-emerald-600">
               {minSellingPrice === maxSellingPrice
-                ? `${minSellingPrice.toLocaleString()} ريال`
-                : `${minSellingPrice.toLocaleString()} - ${maxSellingPrice.toLocaleString()} ريال`}
+                ? `${minSellingPrice.toLocaleString("en-US")} $`
+                : `${minSellingPrice.toLocaleString("en-US")} - ${maxSellingPrice.toLocaleString("en-US")} $`}
             </span>
 
             <span className="text-[11px] text-gray-400">
-              تكلفة تبدأ من {minPurchasePrice.toLocaleString()} ريال
+              تكلفة تبدأ من {minPurchasePrice.toLocaleString("en-US")} $
             </span>
           </div>
         );
@@ -228,8 +228,6 @@ const ProductsTable = ({
         const isOutOfStock = totalStock <= 0;
 
         const isLowStock = totalStock > 0 && totalStock <= minimumRequiredStock;
-
-        const isInStock = totalStock > minimumRequiredStock;
 
         const statusClass = isOutOfStock
           ? "bg-red-50 text-red-700 border-red-100"

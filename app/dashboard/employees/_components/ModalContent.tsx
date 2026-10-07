@@ -42,11 +42,10 @@ export default function ModalContent() {
       reset();
       router.refresh();
       closeModal();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("فشل في حفظ بيانات الموظف:", error);
 
-      const errorMessage =
-        typeof error?.message === "string" ? error.message : "";
+      const errorMessage = error instanceof Error ? error.message : "";
 
       const message =
         errorMessage.includes("duplicate key") ||

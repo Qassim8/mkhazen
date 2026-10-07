@@ -106,7 +106,7 @@ export default function PaymentModal({
       toast.error(
         `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(
           2,
-        )} ريال)`,
+        )} $)`,
       );
 
       return;
@@ -175,7 +175,7 @@ export default function PaymentModal({
               <span className="font-medium text-amber-700">المبلغ المتبقي</span>
 
               <span className="font-mono font-bold text-amber-800">
-                {remainingAmount.toFixed(2)} ر.س
+                {remainingAmount.toFixed(2)} $
               </span>
             </div>
           </div>
@@ -301,7 +301,7 @@ export default function PaymentModal({
                 <span>المتبقي قبل الدفع</span>
 
                 <span className="font-mono font-semibold text-gray-900">
-                  {remainingAmount.toFixed(2)} ر.س
+                  {remainingAmount.toFixed(2)} $
                 </span>
               </div>
 
@@ -309,7 +309,7 @@ export default function PaymentModal({
                 <span>الدفعة الحالية</span>
 
                 <span className="font-mono font-semibold text-emerald-600">
-                  {Math.max(amount, 0).toFixed(2)} ر.س
+                  {Math.max(amount, 0).toFixed(2)} $
                 </span>
               </div>
 
@@ -317,7 +317,7 @@ export default function PaymentModal({
                 <span>المتبقي بعد الدفع</span>
 
                 <span className="font-mono">
-                  {remainingAfterPayment.toFixed(2)} ر.س
+                  {remainingAfterPayment.toFixed(2)} $
                 </span>
               </div>
             </div>

@@ -87,7 +87,7 @@ export default function EmployeeViewContent({ initialData }: Props) {
             <div className="col-span-2 rounded-2xl border border-gray-100 bg-gray-50/50 p-3.5">
               <span className="block text-xs text-gray-400 mb-1">الراتب</span>
               <span className="font-bold text-gray-900 text-base">
-                {initialData.salary} ريال
+                {initialData.salary} ج.س
               </span>
             </div>
           )}

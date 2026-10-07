@@ -75,7 +75,7 @@ export type Employee = {
   commissionRate: number;
   address?: string;
   shift: "morning" | "night" | "full_time";
-  role: "admin" | "tailor" | "cashier";
+  role: "owner" | "admin" | "tailor" | "cashier";
   status: "active" | "inactive";
   isActive: "TRUE" | "FALSE" | boolean;
   resetRequested: boolean;

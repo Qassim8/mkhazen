@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { SaleItemRow, SalePaymentRow } from "../_lib/sale-rows";
 
 function getSingleRelation<T>(value: T | T[] | null | undefined): T | null {
   if (!value) {
@@ -87,7 +88,7 @@ export async function GET(
             id,
             name
           ),
-          cashier:users!sales_orders_cashier_id_fkey (
+          cashier:users!cashier_id (
             id,
             name,
             email
@@ -150,7 +151,7 @@ export async function GET(
           notes,
           created_by,
           created_at,
-          createdBy:users!sales_order_payments_created_by_fkey (
+          createdBy:users!created_by (
             id,
             name
           )
@@ -211,7 +212,7 @@ export async function GET(
       paymentStatus: getCalculatedPaymentStatus(totalAmount, paidAmount),
       status: order.status,
       notes: order.notes,
-      items: (order.items ?? []).map((item: any) => {
+      items: ((order.items ?? []) as unknown as SaleItemRow[]).map((item) => {
         const variant = getSingleRelation(item.variant);
         const template = getSingleRelation(variant?.template);
 
@@ -225,7 +226,7 @@ export async function GET(
           totalPrice: Number(item.total_price),
         };
       }),
-      payments: (payments ?? []).map((payment: any) => {
+      payments: ((payments ?? []) as unknown as SalePaymentRow[]).map((payment) => {
         const createdBy = getSingleRelation(payment.createdBy);
 
         return {

@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 import { getTailoringOrderById } from "../services/tailoring.services";
 import NewTailoringOrderForm from "../_components/NewTailoringOrderForm";
+import { can } from "@/lib/permissions";
+import { getCustomerById } from "@/app/dashboard/customers/services/customers.services";
 
 interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -24,7 +26,7 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
 
   const role = String(user.role).toLowerCase();
 
-  if (role !== "admin" && role !== "cashier") {
+  if (!can(role, "tailoring.operate")) {
     redirect("/dashboard/tailoring");
   }
 
@@ -34,8 +36,10 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
 
   const params = await searchParams;
   const transferFrom = first(params.transferFrom);
+  const customerId = first(params.customerId);
 
   let advanceSource = null;
+  let initialCustomer = null;
 
   if (transferFrom) {
     try {
@@ -50,6 +54,10 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
 
       if (!sourceCanTransferAdvance || !source.customer) {
         redirect("/dashboard/tailoring");
+      }
+
+      if (customerId && !transferFrom) {
+        initialCustomer = await getCustomerById(customerId);
       }
 
       advanceSource = {
@@ -83,6 +91,8 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
     <NewTailoringOrderForm
       tailors={tailors ?? []}
       advanceSource={advanceSource}
+      initialCustomer={initialCustomer}
+      canManageAll={can(role, "tailoring.manage")}
     />
   );
 }

@@ -5,6 +5,7 @@ import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getTailoringOrderById } from "../services/tailoring.services";
 import TailoringOrderDetail from "../_components/TailoringOrderDetail";
+import { can } from "@/lib/permissions";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -15,7 +16,7 @@ export default async function TailoringOrderDetailPage({ params }: Props) {
   if (!user) redirect("/login");
 
   const role = String(user.role).toLowerCase();
-  if (!["admin", "cashier", "tailor"].includes(role)) redirect("/dashboard/tailoring");
+  if (!can(role, "tailoring.view")) redirect("/dashboard/tailoring");
   if (!MAIN_BRANCH_ID) throw new Error("معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام.");
 
   const { id } = await params;
@@ -26,10 +27,14 @@ export default async function TailoringOrderDetailPage({ params }: Props) {
     notFound();
   }
 
-  const { data: categories, error: categoriesError } = await supabaseAdmin
-    .from("categories")
-    .select("id, name")
-    .order("name", { ascending: true });
+  const canManageAll = can(role, "tailoring.manage");
+  const canCollect = can(role, "tailoring.operate");
+  const { data: categories, error: categoriesError } = canManageAll
+    ? await supabaseAdmin
+        .from("categories")
+        .select("id, name")
+        .order("name", { ascending: true })
+    : { data: [], error: null };
 
   if (categoriesError) {
     throw new Error(`تعذر جلب تصنيفات المنتجات: ${categoriesError.message}`);
@@ -38,8 +43,11 @@ export default async function TailoringOrderDetailPage({ params }: Props) {
   return (
     <TailoringOrderDetail
       order={data}
-      canManageAll={role === "admin" || role === "cashier"}
-      canManageStatus={role === "admin" || role === "cashier" || data.tailorId === user.userId}
+      canManageAll={canManageAll}
+      canCollect={canCollect}
+      canManageStatus={
+        canManageAll || (role === "tailor" && data.tailorId === user.userId)
+      }
       categories={categories ?? []}
     />
   );

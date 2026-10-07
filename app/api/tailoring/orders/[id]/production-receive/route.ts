@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import {
   productionCompletionApiSchema,
 } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
@@ -20,8 +22,8 @@ export async function POST(
     if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
-    if (role !== "admin" && role !== "cashier") {
-      return NextResponse.json({ message: "استلام الإنتاج وإنشاء المنتج متاح للكاشير أو المدير فقط." }, { status: 403 });
+    if (!can(role, "tailoring.manage")) {
+      return NextResponse.json({ message: "استلام الإنتاج وإنشاء المنتج متاح للمدير أو المالك فقط." }, { status: 403 });
     }
 
     const body = await request.json();
@@ -51,6 +53,8 @@ export async function POST(
       console.error("complete_tailoring_production RPC:", error);
       return NextResponse.json({ message: error.message || "تعذر استلام الإنتاج وإنشاء المنتج." }, { status: 400 });
     }
+
+    await notifyTailoringUpdate({ orderId: id, event: "PRODUCTION_RECEIVED", actor: user });
 
     return NextResponse.json({
       message: `تم استلام الإنتاج وإنشاء المنتج ${data.product_name} وإضافته للمخزون بنجاح.`,

@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 
 import {
   PurchaseOrderStatus,
@@ -14,6 +15,7 @@ import {
   fetchPurchaseOrderById,
   processPurchaseReceipt,
   recordPurchasePayment,
+  notifyPurchaseDecision,
 } from "../../_lib/purchase-order";
 
 export async function PATCH(
@@ -29,10 +31,10 @@ export async function PATCH(
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         { status: 403 },
       );
@@ -61,7 +63,7 @@ export async function PATCH(
 
     const { data: existingOrder, error: fetchError } = await supabaseAdmin
       .from("purchase_orders")
-      .select("id, status, purchase_type")
+      .select("id, status, purchase_type, order_number")
       .eq("id", id)
       .single();
 
@@ -82,6 +84,17 @@ export async function PATCH(
 
         data: (await fetchPurchaseOrderById(id)).data,
       });
+    }
+
+    /* =====================================================
+       الاعتماد للمالك فقط
+    ===================================================== */
+
+    if (newStatus === "APPROVED" && !can(user.role, "purchases.approve")) {
+      return NextResponse.json(
+        { message: "اعتماد طلبات الشراء متاح للمالك فقط." },
+        { status: 403 },
+      );
     }
 
     /* =====================================================
@@ -296,6 +309,25 @@ export async function PATCH(
     revalidatePath(`/dashboard/orders/${id}`);
 
     const { data } = await fetchPurchaseOrderById(id);
+
+
+    /* =====================================================
+       إشعارات القرار:
+       • المالك اعتمد/رفض → إشعار للمدير
+       • المدير ألغى مسودته → إشعار الاعتماد عند المالك يتقفل
+    ===================================================== */
+
+    if (currentStatus === "DRAFT" && (newStatus === "APPROVED" || newStatus === "CANCELLED")) {
+      if (newStatus === "APPROVED" || can(user.role, "purchases.approve")) {
+        await notifyPurchaseDecision(existingOrder.order_number, id, newStatus);
+      } else {
+        await supabaseAdmin
+          .from("notifications")
+          .update({ isRead: true })
+          .eq("metadata->>key", `PO_APPROVAL:${id}`)
+          .eq("isRead", false);
+      }
+    }
 
     const messages: Record<string, string> = {
       DRAFT: "تمت إعادة طلب الشراء إلى المسودة.",

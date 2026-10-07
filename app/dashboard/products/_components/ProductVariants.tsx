@@ -3,6 +3,7 @@
 import {
   Control,
   UseFormRegister,
+  UseFormSetValue,
   useFieldArray,
   useWatch,
   FieldErrors,
@@ -21,6 +22,7 @@ import {
   LuUpload,
 } from "react-icons/lu";
 import Image from "next/image";
+import ProductSizes from "./ProductSizes";
 
 interface Category {
   id: string;
@@ -30,6 +32,7 @@ interface Category {
 interface ProductVariantsSectionProps {
   control: Control<ProductFormInputType>;
   register: UseFormRegister<ProductFormInputType>;
+  setValue: UseFormSetValue<ProductFormInputType>;
   errors?: FieldErrors<ProductFormInputType>;
   categories?: Category[];
   hasVariants?: boolean;
@@ -43,6 +46,7 @@ interface ProductVariantsSectionProps {
 export default function ProductVariantsSection({
   control,
   register,
+  setValue,
   errors,
   categories = [],
   hasVariants = false,
@@ -63,18 +67,21 @@ export default function ProductVariantsSection({
   );
   const categoryName = selectedCategoryObj?.name?.toLowerCase() || "";
 
-  const isJallabiyaOrFabric =
+  const isJallabiya =
     categoryName.includes("جلاليب") ||
     categoryName.includes("جلابيه") ||
-    categoryName.includes("ثوب") ||
+    categoryName.includes("جلابية") ||
+    categoryName.includes("ثوب");
+  const isFabric =
     categoryName.includes("أقمشة") ||
+    categoryName.includes("اقمشة") ||
     categoryName.includes("قماش");
 
   const addVariant = () => {
     append({
       size: "",
-      length: 0,
-      width: 0,
+      length: undefined,
+      width: undefined,
       colorName: "",
       colorCode: "#000000",
       sku: "",
@@ -225,7 +232,7 @@ export default function ProductVariantsSection({
                     </div>
                   </div>
 
-                  {isJallabiyaOrFabric ? (
+                  {isJallabiya ? null : isFabric ? (
                     <>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
@@ -274,6 +281,19 @@ export default function ProductVariantsSection({
                 </div>
               )}
 
+              {isJallabiya && (
+                <ProductSizes
+                  value={variants[index]?.size}
+                  legacyLength={variants[index]?.length}
+                  legacyWidth={variants[index]?.width}
+                  onChange={(value) => {
+                    setValue(`variants.${index}.size` as const, value);
+                    setValue(`variants.${index}.length` as const, undefined);
+                    setValue(`variants.${index}.width` as const, undefined);
+                  }}
+                />
+              )}
+
               <div
                 className={`grid gap-4 md:grid-cols-3 ${
                   hasVariants ? "border-t border-gray-200/60 pt-4" : ""
@@ -318,7 +338,7 @@ export default function ProductVariantsSection({
               <div className="grid gap-4 md:grid-cols-3 border-t border-gray-200/60 pt-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    سعر الشراء *
+                    سعر الشراء ($) *
                   </label>
                   <input
                     type="number"
@@ -337,7 +357,7 @@ export default function ProductVariantsSection({
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5 truncate">
-                    سعر البيع ({sellingUnit}) *
+                    سعر البيع بالدولار ({sellingUnit}) *
                   </label>
                   <input
                     type="number"
@@ -354,10 +374,10 @@ export default function ProductVariantsSection({
                   )}
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-xs font-bold text-amber-700 mb-1.5 truncate flex items-center gap-1">
                     <LuDollarSign className="h-3.5 w-3.5" />
-                    أقل سعر بيع (الخصم)
+                    أقل سعر بيع (الخصم) — $
                   </label>
                   <input
                     type="number"
@@ -373,7 +393,7 @@ export default function ProductVariantsSection({
                       {variantErrors.minSellingPrice.message}
                     </p>
                   )}
-                </div>
+                </div> */}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 border-t border-gray-200/60 pt-4">

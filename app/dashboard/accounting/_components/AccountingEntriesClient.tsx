@@ -13,7 +13,6 @@ import NewJournalEntryModal from "./NewJournalModal";
 
 import {
   JournalEntryInput,
-  JournalEntryType,
 } from "../schemas/accounting.schema";
 import PageHeader from "@/components/shared/PageHeader";
 
@@ -27,12 +26,6 @@ interface Meta {
 interface Props {
   initialData: JournalEntryInput[];
   initialMeta: Meta;
-
-  initialFilters: {
-    year: number;
-    entryType: JournalEntryType | "ALL";
-    search: string;
-  };
 }
 
 const ENTRY_TYPES = [
@@ -54,7 +47,6 @@ const YEAR_OPTIONS = Array.from({ length: 5 }, (_, index) => {
 export default function AccountingEntriesClient({
   initialData,
   initialMeta,
-  initialFilters,
 }: Props) {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);

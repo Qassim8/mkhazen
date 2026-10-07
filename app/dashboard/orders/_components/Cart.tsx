@@ -167,7 +167,7 @@ export default function PurchaseCart({
             <tr>
               <th className="px-4 py-3 font-medium">المنتج / الـVariant</th>
 
-              <th className="px-4 py-3 font-medium">تكلفة الوحدة</th>
+              <th className="px-4 py-3 font-medium">تكلفة الوحدة ($)</th>
 
               <th className="px-4 py-3 font-medium">الكمية</th>
 
@@ -230,7 +230,7 @@ export default function PurchaseCart({
                       {readOnly ? (
                         <div>
                           <p className="font-semibold text-gray-800">
-                            {item.unitCost.toFixed(2)} ر.س
+                            {item.unitCost.toFixed(2)} $
                           </p>
                         </div>
                       ) : (
@@ -293,7 +293,7 @@ export default function PurchaseCart({
 
                     {/* Total */}
                     <td className="px-4 py-3 font-semibold text-gray-700">
-                      {itemTotal.toFixed(2)} ر.س
+                      {itemTotal.toFixed(2)} $
                     </td>
 
                     {/* Action */}
@@ -321,25 +321,25 @@ export default function PurchaseCart({
         <div className="flex justify-between text-gray-600">
           <span>المجموع الفرعي:</span>
 
-          <span>{subtotal.toFixed(2)} ر.س</span>
+          <span>{subtotal.toFixed(2)} $</span>
         </div>
 
         <div className="flex justify-between text-gray-600">
-          <span>تكلفة الشحن:</span>
+          <span>تكلفة الشحن ($):</span>
 
-          <span>{deliveryCost.toFixed(2)} ر.س</span>
+          <span>{deliveryCost.toFixed(2)} $</span>
         </div>
 
         <div className="flex justify-between text-gray-600">
           <span>الخصم:</span>
 
-          <span className="text-red-600">-{discountAmount.toFixed(2)} ر.س</span>
+          <span className="text-red-600">-{discountAmount.toFixed(2)} $</span>
         </div>
 
         <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900">
           <span>الإجمالي النهائي:</span>
 
-          <span>{totalAmount.toFixed(2)} ر.س</span>
+          <span>{totalAmount.toFixed(2)} $</span>
         </div>
       </div>
     </div>

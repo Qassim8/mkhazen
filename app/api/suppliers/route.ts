@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { createSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier.schemas";
 
 export async function GET(request: Request) {
   try {
     const user = await getSession();
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
         { status: 403 },
       );
     }
@@ -79,9 +80,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const user = await getSession();
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
         { status: 403 },
       );
     }

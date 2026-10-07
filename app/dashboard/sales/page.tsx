@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 
 import SalesPageClient from "./_components/SalesPageClient";
+import { can } from "@/lib/permissions";
 
 export default async function SalesPage() {
   const session = await getSession();
 
-  if (!session || String(session.role).toLowerCase() !== "admin") {
+  if (!session || !can(session.role, "sales.view")) {
     redirect("/dashboard");
   }
 

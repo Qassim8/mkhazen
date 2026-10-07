@@ -8,6 +8,12 @@ import { InventoryAdjustmentInput } from "../schema/inventory.schemas";
    API
 ========================================================= */
 
+import type {
+  OpeningStockCandidate,
+  OpeningStockInput,
+  OpeningStockResult,
+} from "../schema/inventory.schemas";
+
 const API_BASE_URL = "/api/inventory";
 
 /* =========================================================
@@ -20,7 +26,11 @@ export type InventoryMovementType =
   | "PURCHASE_RETURN"
   | "SALE_RETURN"
   | "ADJUSTMENT_IN"
-  | "ADJUSTMENT_OUT";
+  | "ADJUSTMENT_OUT"
+  | "PRODUCTION_ISSUE"
+  | "PRODUCTION_RECEIPT"
+  | "GIFT"
+  | "OPENING_STOCK";
 
 export type InventoryStatus = "ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
 
@@ -268,6 +278,22 @@ export async function getInventory(
    GET VARIANT + MOVEMENTS
 ========================================================= */
 
+/**
+ * كل أصناف المخزون (لكروت الإحصائيات وقائمة اختيار التسوية).
+ * أول 100 بس كانت بتطلّع إحصائيات غلط وأصناف ناقصة في التسوية.
+ */
+export async function getAllInventory(): Promise<InventoryListResponse> {
+  const first = await getInventory({ page: 1, limit: 100 });
+  const data = [...first.data];
+
+  for (let page = 2; page <= (first.meta?.totalPages ?? 1); page++) {
+    const next = await getInventory({ page, limit: 100 });
+    data.push(...next.data);
+  }
+
+  return { ...first, data, meta: { ...first.meta, page: 1, limit: data.length, totalPages: 1 } };
+}
+
 export async function getInventoryVariant(
   variantId: string,
 ): Promise<InventoryVariantResponse> {
@@ -328,6 +354,32 @@ export async function createInventoryAdjustment(
       next: {
         revalidate: 0,
       },
+    },
+  );
+}
+
+/* =========================================================
+   OPENING STOCK — المخزون الافتتاحي
+========================================================= */
+
+export async function getOpeningStockCandidates(): Promise<{
+  data: OpeningStockCandidate[];
+}> {
+  return serverFetch<{ data: OpeningStockCandidate[] }>(
+    `${API_BASE_URL}/opening-stock`,
+    { method: "GET" },
+  );
+}
+
+export async function recordOpeningStock(payload: OpeningStockInput): Promise<{
+  message: string;
+  data: OpeningStockResult;
+}> {
+  return serverFetch<{ message: string; data: OpeningStockResult }>(
+    `${API_BASE_URL}/opening-stock`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
     },
   );
 }

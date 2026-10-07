@@ -5,7 +5,6 @@ import { LuTrash2, LuPackage, LuSquarePen } from "react-icons/lu";
 
 import { deleteCategory } from "../services/categories.services";
 import { useModalStore } from "@/store/useModalStore";
-import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import ModalContent from "./CategoriesModalContent";
 import { Category } from "../schemas/category.schemas";
 
@@ -61,7 +60,6 @@ const Card = ({ category }: CardProps) => {
               rowId: category.id,
               itemName: category.name,
               actionFunction: deleteCategory,
-              contet: <DeleteConfirmationModal />,
             })
           }
           className="text-sm font-medium flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-gray-700 hover:text-red-600 transition disabled:opacity-50"

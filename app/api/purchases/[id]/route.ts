@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 
 import { updatePurchaseOrderSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
 
@@ -113,10 +114,10 @@ export async function GET(
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         {
           status: 403,
@@ -173,10 +174,10 @@ export async function PATCH(
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         {
           status: 403,
@@ -556,10 +557,10 @@ export async function DELETE(
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         {
           status: 403,

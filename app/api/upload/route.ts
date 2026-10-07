@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requirePermission } from "@/lib/permissions-server";
 
 const BUCKET_NAME = "store-assets";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 Megabytes
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+// الامتداد بيتحدد من نوع الملف مش من اسمه
+const EXTENSION_BY_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+const ALLOWED_TYPES = Object.keys(EXTENSION_BY_TYPE);
 
 export async function POST(request: Request) {
+  const guard = await requirePermission("catalog.manage");
+  if (!guard.ok) return guard.response;
+
   try {
     const formData = await request.formData();
 
@@ -38,7 +49,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "المجلد غير صالح" }, { status: 400 });
     }
 
-    const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+    const extension = EXTENSION_BY_TYPE[file.type];
 
     const safeFileName = `${Date.now()}-${Math.random()
       .toString(36)
@@ -52,9 +63,9 @@ export async function POST(request: Request) {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET_NAME)
       .upload(filePath, buffer, {
-        contentType: file.type || "image/png",
+        contentType: file.type,
         cacheControl: "3600000", // التخزين المؤقت لتسريع الأداء
-        upsert: true,
+        upsert: false,
       });
 
     if (error) {

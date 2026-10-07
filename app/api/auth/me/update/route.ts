@@ -34,7 +34,7 @@ export async function PUT(req: Request) {
       message: "تم تحديث البيانات بنجاح",
       user: updatedUser,
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json(
       { message: "حدث خطأ في السيرفر" },
       { status: 500 },

@@ -19,6 +19,7 @@ import {
   LuTruck,
   LuWalletCards,
 } from "react-icons/lu";
+import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 import PurchaseCart, { PurchaseItem } from "../_components/Cart";
 
@@ -85,6 +86,7 @@ interface Supplier {
 interface Props {
   products: ProductTemplate[];
   suppliers: Supplier[];
+  initialVariantId?: string;
 }
 
 /* =========================================================
@@ -119,18 +121,75 @@ function mapItemsToPayload(items: PurchaseItem[]) {
   }));
 }
 
+function getVariantAttributes(variant: Variant) {
+  return [
+    variant.colorName && `اللون: ${variant.colorName}`,
+    formatProductSize(variant.size) &&
+      `المقاس: ${formatProductSize(variant.size)}`,
+    variant.length !== null &&
+      variant.length !== undefined &&
+      `الطول: ${variant.length}`,
+    variant.width !== null &&
+      variant.width !== undefined &&
+      `العرض: ${variant.width}`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function getInitialPurchaseItems(
+  products: ProductTemplate[],
+  variantId?: string,
+): PurchaseItem[] {
+  if (!variantId) return [];
+
+  for (const product of products) {
+    if (product.isActive === false) continue;
+
+    const variant = product.variants.find(
+      (item) => item.id === variantId && item.isActive !== false,
+    );
+    if (!variant) continue;
+
+    return [
+      {
+        id: variant.id,
+        templateId: product.id,
+        variantId: variant.id,
+        productName: product.name,
+        sku: variant.sku ?? undefined,
+        barcode: variant.barcode ?? undefined,
+        variantAttributes: getVariantAttributes(variant),
+        unitCost: Number(variant.purchasePrice || 0),
+        quantity: 1,
+      },
+    ];
+  }
+
+  return [];
+}
+
 /* =========================================================
    COMPONENT
 ========================================================= */
 
-export default function CreateOrderClient({ products, suppliers }: Props) {
+export default function CreateOrderClient({
+  products,
+  suppliers,
+  initialVariantId,
+}: Props) {
   const router = useRouter();
+  const initialPurchaseItems = useMemo(
+    () => getInitialPurchaseItems(products, initialVariantId),
+    [initialVariantId, products],
+  );
 
   /* =======================================================
      PURCHASE ITEMS
   ======================================================= */
 
-  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
+  const [purchaseItems, setPurchaseItems] =
+    useState<PurchaseItem[]>(initialPurchaseItems);
 
   /* =======================================================
      PRODUCT SEARCH
@@ -184,7 +243,7 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
 
       discountAmount: 0,
 
-      items: [],
+      items: mapItemsToPayload(initialPurchaseItems),
     },
   });
 
@@ -308,22 +367,6 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
           continue;
         }
 
-        const attributes = [
-          variant.colorName && `اللون: ${variant.colorName}`,
-
-          variant.size && `المقاس: ${variant.size}`,
-
-          variant.length !== null &&
-            variant.length !== undefined &&
-            `الطول: ${variant.length}`,
-
-          variant.width !== null &&
-            variant.width !== undefined &&
-            `العرض: ${variant.width}`,
-        ]
-          .filter(Boolean)
-          .join(" | ");
-
         list.push({
           variantId: variant.id,
 
@@ -341,7 +384,7 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
 
           barcode: variant.barcode,
 
-          attributesStr: attributes,
+          attributesStr: getVariantAttributes(variant),
 
           price: Number(variant.purchasePrice || 0),
 
@@ -568,28 +611,6 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
         ================================================= */}
 
         <div className="space-y-5 lg:col-span-5">
-          {/* Supplier */}
-
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              المورد
-            </label>
-
-            <select
-              {...register("supplierId")}
-              disabled={isSubmitting}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
-            >
-              <option value="">بدون مورد</option>
-
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Purchase type */}
 
           <div>
@@ -673,75 +694,6 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
               </label>
             </div>
           </div>
-
-          {/* Dates */}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                تاريخ الطلب
-              </label>
-
-              <input
-                type="date"
-                disabled={isSubmitting}
-                {...register("orderDate")}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                الاستلام المتوقع
-              </label>
-
-              <input
-                type="date"
-                disabled={isSubmitting}
-                {...register("expectedDate")}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Delivery + Discount */}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                تكلفة الشحن
-              </label>
-
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                disabled={isSubmitting}
-                {...register("deliveryCost", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                })}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                الخصم
-              </label>
-
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                disabled={isSubmitting}
-                {...register("discountAmount", {
-                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
-                })}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
-              />
-            </div>
-          </div>
-
           {/* Product / Variant search */}
 
           <div className="relative" ref={dropdownRef}>
@@ -787,7 +739,7 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
                         </span>
 
                         <span className="shrink-0 text-xs font-bold text-emerald-600">
-                          {item.price} ر.س /{item.purchaseUnit}
+                          {item.price} $ /{item.purchaseUnit}
                         </span>
                       </div>
 
@@ -818,6 +770,94 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
                 )}
               </div>
             )}
+          </div>
+          {/* Supplier */}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+              المورد
+            </label>
+
+            <select
+              {...register("supplierId")}
+              disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+            >
+              <option value="">بدون مورد</option>
+
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Dates */}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                تاريخ الطلب
+              </label>
+
+              <input
+                type="date"
+                disabled={isSubmitting}
+                {...register("orderDate")}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                الاستلام المتوقع
+              </label>
+
+              <input
+                type="date"
+                disabled={isSubmitting}
+                {...register("expectedDate")}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Delivery + Discount */}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                تكلفة الشحن ($)
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                disabled={isSubmitting}
+                {...register("deliveryCost", {
+                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                الخصم
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                disabled={isSubmitting}
+                {...register("discountAmount", {
+                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
           </div>
 
           {/* Payment */}
@@ -947,7 +987,7 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
                 <span>إجمالي الطلب</span>
 
                 <span className="font-semibold text-gray-800">
-                  {totalAmount.toFixed(2)} ريال
+                  {totalAmount.toFixed(2)} $
                 </span>
               </div>
 
@@ -955,14 +995,14 @@ export default function CreateOrderClient({ products, suppliers }: Props) {
                 <span>الدفعة الحالية</span>
 
                 <span className="font-semibold text-emerald-600">
-                  {currentPaymentAmount.toFixed(2)} ريال
+                  {currentPaymentAmount.toFixed(2)} $
                 </span>
               </div>
 
               <div className="flex justify-between border-t border-gray-100 pt-1.5 font-bold text-gray-800">
                 <span>المتبقي</span>
 
-                <span>{remainingAfterPayment.toFixed(2)} ريال</span>
+                <span>{remainingAfterPayment.toFixed(2)} $</span>
               </div>
             </div>
           </div>

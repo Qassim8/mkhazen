@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 
 import { productionCompletionApiSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
@@ -41,10 +43,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const role = String(user.role).toLowerCase();
 
-    if (role !== "admin" && role !== "cashier") {
+    if (!can(role, "tailoring.manage")) {
       return NextResponse.json(
         {
-          message: "تحويل طلب العميل إلى منتج متاح للكاشير أو المدير فقط.",
+          message: "تحويل طلب العميل إلى منتج متاح للمدير أو المالك فقط.",
         },
         { status: 403 },
       );
@@ -72,10 +74,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // اسم الدالة يجب أن يطابق الـRPC الموجودة في migration:
-    // convert_customer_tailoring_to_product
+    // اسم الدالة الفعلي في قاعدة البيانات
     const { data, error } = await supabaseAdmin.rpc(
-      "convert_customer_tailoring_to_product",
+      "convert_tailoring_to_product",
       {
         p_branch_id: MAIN_BRANCH_ID,
         p_user_id: user.userId,
@@ -85,7 +86,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
 
     if (error) {
-      console.error("convert_customer_tailoring_to_product RPC:", error);
+      console.error("convert_tailoring_to_product RPC:", error);
 
       return NextResponse.json(
         {
@@ -103,6 +104,13 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const result = data as ConvertResult;
+
+    await notifyTailoringUpdate({
+      orderId: id,
+      event: "CONVERTED",
+      actor: user,
+      details: result.product_name ? `المنتج: ${result.product_name}` : null,
+    });
 
     return NextResponse.json({
       message: `تم تحويل الطلب ${result.order_number} إلى المنتج ${result.product_name} وإضافته للمخزون.`,

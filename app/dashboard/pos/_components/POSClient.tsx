@@ -10,7 +10,12 @@ import {
 } from "react";
 
 import Image from "next/image";
-import { LuList, LuShoppingCart } from "react-icons/lu";
+import {
+  LuChevronLeft,
+  LuChevronRight,
+  LuList,
+  LuShoppingCart,
+} from "react-icons/lu";
 import toast from "react-hot-toast";
 
 import Card from "./Card";
@@ -25,9 +30,14 @@ import type { Category } from "../../categories/schemas/category.schemas";
 import type { PaymentMethod, PaymentSplit } from "../schemas/pos.schemas";
 
 import { createSalesOrder } from "../services/pos.services";
+import { getProducts } from "@/app/dashboard/products/services/products.services";
+import { usdToSdg } from "@/lib/currency";
+import { useExchangeRate } from "@/components/shared/useExchangeRate";
+import ExchangeRateBadge from "@/components/shared/ExchangeRateBadge";
 
 interface POSClientProps {
   initialProducts: Product[];
+  initialPagination: ProductsPagination;
   categories: Category[];
 }
 
@@ -39,15 +49,11 @@ export interface POSCartItem {
   giftNote: string | null;
 }
 
-interface ProductsApiResponse {
-  data: Product[];
-
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+interface ProductsPagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 function roundMoney(value: number) {
@@ -56,9 +62,13 @@ function roundMoney(value: number) {
 
 export default function POSClient({
   initialProducts,
+  initialPagination,
   categories,
 }: POSClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [pagination, setPagination] =
+    useState<ProductsPagination>(initialPagination);
+  const [activeSearch, setActiveSearch] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -81,6 +91,9 @@ export default function POSClient({
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+
+  // أسعار المنتجات مخزّنة بالدولار، والزبون بيدفع بالجنيه بسعر الصرف الحالي
+  const { rate: exchangeRate, refresh: refreshExchangeRate } = useExchangeRate();
 
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplit[]>([]);
 
@@ -141,8 +154,7 @@ export default function POSClient({
       const currentCart = cartRef.current;
       const stockQuantity = Number(variant.stockQuantity);
       const alreadyReserved = currentCart.reduce(
-        (sum, item) =>
-          item.variant.id === variant.id ? sum + item.qty : sum,
+        (sum, item) => (item.variant.id === variant.id ? sum + item.qty : sum),
         0,
       );
 
@@ -151,7 +163,9 @@ export default function POSClient({
         quantity <= 0 ||
         alreadyReserved + quantity > stockQuantity + 0.000001
       ) {
-        toast.error(`المخزون المتاح فقط ${Math.max(0, stockQuantity - alreadyReserved)}`);
+        toast.error(
+          `المخزون المتاح فقط ${Math.max(0, stockQuantity - alreadyReserved)}`,
+        );
         return false;
       }
 
@@ -164,7 +178,7 @@ export default function POSClient({
               ? {
                   ...item,
                   qty: Number((item.qty + quantity).toFixed(2)),
-                  giftNote: isGift ? giftNote ?? item.giftNote : null,
+                  giftNote: isGift ? (giftNote ?? item.giftNote) : null,
                 }
               : item,
           )
@@ -217,43 +231,19 @@ export default function POSClient({
   // =====================================================
 
   const fetchProducts = useCallback(
-    async (search: string, categoryId: string) => {
+    async (search: string, categoryId: string, page: number) => {
       setIsSearching(true);
 
       try {
-        const params = new URLSearchParams();
-
         const normalizedSearch = search.trim();
-
-        if (normalizedSearch) {
-          params.set("search", normalizedSearch);
-        }
-
-        if (categoryId !== "all") {
-          params.set("categoryId", categoryId);
-        }
-
-        params.set("page", "1");
-        params.set("limit", "30");
-
-        const response = await fetch(`/api/products?${params.toString()}`, {
-          method: "GET",
-          cache: "no-store",
+        const result = await getProducts({
+          search: normalizedSearch || undefined,
+          categoryId: categoryId !== "all" ? categoryId : undefined,
+          page,
+          limit: 18,
         });
-
-        const result = (await response.json()) as
-          | ProductsApiResponse
-          | { message?: string };
-
-        if (!response.ok) {
-          throw new Error(
-            "message" in result && result.message
-              ? result.message
-              : "فشل جلب المنتجات",
-          );
-        }
-
-        setProducts("data" in result ? result.data : []);
+        setProducts(result.data);
+        setPagination(result.meta);
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "حدث خطأ أثناء جلب المنتجات",
@@ -275,37 +265,16 @@ export default function POSClient({
     const term = searchQuery.trim();
 
     if (!term) {
-      await fetchProducts("", selectedCategory);
+      setActiveSearch("");
+      await fetchProducts("", selectedCategory, 1);
       return;
     }
 
     setIsSearching(true);
 
     try {
-      const params = new URLSearchParams();
-
-      params.set("search", term);
-      params.set("page", "1");
-      params.set("limit", "100");
-
-      const response = await fetch(`/api/products?${params.toString()}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const result = (await response.json()) as
-        | ProductsApiResponse
-        | { message?: string };
-
-      if (!response.ok) {
-        throw new Error(
-          "message" in result && result.message
-            ? result.message
-            : "فشل البحث عن المنتجات",
-        );
-      }
-
-      const results = "data" in result ? result.data : [];
+      const result = await getProducts({ search: term, page: 1, limit: 100 });
+      const results = result.data;
 
       const normalized = term.toLowerCase();
 
@@ -345,12 +314,12 @@ export default function POSClient({
         return;
       }
 
-      setProducts(results);
-
       if (results.length === 0) {
         toast.error("لم يتم العثور على منتج مطابق");
       }
 
+      setActiveSearch(term);
+      await fetchProducts(term, selectedCategory, 1);
       setSearchQuery("");
     } catch (error) {
       toast.error(
@@ -367,8 +336,17 @@ export default function POSClient({
 
   const handleCategoryChange = async (categoryId: string) => {
     setSelectedCategory(categoryId);
+    const search = searchQuery.trim();
+    setActiveSearch(search);
+    await fetchProducts(search, categoryId, 1);
+  };
 
-    await fetchProducts(searchQuery, categoryId);
+  const handleProductPageChange = async (page: number) => {
+    if (page < 1 || page > pagination.totalPages || page === pagination.page) {
+      return;
+    }
+
+    await fetchProducts(activeSearch, selectedCategory, page);
   };
 
   // =====================================================
@@ -510,7 +488,7 @@ export default function POSClient({
     const normalized = Number(value.toFixed(2));
     setDiscountError(
       normalized > maxDiscount + 0.001
-        ? `الحد الأقصى للخصم هو 50% من الإجمالي قبل الخصم (${maxDiscount.toFixed(2)} ر.س). لن يتم السماح بإتمام البيع.`
+        ? `الحد الأقصى للخصم هو 50% من الإجمالي قبل الخصم (${maxDiscount.toFixed(2)} ج.س). لن يتم السماح بإتمام البيع.`
         : "",
     );
     setDiscountAmount(normalized);
@@ -527,17 +505,20 @@ export default function POSClient({
   // Totals
   // =====================================================
 
+  // سطر الفاتورة بالجنيه = (سعر الوحدة بالدولار × سعر الصرف، مقرّب) × الكمية
+  // نفس معادلة دالة complete_sales_checkout بالظبط
+  const getLineTotalSdg = useCallback(
+    (item: POSCartItem) =>
+      item.isGift
+        ? 0
+        : roundMoney(usdToSdg(item.variant.sellingPrice, exchangeRate) * item.qty),
+    [exchangeRate],
+  );
+
   const subtotal = useMemo(
     () =>
-      roundMoney(
-        cart.reduce(
-            (sum, item) =>
-              sum +
-              (item.isGift ? 0 : Number(item.variant.sellingPrice) * item.qty),
-            0,
-          ),
-      ),
-    [cart],
+      roundMoney(cart.reduce((sum, item) => sum + getLineTotalSdg(item), 0)),
+    [cart, getLineTotalSdg],
   );
 
   const taxAmount = 0;
@@ -610,9 +591,14 @@ export default function POSClient({
       return;
     }
 
+    if (!exchangeRate) {
+      toast.error("لا يوجد سعر صرف مسجّل. اطلب من المدير تسجيله من الإعدادات");
+      return;
+    }
+
     if (discountOverLimit) {
       toast.error(
-        `الخصم يتجاوز 50% من الإجمالي قبل الخصم. الحد الأقصى ${maxDiscount.toFixed(2)} ر.س`,
+        `الخصم يتجاوز 50% من الإجمالي قبل الخصم. الحد الأقصى ${maxDiscount.toFixed(2)} ج.س`,
       );
       return;
     }
@@ -653,6 +639,8 @@ export default function POSClient({
 
         notes: null,
 
+        exchangeRate,
+
         items: cart.map((item) => ({
           templateId: item.product.id,
 
@@ -660,13 +648,13 @@ export default function POSClient({
 
           quantity: item.qty,
 
-          unitPrice: item.isGift ? 0 : Number(item.variant.sellingPrice),
+          unitPrice: item.isGift
+            ? 0
+            : usdToSdg(item.variant.sellingPrice, exchangeRate),
 
           unitCost: Number(item.variant.purchasePrice),
 
-          totalPrice: item.isGift
-            ? 0
-            : roundMoney(Number(item.variant.sellingPrice) * item.qty),
+          totalPrice: getLineTotalSdg(item),
           isGift: item.isGift,
           giftNote: item.giftNote,
         })),
@@ -683,10 +671,11 @@ export default function POSClient({
       replaceCart([]);
       resetDiscount();
       setSearchQuery("");
+      setActiveSearch("");
       setPaymentMethod("CASH");
       setPaymentSplits([]);
 
-      await fetchProducts("", selectedCategory);
+      await fetchProducts("", selectedCategory, 1);
 
       if (window.innerWidth < 1024) {
         setIsCartOpen(false);
@@ -696,9 +685,15 @@ export default function POSClient({
         searchInputRef.current?.focus();
       });
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "تعذر إتمام عملية البيع",
-      );
+      const message =
+        error instanceof Error ? error.message : "تعذر إتمام عملية البيع";
+
+      toast.error(message);
+
+      // المدير غيّر سعر الصرف أثناء البيع → نحدّث الأسعار المعروضة فورًا
+      if (message.includes("سعر الصرف")) {
+        await refreshExchangeRate();
+      }
     } finally {
       setIsCheckingOut(false);
     }
@@ -731,6 +726,10 @@ export default function POSClient({
             </button>
           </div>
         </form>
+
+        <div className="flex justify-end">
+          <ExchangeRateBadge showRefresh />
+        </div>
 
         <button
           type="button"
@@ -785,9 +784,14 @@ export default function POSClient({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 pb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4">
           {products.map((product) => (
-            <Card key={product.id} product={product} onAdd={addProductToCart} />
+            <Card
+              key={product.id}
+              product={product}
+              onAdd={addProductToCart}
+              exchangeRate={exchangeRate}
+            />
           ))}
 
           {products.length === 0 && (
@@ -796,6 +800,37 @@ export default function POSClient({
             </div>
           )}
         </div>
+
+        {pagination.totalPages > 1 && (
+          <nav
+            className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2"
+            aria-label="صفحات المنتجات"
+          >
+            <button
+              type="button"
+              onClick={() => void handleProductPageChange(pagination.page - 1)}
+              disabled={isSearching || pagination.page <= 1}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <LuChevronRight className="h-4 w-4" />
+              السابق
+            </button>
+            <span className="text-xs font-medium text-gray-500">
+              صفحة {pagination.page} من {pagination.totalPages}
+              <span className="mx-1.5 text-gray-300">|</span>
+              {pagination.total.toLocaleString("en-US")} منتج
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleProductPageChange(pagination.page + 1)}
+              disabled={isSearching || pagination.page >= pagination.totalPages}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              التالي
+              <LuChevronLeft className="h-4 w-4" />
+            </button>
+          </nav>
+        )}
       </div>
 
       <div className="w-full lg:w-100 min-h-0 flex flex-col shrink-0">
@@ -814,6 +849,7 @@ export default function POSClient({
           `}
         >
           <CartList
+            exchangeRate={exchangeRate}
             cart={cart}
             giftProducts={products}
             paymentMethod={paymentMethod}

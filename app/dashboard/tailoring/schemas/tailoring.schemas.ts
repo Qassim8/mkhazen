@@ -915,9 +915,11 @@ export const payTailorPaymentSchema = z.object({
     .finite("المبلغ غير صالح")
     .positive("المبلغ يجب أن يكون أكبر من صفر"),
   paymentMethod: z.enum(["CASH", "BANK"], { message: "طريقة الدفع غير صالحة" }),
+  // أجرة الخياط متفق عليها وتُدفع بالجنيه (وتُحسب داخليًا بالدولار)
+  currency: z.literal("SDG").default("SDG"),
   notes: z.string().max(500, "الملاحظات طويلة جدًا").nullable(),
 });
-export type PayTailorPaymentInput = z.infer<typeof payTailorPaymentSchema>;
+export type PayTailorPaymentInput = z.input<typeof payTailorPaymentSchema>;
 
 export const payTailorPaymentFormSchema = z.object({
   amount: z
@@ -930,6 +932,7 @@ export const payTailorPaymentFormSchema = z.object({
       "مبلغ الدفعة يجب أن يكون أكبر من صفر",
     ),
   paymentMethod: z.enum(["CASH", "BANK"], { message: "طريقة الدفع غير صالحة" }),
+  currency: z.literal("SDG"),
   notes: z.string().max(500, "الملاحظات طويلة جدًا"),
 });
 export type PayTailorPaymentFormValues = z.infer<
@@ -959,7 +962,12 @@ export interface TailorSummary {
 
 export interface TailorPaymentRecord {
   id: string;
+  /** القيمة بالدولار بسعر يوم الدفع (داخليًا) */
   amount: number;
+  /** المبلغ المدفوع فعليًا بعملة الدفع (الجنيه) */
+  amountOriginal: number | null;
+  currency: "USD" | "SDG";
+  exchangeRateUsed: number | null;
   paymentType: "ADVANCE" | "SETTLEMENT";
   paymentMethod: "CASH" | "BANK";
   notes: string | null;
@@ -1016,14 +1024,25 @@ export interface TailoringOrder {
   fabricCost: number;
   tailoringCost: number;
   totalCost: number;
+  /** الربح بالدولار */
   grossProfit: number | null;
+  /** قيمة الطلب بالدولار بسعر صرف يوم إنشائه (تقديري قبل التسليم) */
+  totalAmountUsd: number | null;
+  exchangeRateUsed: number | null;
+  /** true بعد التسليم: الربح محسوب من التحصيل الفعلي */
+  revenueIsFinal: boolean;
   tailoringMaterialJournalEntryId: string | null;
   tailoringLaborJournalEntryId: string | null;
   customerAdvanceJournalEntryId: string | null;
   tailoringCogsJournalEntryId: string | null;
   tailoringCostRecognized: boolean;
+  /** بالدولار (داخليًا) */
   tailorPaidAmount: number;
   tailorRemainingAmount: number;
+  /** أجرة الخياط المتفق عليها والمدفوع والمتبقي بالجنيه */
+  tailoringCostSdg: number;
+  tailorPaidAmountSdg: number;
+  tailorRemainingAmountSdg: number;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;

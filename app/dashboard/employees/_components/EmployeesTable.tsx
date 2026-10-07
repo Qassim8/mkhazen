@@ -8,7 +8,6 @@ import { deleteEmployee } from "../services/employees.services";
 import UpdateModalContent from "./UpdateModalContent";
 import EmployeeViewContent from "./EmployeeDetails";
 import { useModalStore } from "@/store/useModalStore";
-import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import ResetPasswordModalContent from "@/components/ui/ResetPasswordModal";
 
 const columnHelper = createColumnHelper<Employee>();
@@ -44,7 +43,9 @@ const EmployeesTable = ({ initialData }: Props) => {
             </div>
 
             <span className="text-xs text-gray-500 truncate">
-              {row.position === "system_manager"
+              {row.role === "owner"
+                ? "المالك"
+                : row.position === "system_manager"
                 ? "مدير"
                 : row.position === "tailor"
                   ? "خياط"
@@ -89,7 +90,7 @@ const EmployeesTable = ({ initialData }: Props) => {
         return (
           <div className="flex items-center gap-1.5 text-sm text-gray-700 font-medium">
             <span>
-              {info.getValue() ? `${info.getValue()} ريال` : "غير محدد"}
+              {info.getValue() ? `${info.getValue()} ج.س` : "غير محدد"}
             </span>
           </div>
         );
@@ -135,9 +136,10 @@ const EmployeesTable = ({ initialData }: Props) => {
       id: "actions",
       cell: ({ row }) => {
         const isResetRequested = row.original.resetRequested;
+        const isOwner = row.original.role === "owner";
         return (
           <div className="flex items-center justify-center gap-2">
-            {isResetRequested && (
+            {isResetRequested && !isOwner && (
               <button
                 type="button"
                 aria-label="إعادة تعيين كلمة المرور"
@@ -171,36 +173,37 @@ const EmployeesTable = ({ initialData }: Props) => {
             >
               <LuEye className="h-5 w-5" />
             </button>
-            {/* تعديل الموظف */}
-            <button
-              type="button"
-              aria-label="تعديل الموظف"
-              className="rounded-lg p-1 text-blue-500 transition-colors hover:bg-gray-100"
-              onClick={() =>
-                openModal("UPDATE", {
-                  title: "تعديل بيانات الموظف",
-                  content: <UpdateModalContent initialData={row.original} />,
-                })
-              }
-            >
-              <LuSquarePen className="h-5 w-5" />
-            </button>
-            {/* حذف الموظف */}
-            <button
-              type="button"
-              aria-label="حذف الموظف"
-              className="rounded-lg p-1 text-red-500 transition-colors hover:bg-gray-100"
-              onClick={() =>
-                openModal("DELETE_CONFIRM", {
-                  rowId: row.original.id,
-                  itemName: row.original.name,
-                  actionFunction: deleteEmployee,
-                  contet: <DeleteConfirmationModal />,
-                })
-              }
-            >
-              <LuTrash2 className="h-5 w-5" />
-            </button>
+            {!isOwner && (
+              <>
+                <button
+                  type="button"
+                  aria-label="تعديل الموظف"
+                  className="rounded-lg p-1 text-blue-500 transition-colors hover:bg-gray-100"
+                  onClick={() =>
+                    openModal("UPDATE", {
+                      title: "تعديل بيانات الموظف",
+                      content: <UpdateModalContent initialData={row.original} />,
+                    })
+                  }
+                >
+                  <LuSquarePen className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="حذف الموظف"
+                  className="rounded-lg p-1 text-red-500 transition-colors hover:bg-gray-100"
+                  onClick={() =>
+                    openModal("DELETE_CONFIRM", {
+                      rowId: row.original.id,
+                      itemName: row.original.name,
+                      actionFunction: deleteEmployee,
+                    })
+                  }
+                >
+                  <LuTrash2 className="h-5 w-5" />
+                </button>
+              </>
+            )}
           </div>
         );
       },

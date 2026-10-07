@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { requireLogin } from "@/lib/permissions-server";
+import { can } from "@/lib/permissions";
 
 import { updateProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
 
@@ -20,7 +22,7 @@ async function requireAdmin() {
     );
   }
 
-  if (session.role !== "admin") {
+  if (!can(session.role, "catalog.manage")) {
     return NextResponse.json(
       { message: "هذه العملية مقتصرة على المدير." },
       { status: 403 },
@@ -47,10 +49,13 @@ async function getFullProduct(id: string) {
 
 /* =========================================================
    GET /api/products/:id
-   Public
+   أي مستخدم مسجّل
    ========================================================= */
 
 export async function GET(_request: Request, { params }: RouteParams) {
+  const guard = await requireLogin();
+  if (!guard.ok) return guard.response;
+
   try {
     const { id } = await params;
 

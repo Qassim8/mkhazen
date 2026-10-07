@@ -1,7 +1,8 @@
 "use client";
 
+import { errorMessage } from "@/lib/errors";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LuLock, LuLoader } from "react-icons/lu";
 import toast from "react-hot-toast";
@@ -47,14 +48,14 @@ const Password = ({ onSuccess }: PasswordProps) => {
       if (onSuccess && res.role) {
         onSuccess(res.role);
       }
-    } catch (error: any) {
-      toast.error(error.message || "حدث خطأ أثناء تغيير كلمة المرور");
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, "حدث خطأ أثناء تغيير كلمة المرور"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const onError = (formErrors: any) => {
+  const onError = (formErrors: FieldErrors<UpdatePasswordInput>) => {
     console.log("Validation Errors:", formErrors);
   };
 

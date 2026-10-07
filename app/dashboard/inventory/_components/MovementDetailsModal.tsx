@@ -26,7 +26,8 @@ export default function MovementDetailsModal({
   const isStockIn =
     movement.movement_type === "PURCHASE" ||
     movement.movement_type === "SALE_RETURN" ||
-    movement.movement_type === "ADJUSTMENT_IN";
+    movement.movement_type === "ADJUSTMENT_IN" ||
+    movement.movement_type === "OPENING_STOCK";
   const isStockOut =
     movement.movement_type === "SALE" ||
     movement.movement_type === "PURCHASE_RETURN" ||
@@ -111,7 +112,7 @@ export default function MovementDetailsModal({
             <div>
               <p className="text-xs text-gray-400">التاريخ والوقت</p>
               <p className="text-gray-800">
-                {new Date(movement.created_at).toLocaleString("ar-EG", {
+                {new Date(movement.created_at).toLocaleString("ar-EG-u-nu-latn", {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })}

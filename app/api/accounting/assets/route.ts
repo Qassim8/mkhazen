@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
+import { fetchAllResult } from "@/lib/supabase-fetch-all";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
 import { createAssetSchema } from "@/app/dashboard/accounting/schemas/accounting.schema";
-import { getAccountBalance } from "../_lib/accounting";
 
 /* =========================================================
    GET ASSETS
@@ -16,10 +17,10 @@ export async function GET(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "accounting.view")) {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
         },
         { status: 403 },
       );
@@ -46,6 +47,9 @@ export async function GET(request: Request) {
           name,
           category,
           purchase_value,
+          purchase_value_usd,
+          currency,
+          exchange_rate_used,
           purchase_date,
           payment_method,
           reference,
@@ -63,7 +67,7 @@ export async function GET(request: Request) {
 
     let totalValueQuery = supabaseAdmin
       .from("assets")
-      .select("purchase_value")
+      .select("purchase_value, purchase_value_usd")
       .eq("branch_id", MAIN_BRANCH_ID);
 
     if (category && category !== "ALL") {
@@ -77,10 +81,16 @@ export async function GET(request: Request) {
       totalValueQuery = totalValueQuery.or(searchFilter);
     }
 
+    const orderedTotalQuery = totalValueQuery.order("id");
+
     const [{ data, count, error }, { data: valueRows, error: valueError }] =
       await Promise.all([
         query.order("created_at", { ascending: false }).range(from, to),
-        totalValueQuery,
+        // إجمالي القيمة على دفعات (حد الـ 1000 صف)
+        fetchAllResult<{ purchase_value: number | null; purchase_value_usd: number | null }>(
+          (rangeFrom, rangeTo) =>
+            orderedTotalQuery.range(rangeFrom, rangeTo),
+        ),
       ]);
 
     if (error || valueError) {
@@ -96,7 +106,9 @@ export async function GET(request: Request) {
         totalPages: count ? Math.ceil(count / limit) : 0,
       },
       totalValue: (valueRows ?? []).reduce(
-        (sum, asset) => sum + Number(asset.purchase_value ?? 0),
+        // القيمة الدفترية للأصول دايمًا بالدولار
+        (sum, asset) =>
+          sum + Number(asset.purchase_value_usd ?? asset.purchase_value ?? 0),
         0,
       ),
     });
@@ -120,9 +132,9 @@ export async function POST(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || user.role !== "admin") {
+    if (!user || !can(user.role, "accounting.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
         { status: 403 },
       );
     }
@@ -148,6 +160,7 @@ export async function POST(request: Request) {
       paymentMethod,
       reference,
       notes,
+      currency,
     } = validation.data;
 
     // تحويل التاريخ إلى صيغة YYYY-MM-DD لتناسب العمود من نوع DATE في Postgres/RPC
@@ -156,22 +169,7 @@ export async function POST(request: Request) {
         ? purchaseDate.toISOString().split("T")[0]
         : String(purchaseDate).split("T")[0];
 
-    const account = paymentMethod === "BANK" ? "BANK" : "CASH";
-    const currentBalance = await getAccountBalance(account);
-
-    if (purchaseValue > currentBalance) {
-      const accountLabel = account === "BANK" ? "البنك" : "الخزينة";
-
-      return NextResponse.json(
-        {
-          message: `الرصيد غير كافٍ في ${accountLabel}. الرصيد الحالي ${currentBalance.toFixed(
-            2,
-          )} ريال. سجّل رأس المال أولًا أو استخدم الحساب الذي يحتوي على رصيد.`,
-        },
-        { status: 400 },
-      );
-    }
-
+    // فحص الرصيد (بعملة الدفع) بقى جوه الدالة نفسها عشان يكون ذري
     const entryNumber = `AST-${Date.now()}`;
 
     const { data: assetData, error: rpcError } = await supabaseAdmin.rpc(
@@ -187,6 +185,7 @@ export async function POST(request: Request) {
         p_reference: reference ?? null,
         p_notes: notes ?? null,
         p_entry_number: entryNumber,
+        p_currency: currency,
       },
     );
 

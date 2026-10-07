@@ -1,69 +1,24 @@
 "use client";
 
-import Link from "next/link";
+import BackLink from "@/components/shared/BackLink";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
-  LuArrowRight,
   LuBanknote,
-  LuPrinter,
   LuScissors,
   LuShoppingBag,
 } from "react-icons/lu";
-
-interface SaleDetails {
-  orderNumber: string;
-  orderType: "POS" | "TAILORING";
-  customer: { id: string; name: string; whatsappNumber: string } | null;
-  tailor: {
-    id: string;
-    name: string;
-    phone: string | null;
-    email: string | null;
-  } | null;
-  cashier: { id: string; name: string; email: string | null } | null;
-  subtotal: number;
-  discountAmount: number;
-  discountPercentage: number;
-  taxAmount: number;
-  totalAmount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  paymentMethod: string;
-  paymentStatus: "UNPAID" | "PARTIAL" | "PAID";
-  notes: string | null;
-  createdAt: string;
-  completedAt: string | null;
-  intakeDate: string | null;
-  expectedDeliveryDate: string | null;
-  items: Array<{
-    id: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    product: {
-      name: string;
-      sku: string | null;
-      colorName: string | null;
-      size: string | null;
-    };
-  }>;
-  payments: Array<{
-    id: string;
-    amount: number;
-    paymentDate: string;
-    paymentMethod: string;
-    reference: string | null;
-    notes: string | null;
-    createdByName: string | null;
-  }>;
-}
+import {
+  getSalesOrderById,
+  type SalesOrderDetail,
+} from "@/app/dashboard/pos/services/pos.services";
+import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 function money(value: number) {
-  return `${value.toLocaleString("ar-SA", {
+  return `${value.toLocaleString("ar-SA-u-nu-latn", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} ر.س`;
+  })} ج.س`; // مبالغ الزبون بالجنيه
 }
 
 function formatDate(value: string | null) {
@@ -72,8 +27,8 @@ function formatDate(value: string | null) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
 
-  return new Intl.DateTimeFormat("ar-SA", {
-    timeZone: "Asia/Riyadh",
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+    timeZone: "Africa/Khartoum",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -91,7 +46,7 @@ function paymentMethodLabel(value: string) {
 }
 
 export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
-  const [sale, setSale] = useState<SaleDetails | null>(null);
+  const [sale, setSale] = useState<SalesOrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -99,18 +54,7 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
       setLoading(true);
 
       try {
-        const response = await fetch(`/api/sales/orders/${orderId}`, {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        const body = await response.json();
-
-        if (!response.ok) {
-          throw new Error(body.error || "تعذر تحميل بيانات البيع");
-        }
-
-        setSale(body.data as SaleDetails);
+        setSale(await getSalesOrderById(orderId));
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "تعذر تحميل بيانات البيع",
@@ -142,13 +86,7 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
   return (
     <div dir="rtl" className="space-y-5 p-4 pb-16 md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <Link
-          href="/dashboard/sales"
-          className="inline-flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-gray-900"
-        >
-          <LuArrowRight className="h-4 w-4" />
-          العودة إلى المبيعات
-        </Link>
+        <BackLink href="/dashboard/sales" label="العودة إلى المبيعات" />
 
         {/* <button
           type="button"
@@ -292,12 +230,12 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
                         </p>
                         {(item.product.sku ||
                           item.product.colorName ||
-                          item.product.size) && (
+                          formatProductSize(item.product.size)) && (
                           <p className="mt-1 text-[11px] text-gray-400">
                             {[
                               item.product.sku,
                               item.product.colorName,
-                              item.product.size,
+                              formatProductSize(item.product.size),
                             ]
                               .filter(Boolean)
                               .join(" · ")}

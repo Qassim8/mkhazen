@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { completeSalesCheckout } from "../_lib/sales-helper";
 import { createSalesOrderSchema } from "@/app/dashboard/pos/schemas/pos.schemas";
@@ -14,6 +15,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { message: "يرجى تسجيل الدخول أولاً." },
         { status: 401 },
+      );
+    }
+
+    if (!can(session.role, "sales.pos")) {
+      return NextResponse.json(
+        { message: "عذراً، البيع من الكاشير غير متاح لصلاحياتك." },
+        { status: 403 },
       );
     }
 
@@ -64,7 +72,8 @@ export async function POST(req: NextRequest) {
     const result = await completeSalesCheckout({
       branchId: MAIN_BRANCH_ID,
       cashierId,
-      orderType: payload.orderType,
+      // طلبات التفصيل ليها مسار خاص (/api/tailoring/orders)
+      orderType: "POS",
       customerId: payload.customerId ?? null,
       tailorId: payload.tailorId ?? null,
       discountAmount: payload.discountAmount,
@@ -73,6 +82,7 @@ export async function POST(req: NextRequest) {
       paymentSplits: payload.paymentSplits,
       notes: payload.notes ?? null,
       items,
+      expectedExchangeRate: payload.exchangeRate ?? null,
     });
 
     // =====================================================
@@ -87,6 +97,8 @@ export async function POST(req: NextRequest) {
         discountAmount: result.discountAmount,
         taxAmount: result.taxAmount,
         totalAmount: result.totalAmount,
+        totalAmountUsd: result.totalAmountUsd,
+        exchangeRateUsed: result.exchangeRateUsed,
         paidAmount: result.paidAmount,
         remainingAmount: 0,
         paymentStatus: result.paymentStatus,

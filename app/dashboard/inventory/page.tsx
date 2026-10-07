@@ -1,5 +1,5 @@
 import {
-  getInventory,
+  getAllInventory,
   getInventoryMovements,
 } from "./services/inventory.services";
 
@@ -22,8 +22,12 @@ export default async function InventoryPage({ searchParams }: Props) {
     "SALE",
     "PURCHASE_RETURN",
     "SALE_RETURN",
+    "OPENING_STOCK",
     "ADJUSTMENT_IN",
     "ADJUSTMENT_OUT",
+    "PRODUCTION_ISSUE",
+    "PRODUCTION_RECEIPT",
+    "GIFT",
   ] as const;
 
   const type = validTypes.includes(query.type as (typeof validTypes)[number])
@@ -35,10 +39,7 @@ export default async function InventoryPage({ searchParams }: Props) {
   const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
 
   const [inventoryResponse, movementsResponse] = await Promise.all([
-    getInventory({
-      page: 1,
-      limit: 100,
-    }),
+    getAllInventory(),
 
     getInventoryMovements({
       page,

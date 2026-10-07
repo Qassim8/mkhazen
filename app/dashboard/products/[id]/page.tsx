@@ -29,7 +29,7 @@ export default async function ProductDetailsPage({ params }: PageProps) {
       <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Product identity */}
         <div className="flex min-w-0 items-center gap-3">
-          <BackLink href="/dashboard/products" label="العودة للمنتجات" />
+          <BackLink href="/dashboard/products" label="العودة إلى المنتجات" />
 
           <div className="min-w-0">
             <h1 className="truncate text-xl font-black text-gray-900">

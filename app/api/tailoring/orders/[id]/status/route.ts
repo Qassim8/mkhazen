@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { updateTailoringStatusSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 import { completeTailoringPickupSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
@@ -29,9 +31,15 @@ export async function PATCH(
 
     const role = String(user.role).toLowerCase();
 
-    if (!["admin", "cashier", "tailor"].includes(role)) {
+    if (!can(role, "tailoring.view")) {
       return NextResponse.json(
         { message: "ليس لديك صلاحية تعديل طلبات التفصيل." },
+        { status: 403 },
+      );
+    }
+    if (role === "cashier") {
+      return NextResponse.json(
+        { message: "تحديث حالة التفصيل متاح للخياط أو المدير فقط." },
         { status: 403 },
       );
     }
@@ -51,6 +59,26 @@ export async function PATCH(
 
     const { id } = await params;
 
+    if (role === "tailor") {
+      const { data: assignedOrder, error: assignedOrderError } =
+        await supabaseAdmin
+          .from("sales_orders")
+          .select("id")
+          .eq("id", id)
+          .eq("branch_id", MAIN_BRANCH_ID)
+          .eq("order_type", "TAILORING")
+          .eq("tailor_id", user.userId)
+          .maybeSingle();
+
+      if (assignedOrderError) throw new Error(assignedOrderError.message);
+      if (!assignedOrder) {
+        return NextResponse.json(
+          { message: "طلب التفصيل غير موجود أو غير مسند إليك." },
+          { status: 404 },
+        );
+      }
+    }
+
     const { data, error } = await supabaseAdmin.rpc("update_tailoring_status", {
       p_order_id: id,
       p_branch_id: MAIN_BRANCH_ID,
@@ -66,9 +94,14 @@ export async function PATCH(
       );
     }
 
+    await notifyTailoringUpdate({ orderId: id, event: validation.data.status, actor: user });
+
     return NextResponse.json({
       message: "تم تحديث حالة طلب التفصيل بنجاح.",
-      data,
+      data:
+        role === "tailor"
+          ? { id, tailoring_status: validation.data.status }
+          : data,
     });
   } catch (error: unknown) {
     console.error("PATCH /api/tailoring/orders/[id]/status:", error);
@@ -107,9 +140,9 @@ export async function POST(
 
     const role = String(user.role).toLowerCase();
 
-    if (!["admin", "cashier", "tailor"].includes(role)) {
+    if (!can(role, "tailoring.manage")) {
       return NextResponse.json(
-        { message: "ليس لديك صلاحية تعديل طلبات التفصيل." },
+        { message: "استلام طلبات التفصيل متاح للمدير أو المالك فقط." },
         { status: 403 },
       );
     }
@@ -146,6 +179,8 @@ export async function POST(
         { status: 400 },
       );
     }
+
+    await notifyTailoringUpdate({ orderId: id, event: "RECEIVED", actor: user });
 
     return NextResponse.json({
       message: `تم استلام الطلب ${data.order_number} وتحصيل المبلغ المتبقي بنجاح.`,

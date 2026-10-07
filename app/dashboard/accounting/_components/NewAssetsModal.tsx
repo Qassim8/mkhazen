@@ -24,8 +24,9 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<AssetFormInput, any, AssetInput>({
+  } = useForm<AssetFormInput, unknown, AssetInput>({
     resolver: zodResolver(createAssetSchema),
     defaultValues: {
       name: "",
@@ -33,6 +34,7 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
       purchaseValue: undefined,
       purchaseDate: new Date().toISOString().split("T")[0], // نص متوافق مع input type="date"
       paymentMethod: "CASH",
+      currency: "USD",
       reference: "",
       notes: "",
     },
@@ -133,7 +135,7 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
                 />
 
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
-                  ر.س
+                  {watch("currency") === "SDG" ? "ج.س" : "$"}
                 </span>
               </div>
               {errors.purchaseValue && (
@@ -181,6 +183,20 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
                   {errors.paymentMethod.message}
                 </p>
               )}
+            </div>
+
+            {/* CURRENCY — قيمة الأصل الدفترية تتسجل بالدولار دائمًا */}
+            <div className="flex-1 w-full">
+              <label className="mb-2 block text-sm font-bold text-gray-700">
+                عملة الدفع
+              </label>
+              <select
+                {...register("currency")}
+                className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
+              >
+                <option value="USD">دولار $</option>
+                <option value="SDG">جنيه سوداني (يُحوّل بسعر اليوم)</option>
+              </select>
             </div>
 
             {/* REFERENCE */}

@@ -1,88 +1,110 @@
 "use client";
 
-import { Pie, PieChart } from "recharts";
+import {
+  Cell,
+  Label,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 
-import { RechartsDevtools } from "@recharts/devtools";
-
-export interface TopSellingItem {
-  name: string;
-  value: number;
-  fill: string;
-}
+import type { DashboardTopProduct } from "../services/dashboard.services"; // يمكنك تغيير اسم النوع إلى DashboardTopCategory لاحقاً
 
 interface PieChartComponentProps {
-  data: TopSellingItem[];
+  data: DashboardTopProduct[];
+  periodLabel: string;
   isAnimationActive?: boolean;
 }
 
 const PieChartComponent = ({
   data,
+  periodLabel,
   isAnimationActive = true,
 }: PieChartComponentProps) => {
   const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0);
 
   return (
-    <div className="frame h-[60vh]">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm text-gray-500">الأعلى مبيعًا</p>
-
-        <h2 className="font-semibold text-gray-900">الأصناف</h2>
+    <section className="frame flex h-full min-h-100 flex-col">
+      <div>
+        <p className="text-sm text-gray-500">
+          الفئات الأكثر مبيعاً خلال {periodLabel}
+        </p>
+        <h2 className="mt-1 font-semibold text-gray-900">أفضل الفئات</h2>
       </div>
 
       {data.length === 0 ? (
-        <div className="flex h-[32vh] items-center justify-center text-sm text-gray-400">
-          لا توجد بيانات مبيعات كافية
+        <div className="flex h-72 items-center justify-center text-center text-sm text-gray-400">
+          لا توجد مبيعات مكتملة خلال هذه الفترة
         </div>
       ) : (
         <>
-          <div className="pt-3">
-            <PieChart
-              style={{
-                width: "100%",
-                maxWidth: "200px",
-                maxHeight: "100%",
-                margin: "0 auto",
-                aspectRatio: 1,
-              }}
-              responsive
-            >
-              <Pie
-                data={data}
-                innerRadius="70%"
-                outerRadius="100%"
-                cornerRadius="2%"
-                paddingAngle={3}
-                dataKey="value"
-                isAnimationActive={isAnimationActive}
-              />
+          <div className="mt-3">
+            <div className="mx-auto h-48 w-full max-w-56 min-w-0 sm:h-52">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <PieChart>
+                  <Tooltip
+                    formatter={(value) => [
+                      `${Number(value).toLocaleString("ar-SA-u-nu-latn")} وحدة`,
+                      "الكمية المباعة",
+                    ]}
+                    contentStyle={{
+                      borderColor: "#e5e7eb",
+                      borderRadius: "0.75rem",
+                    }}
+                  />
+                  <Pie
+                    data={data}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="62%"
+                    outerRadius="88%"
+                    paddingAngle={3}
+                    cornerRadius={5}
+                    isAnimationActive={isAnimationActive}
+                    animationDuration={700}
+                  >
+                    {data.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                    <Label
+                      value={total.toLocaleString("ar-SA-u-nu-latn")}
+                      position="center"
+                      className="fill-gray-900 text-base font-bold"
+                    />
+                    <Label
+                      value="إجمالي الوحدات"
+                      position="centerBottom"
+                      className="fill-gray-500 text-[10px]"
+                    />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
 
-              <RechartsDevtools />
-            </PieChart>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
-            {data.map((entry) => (
-              <div key={entry.name} className="flex items-center gap-1">
+            <div className="space-y-2.5 mt-4">
+              {data.map((entry) => (
                 <div
-                  className="h-4 w-4 rounded-full"
-                  style={{
-                    backgroundColor: entry.fill,
-                  }}
-                />
-
-                <span className="text-sm font-medium">{entry.name}</span>
-
-                <span className="text-xs text-gray-500">({entry.value})</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 text-center text-xs text-gray-400">
-            إجمالي الوحدات المباعة: {total}
+                  key={entry.name}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: entry.fill }}
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium text-gray-700">
+                    {entry.name}
+                  </span>
+                  <span className="shrink-0 text-xs text-gray-500">
+                    {entry.value.toLocaleString("ar-SA-u-nu-latn")} وحدة
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}
-    </div>
+    </section>
   );
 };
 

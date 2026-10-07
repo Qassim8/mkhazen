@@ -66,7 +66,7 @@ function formatDate(value: string) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -107,11 +107,24 @@ const columns: ColumnDef<Asset, unknown>[] = [
   {
     accessorKey: "purchaseValue",
     header: "قيمة الشراء",
-    cell: ({ getValue }) => (
-      <span dir="ltr" className="text-sm font-black text-gray-900">
-        {formatNumber(getValue() as number)} ر.س
-      </span>
-    ),
+    cell: ({ row }) => {
+      const asset = row.original;
+      const isSdg = asset.currency === "SDG";
+
+      return (
+        <div dir="ltr" className="text-left">
+          <span className="text-sm font-black text-gray-900">
+            {formatNumber(asset.purchaseValueUsd)} $
+          </span>
+          {isSdg && (
+            <span className="block text-[10px] text-gray-400">
+              دُفع {formatNumber(asset.purchaseValue)} ج.س
+              {asset.exchangeRateUsed ? ` @ ${asset.exchangeRateUsed}` : ""}
+            </span>
+          )}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "purchaseDate",
@@ -186,7 +199,7 @@ export default function AssetsClient({
         <p className="text-sm font-bold text-gray-500">إجمالي قيمة الأصول</p>
 
         <p dir="ltr" className="mt-2 text-2xl font-black text-gray-950">
-          {formatNumber(totalValue)} ر.س
+          {formatNumber(totalValue)} $
         </p>
       </div>
 

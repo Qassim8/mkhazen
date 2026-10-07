@@ -34,6 +34,8 @@ const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   OTHER_EXPENSE: "مصروفات أخرى",
   OTHER_INCOME: "إيرادات أخرى",
   RENTS: "الإيجارات",
+  GIFTS: "هدايا للعملاء",
+  CURRENCY_EXCHANGE: "تحويل عملة",
 };
 
 const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
@@ -46,6 +48,7 @@ const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   SALE_PAYMENT: "تحصيل بيع",
 
   CUSTOMER_ADVANCE: "عربون عميل",
+  CUSTOMER_ADVANCE_REFUND: "استرداد عربون",
 
   TAILOR_ADVANCE: "دفعة مقدمة للخياط",
   TAILOR_COST: "تكلفة الخياطة",
@@ -63,6 +66,9 @@ const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   EXPENSE: "مصروف",
   ASSET: "أصل",
 
+  GIFT: "هدية",
+  CURRENCY_EXCHANGE: "تحويل عملة",
+
   OTHER: "أخرى",
 };
 
@@ -78,7 +84,7 @@ function formatDate(value?: string) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -157,11 +163,40 @@ const columns: ColumnDef<JournalEntry, unknown>[] = [
   {
     accessorKey: "amount",
     header: "المبلغ",
-    cell: ({ getValue }) => (
-      <span dir="ltr" className="text-sm font-black text-gray-900">
-        {formatNumber(getValue() as number)} ر.س
-      </span>
-    ),
+    cell: ({ row, getValue }) => {
+      // الصفوف جاية من API بأسماء الأعمدة الأصلية (snake_case)
+      const raw = row.original as unknown as Record<string, unknown>;
+      const isSdg = raw.currency === "SDG";
+      const amount = Number(getValue() ?? 0);
+
+      return (
+        <span dir="ltr" className="text-sm font-black text-gray-900">
+          {formatNumber(amount)} {isSdg ? "ج.س" : "$"}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "amount_usd",
+    header: "القيمة بالدولار",
+    cell: ({ row }) => {
+      const raw = row.original as unknown as Record<string, unknown>;
+      const amountUsd = Number(raw.amount_usd ?? raw.amount ?? 0);
+      const rate = raw.exchange_rate_used != null ? Number(raw.exchange_rate_used) : null;
+
+      return (
+        <div dir="ltr" className="text-left">
+          <span className="text-xs font-bold text-gray-700">
+            {formatNumber(amountUsd)} $
+          </span>
+          {raw.currency === "SDG" && rate ? (
+            <span className="block text-[10px] text-gray-400">
+              @ {rate.toLocaleString("en-US")}
+            </span>
+          ) : null}
+        </div>
+      );
+    },
   },
   {
     accessorKey: "reference",

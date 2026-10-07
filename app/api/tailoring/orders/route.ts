@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
+import { fetchAll } from "@/lib/supabase-fetch-all";
 
 import { createTailoringOrderSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
@@ -33,9 +36,9 @@ function measurementMeters(value: unknown) {
   );
 }
 
-function todayInRiyadh() {
+function todayInSudan() {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Riyadh",
+    timeZone: "Africa/Khartoum",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -52,9 +55,10 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
-    const canManageAll = role === "admin" || role === "cashier";
+    const canManageAll = can(role, "tailoring.manage");
+    const isCashier = role === "cashier";
     const isTailor = role === "tailor";
-    if (!canManageAll && !isTailor) {
+    if (!canManageAll && !isTailor && !isCashier) {
       return NextResponse.json({ message: "ليس لديك صلاحية عرض طلبات التفصيل." }, { status: 403 });
     }
 
@@ -86,18 +90,23 @@ export async function GET(request: Request) {
     }
 
     const requestedTailorId = isTailor ? user.userId : params.tailorId;
-    const safeSearch = params.search?.replace(/[,%()]/g, " ").trim();
-    let customerIds: string[] = [];
+    const safeSearch = canManageAll
+      ? params.search?.replace(/[,%()]/g, " ").trim()
+      : undefined;
+    // كل العملاء المطابقين (من غير حد 100)
+    const matchingCustomerIds = new Set<string>();
 
-    if (safeSearch) {
-      const { data: customerRows, error } = await supabaseAdmin
-        .from("customers")
-        .select("id")
-        .eq("branch_id", MAIN_BRANCH_ID)
-        .or(`name.ilike.%${safeSearch}%,whatsapp_number.ilike.%${safeSearch}%`)
-        .limit(100);
-      if (error) throw new Error(`فشل البحث في العملاء: ${error.message}`);
-      customerIds = (customerRows ?? []).map((row) => row.id);
+    if (safeSearch && !isTailor) {
+      const customerRows = await fetchAll<{ id: string }>((from, to) =>
+        supabaseAdmin
+          .from("customers")
+          .select("id")
+          .eq("branch_id", MAIN_BRANCH_ID)
+          .or(`name.ilike.%${safeSearch}%,whatsapp_number.ilike.%${safeSearch}%`)
+          .order("id")
+          .range(from, to),
+      );
+      for (const row of customerRows) matchingCustomerIds.add(row.id);
     }
 
     let query = supabaseAdmin
@@ -120,6 +129,9 @@ export async function GET(request: Request) {
           discount_amount,
           tax_amount,
           total_amount,
+          total_amount_usd,
+          exchange_rate_used,
+          tailoring_cost_sdg,
           payment_method,
           payment_status,
           status,
@@ -154,31 +166,56 @@ export async function GET(request: Request) {
       .eq("order_type", "TAILORING");
 
     if (requestedTailorId) query = query.eq("tailor_id", requestedTailorId);
-    if (params.purpose) query = query.eq("tailoring_purpose", params.purpose);
+    if (isCashier) {
+      query = query.eq("tailoring_purpose", "CUSTOMER");
+    } else if (params.purpose) {
+      query = query.eq("tailoring_purpose", params.purpose);
+    }
     if (params.status) query = query.eq("tailoring_status", params.status);
-    if (params.paymentStatus) query = query.eq("payment_status", params.paymentStatus);
+    if (params.paymentStatus && canManageAll) {
+      query = query.eq("payment_status", params.paymentStatus);
+    }
     if (params.fromDate) query = query.gte("intake_date", params.fromDate);
     if (params.toDate) query = query.lte("intake_date", params.toDate);
 
     if (params.overdue === "true") {
-      query = query.lt("expected_delivery_date", todayInRiyadh());
+      query = query.lt("expected_delivery_date", todayInSudan());
       query = query.not("tailoring_status", "in", "(RECEIVED,CANCELLED)");
-    }
-
-    if (safeSearch) {
-      const customerPart = customerIds.length
-        ? `customer_id.in.(${customerIds.join(",")})`
-        : "customer_id.is.null";
-      query = query.or(`order_number.ilike.%${safeSearch}%,tailoring_item_name.ilike.%${safeSearch}%,tailoring_item_description.ilike.%${safeSearch}%,${customerPart}`);
     }
 
     const from = (params.page - 1) * params.limit;
     const to = from + params.limit - 1;
-    const { data: orders, count, error } = await query
+    const sortedQuery = query
       .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("id", { ascending: false });
 
-    if (error) throw new Error(`فشل جلب طلبات التفصيل: ${error.message}`);
+    let orders: Awaited<typeof sortedQuery>["data"];
+    let count: number | null;
+
+    if (safeSearch) {
+      // البحث بيشمل العميل (قائمة IDs ممكن تبقى كبيرة)، فبنطابق في الكود
+      // بدل .in() طويل في الرابط، وبعدين بنقسم الصفحات
+      const needle = safeSearch.toLowerCase();
+      const allOrders = await fetchAll<NonNullable<typeof orders>[number]>((rangeFrom, rangeTo) =>
+        sortedQuery.range(rangeFrom, rangeTo),
+      );
+      const matched = allOrders.filter((order) => {
+        const texts = [order.order_number, order.tailoring_item_name, order.tailoring_item_description];
+        return (
+          texts.some((value) => String(value ?? "").toLowerCase().includes(needle)) ||
+          (!isTailor &&
+            order.customer_id != null &&
+            matchingCustomerIds.has(order.customer_id))
+        );
+      });
+      orders = matched.slice(from, to + 1);
+      count = matched.length;
+    } else {
+      const result = await sortedQuery.range(from, to);
+      if (result.error) throw new Error(`فشل جلب طلبات التفصيل: ${result.error.message}`);
+      orders = result.data;
+      count = result.count;
+    }
 
     const rows = orders ?? [];
     const orderIds = rows.map((row) => row.id);
@@ -194,6 +231,183 @@ export async function GET(request: Request) {
       ...rows.map((row) => row.tailoring_cogs_journal_entry_id).filter(Boolean),
       ...rows.map((row) => row.production_material_journal_entry_id).filter(Boolean),
     ])] as string[];
+
+    if (isTailor || isCashier) {
+      const customersQuery = async () => {
+        if (!customerIdList.length) return [];
+
+        const result = isCashier
+          ? await supabaseAdmin
+              .from("customers")
+              .select("id, name, whatsapp_number")
+              .in("id", customerIdList)
+          : await supabaseAdmin
+              .from("customers")
+              .select("id, name")
+              .in("id", customerIdList);
+
+        if (result.error) throw new Error(result.error.message);
+        return (result.data ?? []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          whatsapp_number:
+            "whatsapp_number" in row ? row.whatsapp_number : null,
+        }));
+      };
+      const [customerRows, variantsResult, templatesResult, paymentsResult,
+        transfersOutResult, transfersInResult, refundsResult] =
+        await Promise.all([
+          customersQuery(),
+          variantIds.length
+            ? supabaseAdmin
+                .from("product_variants")
+                .select("id, templateId")
+                .in("id", variantIds)
+            : Promise.resolve({ data: [], error: null }),
+          templateIds.length
+            ? supabaseAdmin
+                .from("product_templates")
+                .select("id, name, sellingUnit")
+                .in("id", templateIds)
+            : Promise.resolve({ data: [], error: null }),
+          isCashier && orderIds.length
+            ? supabaseAdmin
+                .from("sales_order_payments")
+                .select("sales_order_id, amount")
+                .in("sales_order_id", orderIds)
+            : Promise.resolve({ data: [], error: null }),
+          isCashier && orderIds.length
+            ? supabaseAdmin
+                .from("tailoring_customer_advance_transfers")
+                .select("from_order_id, amount")
+                .in("from_order_id", orderIds)
+            : Promise.resolve({ data: [], error: null }),
+          isCashier && orderIds.length
+            ? supabaseAdmin
+                .from("tailoring_customer_advance_transfers")
+                .select("to_order_id, amount")
+                .in("to_order_id", orderIds)
+            : Promise.resolve({ data: [], error: null }),
+          isCashier && orderIds.length
+            ? supabaseAdmin
+                .from("tailoring_customer_advance_refunds")
+                .select("sales_order_id, amount")
+                .in("sales_order_id", orderIds)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+      const relationError =
+        variantsResult.error || templatesResult.error ||
+        paymentsResult.error || transfersOutResult.error ||
+        transfersInResult.error || refundsResult.error;
+      if (relationError) {
+        throw new Error(
+          `تعذر جلب تفاصيل طلبات الخياط: ${relationError.message}`,
+        );
+      }
+
+      const customerMap = new Map(
+        customerRows.map((row) => [row.id, row.name]),
+      );
+      const variantTemplateMap = new Map(
+        (variantsResult.data ?? []).map((row) => [row.id, row.templateId]),
+      );
+      const templateMap = new Map(
+        (templatesResult.data ?? []).map((row) => [
+          row.id,
+          { name: row.name, sellingUnit: row.sellingUnit },
+        ]),
+      );
+      const paidByOrder = new Map<string, number>();
+      const addAmount = (orderId: string, amount: number) =>
+        paidByOrder.set(
+          orderId,
+          Number(((paidByOrder.get(orderId) ?? 0) + amount).toFixed(2)),
+        );
+      for (const payment of paymentsResult.data ?? []) {
+        addAmount(payment.sales_order_id, Number(payment.amount));
+      }
+      for (const transfer of transfersInResult.data ?? []) {
+        addAmount(transfer.to_order_id, Number(transfer.amount));
+      }
+      for (const transfer of transfersOutResult.data ?? []) {
+        addAmount(transfer.from_order_id, -Number(transfer.amount));
+      }
+      for (const refund of refundsResult.data ?? []) {
+        addAmount(refund.sales_order_id, -Number(refund.amount));
+      }
+
+      const data = rows.map((row) => {
+        const fabricTemplateId = variantTemplateMap.get(
+          row.fabric_variant_id ?? "",
+        );
+        const producedTemplateId =
+          row.produced_product_template_id ??
+          variantTemplateMap.get(row.produced_product_variant_id ?? "");
+
+        const mapped = {
+          id: row.id,
+          order_number: row.order_number,
+          tailoring_item_name: row.tailoring_item_name,
+          tailoring_item_description: row.tailoring_item_description,
+          tailoring_purpose: row.tailoring_purpose,
+          tailoring_status: row.tailoring_status,
+          intake_date: row.intake_date,
+          expected_delivery_date: row.expected_delivery_date,
+          measurements: row.measurements ?? [],
+          fabric_quantity:
+            row.fabric_quantity != null ? Number(row.fabric_quantity) : null,
+          fabric_name: fabricTemplateId
+            ? (templateMap.get(fabricTemplateId)?.name ?? null)
+            : null,
+          fabric_selling_unit: fabricTemplateId
+            ? (templateMap.get(fabricTemplateId)?.sellingUnit ?? null)
+            : null,
+          customer_name: row.customer_id
+            ? (customerMap.get(row.customer_id) ?? null)
+            : null,
+          customer_whatsapp: isCashier && row.customer_id
+            ? customerRows.find(
+                (customer) => customer.id === row.customer_id,
+              )?.whatsapp_number ?? null
+            : null,
+          ...(isTailor
+            ? {
+                produced_quantity:
+                  row.produced_quantity != null
+                    ? Number(row.produced_quantity)
+                    : null,
+                produced_product_name: producedTemplateId
+                  ? (templateMap.get(producedTemplateId)?.name ?? null)
+                  : null,
+                production_completed: Boolean(
+                  row.produced_product_variant_id,
+                ),
+              }
+            : {}),
+        };
+        if (!isCashier) return mapped;
+
+        const paid = Number(Math.max(paidByOrder.get(row.id) ?? 0, 0).toFixed(2));
+        const total = Number(row.total_amount ?? 0);
+        return {
+          ...mapped,
+          total_amount: total,
+          paid_amount: paid,
+          remaining_amount: Number(Math.max(total - paid, 0).toFixed(2)),
+        };
+      });
+
+      return NextResponse.json({
+        data,
+        meta: {
+          total: count ?? 0,
+          page: params.page,
+          limit: params.limit,
+          totalPages: count ? Math.ceil(count / params.limit) : 0,
+        },
+      });
+    }
 
     const [customersResult, tailorsResult, paymentsResult, tailorPaymentsResult, transferFromResult, transferToResult, refundsResult, variantsResult, templatesResult, journalsResult] = await Promise.all([
       customerIdList.length
@@ -342,8 +556,8 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
-    if (role !== "admin" && role !== "cashier") {
-      return NextResponse.json({ message: "إنشاء طلبات التفصيل متاح للكاشير أو المدير فقط." }, { status: 403 });
+    if (!can(role, "tailoring.operate")) {
+      return NextResponse.json({ message: "إنشاء طلبات التفصيل متاح للكاشير أو الإدارة فقط." }, { status: 403 });
     }
 
     const body = await request.json();
@@ -353,6 +567,17 @@ export async function POST(request: Request) {
     }
 
     const value = validation.data;
+    if (
+      !can(role, "tailoring.manage") &&
+      (value.tailoringPurpose !== "CUSTOMER" ||
+        value.customerAdvanceSourceOrderId)
+    ) {
+      return NextResponse.json(
+        { message: "يمكن للكاشير إنشاء طلبات العملاء فقط دون نقل عربون سابق." },
+        { status: 403 },
+      );
+    }
+
     const { data, error } = await supabaseAdmin.rpc("create_tailoring_order", {
       p_branch_id: MAIN_BRANCH_ID,
       p_user_id: user.userId,
@@ -380,17 +605,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: error.message || "تعذر إنشاء طلب التفصيل." }, { status: 400 });
     }
 
+    await notifyTailoringUpdate({ orderId: data.id, event: "CREATED", actor: user });
+
     return NextResponse.json({
       message: `تم إنشاء الطلب ${data.order_number} بنجاح.`,
       data: {
-        ...data,
-        total_amount: Number(data.total_amount ?? 0),
-        deposit_amount: Number(data.deposit_amount ?? 0),
-        remaining_amount: Number(data.remaining_amount ?? 0),
-        tailoring_cost: Number(data.tailoring_cost ?? 0),
-        tailoring_fabric_cost: Number(data.tailoring_fabric_cost ?? 0),
-        measurement_meters: Number(data.measurement_meters ?? 0),
-        max_fabric_quantity: Number(data.max_fabric_quantity ?? 0),
+        ...(can(role, "tailoring.manage")
+          ? {
+              ...data,
+              total_amount: Number(data.total_amount ?? 0),
+              deposit_amount: Number(data.deposit_amount ?? 0),
+              remaining_amount: Number(data.remaining_amount ?? 0),
+              tailoring_cost: Number(data.tailoring_cost ?? 0),
+              tailoring_fabric_cost: Number(data.tailoring_fabric_cost ?? 0),
+              measurement_meters: Number(data.measurement_meters ?? 0),
+              max_fabric_quantity: Number(data.max_fabric_quantity ?? 0),
+            }
+          : { id: data.id, order_number: data.order_number }),
       },
     }, { status: 201 });
   } catch (error: unknown) {

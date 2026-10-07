@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getSession, createSession } from "@/lib/auth"; // تأكد من استيراد دالة إنشاء الكوكي
+import { getSession, createSession, invalidateAccountCache } from "@/lib/auth"; // تأكد من استيراد دالة إنشاء الكوكي
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function PUT(req: Request) {
@@ -52,20 +52,22 @@ export async function PUT(req: Request) {
       );
     }
 
+    invalidateAccountCache(updatedUser.id);
+
     // ⭐️ إنشاء Session جديدة وتحديث الـ Cookie بقيمة true
     await createSession({
       userId: updatedUser.id,
       email: updatedUser.email,
       name: updatedUser.name,
-      role: updatedUser.position || updatedUser.role,
+      role: updatedUser.role,
       isPasswordChanged: true,
     });
 
     return NextResponse.json({
       message: "تم تغيير كلمة المرور بنجاح",
-      role: updatedUser.position || updatedUser.role,
+      role: updatedUser.role,
     });
-  } catch (err: any) {
+  } catch {
     return NextResponse.json(
       { message: "حدث خطأ في السيرفر" },
       { status: 500 },

@@ -115,7 +115,7 @@ const AccountsTable = () => {
       header: "الرصيد الحالي",
       cell: (info) => (
         <span className="font-black text-gray-900">
-          {(info.getValue() as number).toLocaleString("ar-SD", {
+          {(info.getValue() as number).toLocaleString("ar-SD-u-nu-latn", {
             minimumFractionDigits: 2,
           })}{" "}
           ج.س

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { LuCircleDollarSign } from "react-icons/lu";
 import PaymentModal from "./PaymentModal";
 import BackLink from "@/components/shared/BackLink";
+import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 interface Props {
   order: PurchaseOrder;
@@ -16,7 +17,7 @@ const formatNumber = (value: number) =>
     maximumFractionDigits: 2,
   });
 
-const formatCurrency = (value: number) => `${formatNumber(value)} ر.س`;
+const formatCurrency = (value: number) => `${formatNumber(value)} $`;
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -159,7 +160,10 @@ export default function PurchaseOrderDetailView({ order }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <BackLink href="/dashboard/orders" label="العودة للقائمة" />
+            <BackLink
+              href="/dashboard/orders"
+              label="العودة إلى طلبات الشراء"
+            />
 
             {paymentStatus.label !== "مدفوع بالكامل" &&
               (order.status === "APPROVED" || order.status === "RECEIVED") && (
@@ -370,7 +374,7 @@ export default function PurchaseOrderDetailView({ order }: Props) {
                     </th>
 
                     <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold print:py-1 print:text-[11px]">
-                      سعر الوحدة
+                      سعر الوحدة ($)
                     </th>
 
                     <th className="border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold print:py-1 print:text-[11px]">
@@ -389,7 +393,8 @@ export default function PurchaseOrderDetailView({ order }: Props) {
 
                     const attributes = [
                       item.colorName && `اللون: ${item.colorName}`,
-                      item.size && `المقاس: ${item.size}`,
+                      formatProductSize(item.size) &&
+                        `المقاس: ${formatProductSize(item.size)}`,
                     ]
                       .filter(Boolean)
                       .join(" | ");
@@ -547,23 +552,6 @@ export default function PurchaseOrderDetailView({ order }: Props) {
                   )}
                 </div>
               </div>
-
-              {/* PRINT SIGNATURES - Positioned on top-left area in printable grid layout */}
-              <div className="hidden pt-6 print:grid print:grid-cols-2 print:gap-6 print:pt-4">
-                <div>
-                  <p className="mb-6 text-xs font-semibold text-gray-700">
-                    المسؤول / المستلم:
-                  </p>
-                  <div className="border-b border-gray-400" />
-                </div>
-
-                <div>
-                  <p className="mb-6 text-xs font-semibold text-gray-700">
-                    توقيع المورد:
-                  </p>
-                  <div className="border-b border-gray-400" />
-                </div>
-              </div>
             </div>
           </div>
 
@@ -638,6 +626,22 @@ export default function PurchaseOrderDetailView({ order }: Props) {
               FOOTER
           ========================== */}
           <div className="border-t border-gray-200 p-6 print:p-2">
+            {/* PRINT SIGNATURES - Positioned on top-left area in printable grid layout */}
+            <div className="hidden pt-6 print:grid print:grid-cols-2 print:gap-6 print:pt-4">
+              <div>
+                <p className="mb-6 text-xs font-semibold text-gray-700">
+                  المسؤول / المستلم:
+                </p>
+                <div className="border-b border-gray-400" />
+              </div>
+
+              <div>
+                <p className="mb-6 text-xs font-semibold text-gray-700">
+                  توقيع المورد:
+                </p>
+                <div className="border-b border-gray-400" />
+              </div>
+            </div>
             <div className="flex flex-col gap-3 text-xs text-gray-400 md:flex-row md:items-center md:justify-between print:text-[10px]">
               <p>تم إنشاء هذا المستند من نظام إدارة المتجر.</p>
 
