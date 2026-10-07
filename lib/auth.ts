@@ -3,13 +3,19 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 
-if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
-  throw new Error("JWT_SECRET غير مُعرّف في متغيرات البيئة.");
-}
+// ✅ دالة تجلب المفتاح وتتحقق منه فقط عند تنفيذ العمليات وليس أثناء الـ Build
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "dev-only-secret-do-not-use-in-production",
-);
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET غير مُعرّف في متغيرات البيئة.");
+    }
+    return new TextEncoder().encode("dev-only-secret-do-not-use-in-production");
+  }
+
+  return new TextEncoder().encode(secret);
+}
 
 const AUTH_COOKIE_NAME = "auth_token";
 const AUTH_COOKIE_OPTIONS = {
@@ -29,11 +35,13 @@ export interface TokenPayload {
 
 // 1. إنشاء الجلسة
 export async function createSession(payload: TokenPayload) {
+  const secret = getJwtSecret(); // 👈 جلب المفتاح وقت الحاجة
+
   const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(JWT_SECRET);
+    .sign(secret);
 
   const cookieStore = await cookies();
   cookieStore.set(AUTH_COOKIE_NAME, token, {
@@ -64,7 +72,8 @@ export async function getSession(): Promise<TokenPayload | null> {
   let payload: TokenPayload;
 
   try {
-    const verified = await jwtVerify(token, JWT_SECRET);
+    const secret = getJwtSecret(); // 👈 جلب المفتاح وقت الحاجة
+    const verified = await jwtVerify(token, secret);
     payload = verified.payload as unknown as TokenPayload;
   } catch {
     return null;
@@ -96,7 +105,10 @@ type AccountState = {
 };
 
 const ACCOUNT_CACHE_MS = 30 * 1000;
-const accountCache = new Map<string, { at: number; value: AccountState | null }>();
+const accountCache = new Map<
+  string,
+  { at: number; value: AccountState | null }
+>();
 
 async function getAccountState(userId: string): Promise<AccountState | null> {
   const cached = accountCache.get(userId);
@@ -125,7 +137,10 @@ async function getAccountState(userId: string): Promise<AccountState | null> {
 }
 
 export function isAccountActive(value: unknown): boolean {
-  return value !== false && !(typeof value === "string" && value.trim().toLowerCase() === "false");
+  return (
+    value !== false &&
+    !(typeof value === "string" && value.trim().toLowerCase() === "false")
+  );
 }
 
 export function invalidateAccountCache(userId: string) {
@@ -135,7 +150,6 @@ export function invalidateAccountCache(userId: string) {
 // 3. إنهاء الجلسة
 export async function destroySession() {
   const cookieStore = await cookies();
-  // مسح الكوكي صراحة وتعيين الصلاحية لـ 0
   cookieStore.set(AUTH_COOKIE_NAME, "", {
     ...AUTH_COOKIE_OPTIONS,
     path: "/",
