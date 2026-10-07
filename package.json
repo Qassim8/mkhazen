@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "bundle": "node scripts/bundle-feature.mjs",
     "lint": "eslint"
   },
   "dependencies": {

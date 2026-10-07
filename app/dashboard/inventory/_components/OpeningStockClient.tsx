@@ -81,7 +81,7 @@ export default function OpeningStockClient({ candidates }: Props) {
         const quantity = parseNumber(draft.quantity);
         const unitCost = parseNumber(draft.unitCost);
 
-        return (quantity > 0) !== (unitCost > 0);
+        return quantity > 0 !== unitCost > 0;
       }),
     [candidates, drafts],
   );
@@ -157,25 +157,25 @@ export default function OpeningStockClient({ candidates }: Props) {
       <div className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         <LuInfo className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="space-y-1">
-          <p className="font-bold">إزاي بتتسجل محاسبيًا؟</p>
+          <p className="font-bold">كيف تسجل محاسبيًا؟</p>
           <p>
             قيمة البضاعة بتزيد المخزون وتتسجل مساهمة من المالك في رأس المال
-            (مدين: المخزون / دائن: رأس المال). يعني مش بتتحسب إيراد ولا ربح، ومش
+            (مدين: المخزون / دائن: رأس المال) يعني لا تحسب إيراد ولا ربح، ولا
             بتعمل دين على مورد.
           </p>
           <p className="font-medium">
-            التكلفة اللي تكتبها هنا هي اللي هيتحسب منها ربح كل بيعة بعد كده،
-            فلازم تكون التكلفة الحقيقية.
+            التكلفة التي تكتب هنا هي التي يحسب منها ربح كل بيعة بعد ذلك، لابد ان
+            تكون التكلفة الحقيقية.
           </p>
         </div>
       </div>
 
       {candidates.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
-          <p className="font-bold text-gray-900">مفيش أصناف مؤهلة</p>
+          <p className="font-bold text-gray-900">لا توجد أصناف مؤهلة</p>
           <p className="mt-2 text-sm text-gray-500">
-            الصنف بيظهر هنا لو كان نشطًا ورصيده صفر ومعندوش أي حركة مخزون. لو
-            الصنف اتباع أو اتشترى قبل كده، استخدم تسوية المخزون بدل المخزون
+            الصنف يظهر هنا لو كان نشطًا ورصيده صفر وليس له أي حركة مخزون. لو
+            الصنف اتباع أو اشترى من قبل، استخدم تسوية المخزون بدل المخزون
             الافتتاحي.
           </p>
         </div>
@@ -218,13 +218,15 @@ export default function OpeningStockClient({ candidates }: Props) {
                     const quantity = parseNumber(draft?.quantity ?? "");
                     const unitCost = parseNumber(draft?.unitCost ?? "");
                     const lineTotal = quantity * unitCost;
-                    const isIncomplete = (quantity > 0) !== (unitCost > 0);
+                    const isIncomplete = quantity > 0 !== unitCost > 0;
 
                     return (
                       <tr
                         key={item.id}
                         className={
-                          lineTotal > 0 ? "bg-emerald-50/40" : "hover:bg-gray-50/60"
+                          lineTotal > 0
+                            ? "bg-emerald-50/40"
+                            : "hover:bg-gray-50/60"
                         }
                       >
                         <td className="px-4 py-3">
@@ -245,7 +247,11 @@ export default function OpeningStockClient({ candidates }: Props) {
                               inputMode="decimal"
                               value={draft?.quantity ?? ""}
                               onChange={(event) =>
-                                updateDraft(item.id, "quantity", event.target.value)
+                                updateDraft(
+                                  item.id,
+                                  "quantity",
+                                  event.target.value,
+                                )
                               }
                               placeholder="0"
                               className={`w-24 rounded-lg border bg-gray-50 px-3 py-2 text-sm transition focus:bg-white focus:outline-none ${
@@ -268,7 +274,11 @@ export default function OpeningStockClient({ candidates }: Props) {
                             inputMode="decimal"
                             value={draft?.unitCost ?? ""}
                             onChange={(event) =>
-                              updateDraft(item.id, "unitCost", event.target.value)
+                              updateDraft(
+                                item.id,
+                                "unitCost",
+                                event.target.value,
+                              )
                             }
                             placeholder="0.00"
                             className={`w-28 rounded-lg border bg-gray-50 px-3 py-2 text-sm transition focus:bg-white focus:outline-none ${
@@ -341,7 +351,9 @@ export default function OpeningStockClient({ candidates }: Props) {
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={isSaving || filled.length === 0 || incomplete.length > 0}
+                disabled={
+                  isSaving || filled.length === 0 || incomplete.length > 0
+                }
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSaving ? (
