@@ -15,13 +15,10 @@ import { createSupplier, updateSupplier } from "../services/supplier.services";
 
 interface SupplierModalContentProps {
   initialData?: Supplier | null;
-  /** بعد الإضافة: الصفحة اللي فتحت المودال تضيف المورد لقائمتها فورًا */
-  onSaved?: (supplier: Supplier) => void;
 }
 
 export default function SupplierModalContent({
   initialData,
-  onSaved,
 }: SupplierModalContentProps) {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
@@ -51,8 +48,7 @@ export default function SupplierModalContent({
         await updateSupplier(initialData.id, data);
         toast.success(`تم تحديث بيانات ${initialData.name} بنجاح`);
       } else {
-        const created = await createSupplier(data);
-        if (created?.data) onSaved?.(created.data);
+        await createSupplier(data);
         toast.success("تمت إضافة المورد بنجاح");
       }
 

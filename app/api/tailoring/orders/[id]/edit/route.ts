@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
-import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { updateTailoringOrderApiSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
 export async function PATCH(
@@ -20,8 +18,8 @@ export async function PATCH(
     if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
-    if (!can(role, "tailoring.manage")) {
-      return NextResponse.json({ message: "تعديل طلبات التفصيل متاح للمدير أو المالك فقط." }, { status: 403 });
+    if (role !== "admin" && role !== "cashier") {
+      return NextResponse.json({ message: "تعديل طلبات التفصيل متاح للكاشير أو المدير فقط." }, { status: 403 });
     }
 
     const body = await request.json();
@@ -60,8 +58,6 @@ export async function PATCH(
       console.error("update_tailoring_order RPC:", error);
       return NextResponse.json({ message: error.message || "تعذر تعديل طلب التفصيل." }, { status: 400 });
     }
-
-    await notifyTailoringUpdate({ orderId: id, event: "EDITED", actor: user });
 
     return NextResponse.json({ message: `تم تعديل الطلب ${data.order_number} بنجاح.`, data });
   } catch (error: unknown) {

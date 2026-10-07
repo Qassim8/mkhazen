@@ -1,90 +1,198 @@
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { fetchAllResult } from "@/lib/supabase-fetch-all";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
-import {
-  computeBalances,
-  computePerformance,
-  currentSudanYear,
-  sudanYearRange,
-  LEDGER_SELECT,
-  LedgerEntry,
-} from "../_lib/ledger";
+const sumAccountBalance = (
+  entries: Array<{
+    amount: number;
+    debit_account: string;
+    credit_account: string;
+  }>,
+  account: string,
+) => {
+  return entries.reduce((sum, entry) => {
+    const amount = Number(entry.amount) || 0;
+
+    if (entry.debit_account === account) {
+      return sum + amount;
+    }
+
+    if (entry.credit_account === account) {
+      return sum - amount;
+    }
+
+    return sum;
+  }, 0);
+};
+
+const sumCreditBalance = (
+  entries: Array<{
+    amount: number;
+    debit_account: string;
+    credit_account: string;
+  }>,
+  account: string,
+) => {
+  return entries.reduce((sum, entry) => {
+    if (entry.credit_account === account) {
+      return sum + Number(entry.amount);
+    }
+
+    if (entry.debit_account === account) {
+      return sum - Number(entry.amount);
+    }
+
+    return sum;
+  }, 0);
+};
 
 export async function GET(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || !can(user.role, "accounting.view")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        {
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
+        },
         { status: 403 },
       );
     }
 
     const { searchParams } = new URL(request.url);
+
     const requestedYear = Number(searchParams.get("year"));
-    const currentYear = currentSudanYear();
-    const year = requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : currentYear;
 
-    const yearRange = sudanYearRange(year);
+    const currentYear = new Date().getFullYear();
 
-    const [allResult, yearResult, rateResult] = await Promise.all([
-      fetchAllResult((from, to) =>
-        supabaseAdmin
-          .from("journal_entries")
-          .select(LEDGER_SELECT)
-          .eq("branch_id", MAIN_BRANCH_ID)
-          .order("id")
-          .range(from, to),
-      ),
-      fetchAllResult((from, to) =>
-        supabaseAdmin
-          .from("journal_entries")
-          .select(LEDGER_SELECT)
-          .eq("branch_id", MAIN_BRANCH_ID)
-          .gte("created_at", yearRange.start)
-          .lt("created_at", yearRange.end)
-          .order("id")
-          .range(from, to),
-      ),
-      supabaseAdmin.rpc("get_current_exchange_rate", { p_branch_id: MAIN_BRANCH_ID }),
-    ]);
+    const year =
+      requestedYear >= 2000 && requestedYear <= 2100
+        ? requestedYear
+        : currentYear;
 
-    if (allResult.error) throw new Error(allResult.error.message);
-    if (yearResult.error) throw new Error(yearResult.error.message);
+    /* =====================================================
+       ALL ENTRIES
+       Used for current balances
+    ===================================================== */
 
-    const currentRate = rateResult.data != null ? Number(rateResult.data) : null;
-    const balances = computeBalances((allResult.data ?? []) as LedgerEntry[], currentRate);
-    const performance = computePerformance((yearResult.data ?? []) as LedgerEntry[]);
+    const { data: allEntries, error: allEntriesError } = await supabaseAdmin
+      .from("journal_entries")
+      .select(
+        `
+          amount,
+          debit_account,
+          credit_account
+        `,
+      )
+      .eq("branch_id", MAIN_BRANCH_ID);
+
+    if (allEntriesError) {
+      throw new Error(allEntriesError.message);
+    }
+
+    /* =====================================================
+       YEAR ENTRIES
+       Used for revenue / expenses / profit
+    ===================================================== */
+
+    const { data: yearEntries, error: yearEntriesError } = await supabaseAdmin
+      .from("journal_entries")
+      .select(
+        `
+          amount,
+          debit_account,
+          credit_account
+        `,
+      )
+      .eq("branch_id", MAIN_BRANCH_ID)
+      .gte("created_at", `${year}-01-01T00:00:00.000Z`)
+      .lt("created_at", `${year + 1}-01-01T00:00:00.000Z`);
+
+    if (yearEntriesError) {
+      throw new Error(yearEntriesError.message);
+    }
+
+    const entries = (allEntries ?? []) as Array<{
+      amount: number;
+      debit_account: string;
+      credit_account: string;
+    }>;
+
+    const currentYearEntries = (yearEntries ?? []) as Array<{
+      amount: number;
+      debit_account: string;
+      credit_account: string;
+    }>;
+
+    const bank = sumAccountBalance(entries, "BANK");
+
+    const cash = sumAccountBalance(entries, "CASH");
+
+    const suppliers = sumCreditBalance(entries, "SUPPLIERS");
+
+    const capital = sumCreditBalance(entries, "CAPITAL");
+
+    const sales = sumCreditBalance(currentYearEntries, "SALES");
+
+    const otherIncome = sumCreditBalance(currentYearEntries, "OTHER_INCOME");
+
+    const electricity = sumAccountBalance(currentYearEntries, "ELECTRICITY");
+
+    const water = sumAccountBalance(currentYearEntries, "WATER");
+
+    const internet = sumAccountBalance(currentYearEntries, "INTERNET");
+
+    const salaries = sumAccountBalance(currentYearEntries, "SALARIES");
+
+    const maintenance = sumAccountBalance(currentYearEntries, "MAINTENANCE");
+
+    const otherExpense = sumAccountBalance(currentYearEntries, "OTHER_EXPENSE");
+
+    const totalRevenue = sales + otherIncome;
+
+    const totalExpenses =
+      electricity + water + internet + salaries + maintenance + otherExpense;
+
+    const profit = totalRevenue - totalExpenses;
+
+    const assets = sumAccountBalance(entries, "ASSETS");
+
+    const inventory = sumAccountBalance(entries, "INVENTORY");
 
     return NextResponse.json({
       year,
+
       data: {
-        currency: "USD",
-        exchangeRate: currentRate,
-        cashUsd: balances.cashUsd,
-        cashSdg: balances.cashSdg,
-        bankUsd: balances.bankUsd,
-        bankSdg: balances.bankSdg,
-        totalLiquidityUsd: balances.totalLiquidityUsd,
-        suppliersDebt: balances.supplierDebts,
-        capital: balances.capital,
-        assets: balances.assets,
-        inventory: balances.inventory,
-        revenue: performance.revenue,
-        expenses: performance.expenses,
-        profit: performance.netProfit,
+        cash: Math.max(0, Number(cash.toFixed(2))),
+
+        bank: Math.max(0, Number(bank.toFixed(2))),
+
+        totalCash: Number((cash + bank).toFixed(2)),
+
+        suppliersDebt: Math.max(0, Number(suppliers.toFixed(2))),
+
+        capital: Number(capital.toFixed(2)),
+
+        assets: Number(assets.toFixed(2)),
+
+        inventory: Number(inventory.toFixed(2)),
+
+        revenue: Number(totalRevenue.toFixed(2)),
+
+        expenses: Number(totalExpenses.toFixed(2)),
+
+        profit: Number(profit.toFixed(2)),
       },
     });
   } catch (error: unknown) {
     console.error("Accounting summary:", error);
+
     return NextResponse.json(
-      { message: "حدث خطأ أثناء حساب الإحصائيات" },
+      {
+        message: "حدث خطأ أثناء حساب الإحصائيات",
+      },
       { status: 500 },
     );
   }

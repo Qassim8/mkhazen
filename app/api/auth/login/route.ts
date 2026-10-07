@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     });
 
     return response;
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error("Login Error:", err);
     return NextResponse.json(
       { message: "حدث خطأ أثناء تسجيل الدخول" },

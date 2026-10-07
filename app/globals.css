@@ -101,24 +101,3 @@ button {
     margin: 12mm;
   }
 }
-
-/* export xslx sheet */
-@media print {
-  body {
-    background-color: white !important;
-  }
-  /* إخفاء السايدبار والهيدر العام والتحكمات غير المرغوبة أثناء الطباعة */
-  aside,
-  nav,
-  header,
-  .print\:hidden {
-    display: none !important;
-  }
-  /* توسيع محتوى الصفحة ليملأ ورقة الطباعة بالكامل */
-  main,
-  .print\:w-full {
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-}

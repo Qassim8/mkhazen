@@ -19,8 +19,6 @@ interface Props {
   orders: TailoringOrder[];
   meta: { total: number; page: number; limit: number; totalPages: number };
   canManageAll: boolean;
-  isTailor: boolean;
-  isCashier: boolean;
   tailors: TailorOption[];
 }
 
@@ -45,16 +43,16 @@ const statusClasses: Record<TailoringOrder["tailoringStatus"], string> = {
 };
 
 function money(value: number) {
-  return `${value.toFixed(2)} ج.س`;
+  return `${value.toFixed(2)} ر.س`;
 }
-function todayInSudan() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Khartoum" }).format(
+function todayInRiyadh() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(
     new Date(),
   );
 }
 function formatDate(value: string) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+  return new Intl.DateTimeFormat("ar-SA", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -65,8 +63,6 @@ export default function TailoringOrdersTable({
   orders,
   meta,
   canManageAll,
-  isTailor,
-  isCashier,
   tailors,
 }: Props) {
   const router = useRouter();
@@ -79,10 +75,8 @@ export default function TailoringOrdersTable({
   function updateParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
     if (updates.page === undefined) params.set("page", "1");
-    for (const [key, value] of Object.entries(updates)) {
-      if (value) params.set(key, value);
-      else params.delete(key);
-    }
+    for (const [key, value] of Object.entries(updates))
+      value ? params.set(key, value) : params.delete(key);
     router.replace(`${pathname}?${params.toString()}`);
   }
   const columns = [
@@ -138,11 +132,9 @@ export default function TailoringOrdersTable({
             <p className="font-bold text-gray-900">
               {order.customer?.name ?? "-"}
             </p>
-            {(canManageAll || isCashier) && (
-              <p className="mt-1 text-[11px] text-emerald-700">
-                {order.customer?.whatsappNumber ?? "-"}
-              </p>
-            )}
+            <p className="mt-1 text-[11px] text-emerald-700">
+              {order.customer?.whatsappNumber ?? "-"}
+            </p>
           </div>
         );
       },
@@ -163,7 +155,7 @@ export default function TailoringOrdersTable({
         const overdue =
           row.original.tailoringStatus !== "RECEIVED" &&
           row.original.tailoringStatus !== "CANCELLED" &&
-          row.original.expectedDeliveryDate < todayInSudan();
+          row.original.expectedDeliveryDate < todayInRiyadh();
         return (
           <div className="whitespace-nowrap">
             <p
@@ -195,21 +187,17 @@ export default function TailoringOrdersTable({
         );
       },
     }),
-    ...(!isTailor
-      ? [
-          columnHelper.display({
+    columnHelper.display({
       id: "amount",
       header: "القيمة",
       cell: ({ row }) => (
         <span className="whitespace-nowrap font-bold text-gray-800">
           {row.original.tailoringPurpose === "PRODUCTION"
-            ? `${row.original.totalCost.toFixed(2)} $` // تصنيع: تكلفة بالدولار
+            ? money(row.original.totalCost)
             : money(row.original.totalAmount)}
         </span>
       ),
-          }),
-        ]
-      : []),
+    }),
     columnHelper.display({
       id: "actions",
       header: "إجراء",
@@ -228,7 +216,7 @@ export default function TailoringOrdersTable({
     <div dir="rtl" className="space-y-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_170px_170px_170px_170px]">
-          {canManageAll && <form
+          <form
             onSubmit={(event) => {
               event.preventDefault();
               updateParams({ search: localSearch.trim() || null });
@@ -242,8 +230,8 @@ export default function TailoringOrdersTable({
               placeholder="بحث برقم الطلب أو اسم العمل أو العميل أو الواتساب..."
               className="w-full rounded-xl border border-gray-300 bg-gray-50 py-2.5 pr-10 pl-3 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
             />
-          </form>}
-          {canManageAll && <select
+          </form>
+          <select
             value={searchParams.get("purpose") ?? ""}
             onChange={(event) =>
               updateParams({ purpose: event.target.value || null })
@@ -253,7 +241,7 @@ export default function TailoringOrdersTable({
             <option value="">كل أنواع الطلبات</option>
             <option value="CUSTOMER">تفصيل عميل</option>
             <option value="PRODUCTION">تصنيع للمخزون</option>
-          </select>}
+          </select>
           <select
             value={searchParams.get("status") ?? ""}
             onChange={(event) =>
@@ -295,7 +283,7 @@ export default function TailoringOrdersTable({
               <option value="true">المتأخرة فقط</option>
             </select>
           )}
-          {canManageAll && <select
+          <select
             value={searchParams.get("paymentStatus") ?? ""}
             onChange={(event) =>
               updateParams({ paymentStatus: event.target.value || null })
@@ -306,7 +294,7 @@ export default function TailoringOrdersTable({
             <option value="PARTIAL">عربون 50%</option>
             <option value="PAID">مسدد بالكامل</option>
             <option value="UNPAID">غير مدفوع</option>
-          </select>}
+          </select>
         </div>
         <div className="flex flex-wrap gap-2">
           <input

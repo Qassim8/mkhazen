@@ -17,10 +17,6 @@ import {
 import { Product, ProductVariant } from "../schemas/product.schemas";
 
 import { ProductBarcode } from "./ProductBarcodeCard";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../utils/product-size";
 
 type ProductDetails = Product & {
   category?: {
@@ -73,20 +69,17 @@ const getVariantStatus = (variant: ProductVariant) => {
 };
 
 const formatPrice = (price: number) => {
-  return Number(price ?? 0).toLocaleString("en-US");
+  return Number(price ?? 0).toLocaleString();
 };
 
 /* =========================================================
    Component
 ========================================================= */
 
-// مرجع ثابت: [] جديدة كل رندر كانت بتخلّي useMemo يعيد الحساب كل مرة
-const NO_VARIANTS: never[] = [];
-
 export default function ProductDetailsClient({
   product,
 }: ProductDetailsClientProps) {
-  const variants = product.variants ?? NO_VARIANTS;
+  const variants = product.variants ?? [];
 
   /*
    * According to the business rule:
@@ -113,7 +106,7 @@ export default function ProductDetailsClient({
   }, [product.images, variants]);
 
   const initialImage =
-    activeVariant?.images?.[0] ?? allImages[0] ?? "/images/placeholder.png";
+    activeVariant?.images?.[0] ?? allImages[0] ?? "/placeholder.png";
 
   const [selectedImage, setSelectedImage] = useState(initialImage);
 
@@ -206,7 +199,7 @@ export default function ProductDetailsClient({
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
           <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
             <Image
-              src={selectedImage || "/images/placeholder.png"}
+              src={selectedImage || "/placeholder.png"}
               alt={product.name}
               fill
               sizes="(max-width: 1024px) 100vw, 33vw"
@@ -270,7 +263,7 @@ export default function ProductDetailsClient({
             <p className="text-[11px] font-bold text-gray-400">إجمالي الكمية</p>
 
             <p className="mt-1 text-lg font-black text-gray-900">
-              {totalStock.toLocaleString("en-US")}{" "}
+              {totalStock.toLocaleString()}{" "}
               <span className="text-xs font-medium text-gray-500">
                 {product.sellingUnit ?? "وحدة"}
               </span>
@@ -291,7 +284,7 @@ export default function ProductDetailsClient({
                 : `${formatPrice(minSellingPrice)} - ${formatPrice(
                     maxSellingPrice,
                   )}`}{" "}
-              <span className="text-xs font-normal">$</span>
+              <span className="text-xs font-normal">ريال</span>
             </p>
           </div>
 
@@ -473,14 +466,14 @@ export default function ProductDetailsClient({
                         </div>
                       )}
 
-                      {formatProductSize(variant.size) && (
+                      {variant.size && (
                         <div className="rounded-xl border border-gray-100 bg-white p-2.5">
                           <span className="mb-1 block text-[10px] text-gray-400">
-                            {isCustomProductSize(variant.size) ? "المقاسات" : "المقاس"}
+                            المقاس
                           </span>
 
                           <span className="text-xs font-bold text-gray-700">
-                            {formatProductSize(variant.size)}
+                            {variant.size}
                           </span>
                         </div>
                       )}
@@ -671,22 +664,22 @@ function SingleVariantDetails({
 
       <DetailCard
         label="المخزون"
-        value={`${status.stock.toLocaleString("en-US")} ${sellingUnit ?? "وحدة"}`}
+        value={`${status.stock.toLocaleString()} ${sellingUnit ?? "وحدة"}`}
       />
 
       <DetailCard
         label="الحد الأدنى للمخزون"
-        value={`${status.minStock.toLocaleString("en-US")} ${sellingUnit ?? "وحدة"}`}
+        value={`${status.minStock.toLocaleString()} ${sellingUnit ?? "وحدة"}`}
       />
 
       <DetailCard
         label="سعر الشراء"
-        value={`${formatPrice(Number(variant.purchasePrice))} $`}
+        value={`${formatPrice(Number(variant.purchasePrice))} ريال`}
       />
 
       <DetailCard
         label="سعر البيع"
-        value={`${formatPrice(Number(variant.sellingPrice))} $`}
+        value={`${formatPrice(Number(variant.sellingPrice))} ريال`}
         valueClassName="text-emerald-600"
       />
 
@@ -694,7 +687,7 @@ function SingleVariantDetails({
         variant.minSellingPrice !== undefined && (
           <DetailCard
             label="متوسط التكلفة بعد الشراء"
-            value={`${formatPrice(Number(variant.averageCost))} $`}
+            value={`${formatPrice(Number(variant.averageCost))} ريال`}
           />
         )}
 
@@ -702,12 +695,7 @@ function SingleVariantDetails({
         <DetailCard label="اللون" value={variant.colorName} />
       )}
 
-      {formatProductSize(variant.size) && (
-        <DetailCard
-          label={isCustomProductSize(variant.size) ? "المقاسات" : "المقاس"}
-          value={formatProductSize(variant.size)}
-        />
-      )}
+      {variant.size && <DetailCard label="المقاس" value={variant.size} />}
 
       {variant.length !== null && variant.length !== undefined && (
         <DetailCard label="الطول" value={String(variant.length)} />

@@ -5,7 +5,7 @@ import POSClient from "./_components/POSClient";
 export default async function POSPage() {
   const productsResponse = await getProducts({
     page: 1,
-    limit: 12,
+    limit: 30,
     sortBy: "createdAt-desc",
   });
 
@@ -14,7 +14,6 @@ export default async function POSPage() {
   return (
     <POSClient
       initialProducts={productsResponse.data}
-      initialPagination={productsResponse.meta}
       categories={categoriesResponse.data}
     />
   );

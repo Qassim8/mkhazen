@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ar-u-nu-latn" dir="rtl">
+    <html lang="ar" dir="rtl">
       <body
         className={`${ibm.className} min-h-screen bg-gray-50 text-gray-900 antialiased`}
       >

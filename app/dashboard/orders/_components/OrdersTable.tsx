@@ -199,7 +199,7 @@ function ReceivePurchaseModal({
       toast.error(
         `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(
           2,
-        )} $)`,
+        )} ريال)`,
       );
 
       return;
@@ -301,7 +301,7 @@ function ReceivePurchaseModal({
                 <p className="text-xs text-gray-500">إجمالي الطلب</p>
 
                 <p className="mt-1 font-mono font-bold text-gray-900">
-                  {Number(order.totalAmount).toFixed(2)} $
+                  {Number(order.totalAmount).toFixed(2)} ر.س
                 </p>
               </div>
 
@@ -309,7 +309,7 @@ function ReceivePurchaseModal({
                 <p className="text-xs text-gray-500">المتبقي</p>
 
                 <p className="mt-1 font-mono font-bold text-amber-600">
-                  {remainingAmount.toFixed(2)} $
+                  {remainingAmount.toFixed(2)} ر.س
                 </p>
               </div>
             </div>
@@ -408,7 +408,7 @@ function ReceivePurchaseModal({
 
                     max: {
                       value: remainingAmount,
-                      message: `الحد الأقصى ${remainingAmount.toFixed(2)} $`,
+                      message: `الحد الأقصى ${remainingAmount.toFixed(2)} ريال`,
                     },
                   })}
                   disabled={isPending}
@@ -499,7 +499,7 @@ function ReceivePurchaseModal({
                   <span className="text-gray-500">المتبقي بعد الدفع</span>
 
                   <span className="font-mono font-bold text-gray-900">
-                    {Math.max(remainingAfterPayment, 0).toFixed(2)} $
+                    {Math.max(remainingAfterPayment, 0).toFixed(2)} ر.س
                   </span>
                 </div>
               </div>
@@ -702,7 +702,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
 
       cell: (info) => (
         <span className="font-mono font-bold text-gray-900">
-          {(info.getValue() || 0).toLocaleString("en-US")} $
+          {(info.getValue() || 0).toLocaleString()} ريال
         </span>
       ),
     }),
@@ -765,7 +765,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
 
             <span>
               {dateVal
-                ? new Date(dateVal).toLocaleDateString("ar-EG-u-nu-latn", {
+                ? new Date(dateVal).toLocaleDateString("ar-EG", {
                     month: "short",
                     day: "numeric",
                     year: "numeric",

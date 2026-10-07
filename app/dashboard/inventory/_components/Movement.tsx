@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  LuArrowDownLeft,
-  LuArrowUpRight,
-  LuPackagePlus,
-  LuRefreshCcw,
-  LuScissors,
-} from "react-icons/lu";
+import { LuArrowDownLeft, LuArrowUpRight, LuRefreshCcw } from "react-icons/lu";
 
 import { InventoryMovement } from "../services/inventory.services";
 
@@ -20,7 +14,7 @@ const getMovement = (type: InventoryMovement["movement_type"]) => {
       return {
         label: "شراء",
         icon: LuArrowDownLeft,
-        className: "text-emerald-600 bg-emerald-50 border-emerald-200",
+        className: "text-emerald-600 bg-emerald-50",
         incoming: true,
       };
 
@@ -28,7 +22,7 @@ const getMovement = (type: InventoryMovement["movement_type"]) => {
       return {
         label: "بيع",
         icon: LuArrowUpRight,
-        className: "text-rose-600 bg-rose-50 border-rose-200",
+        className: "text-rose-600 bg-rose-50",
         incoming: false,
       };
 
@@ -36,7 +30,7 @@ const getMovement = (type: InventoryMovement["movement_type"]) => {
       return {
         label: "مرتجع شراء",
         icon: LuArrowUpRight,
-        className: "text-rose-600 bg-rose-50 border-rose-200",
+        className: "text-rose-600 bg-rose-50",
         incoming: false,
       };
 
@@ -44,15 +38,7 @@ const getMovement = (type: InventoryMovement["movement_type"]) => {
       return {
         label: "مرتجع بيع",
         icon: LuArrowDownLeft,
-        className: "text-emerald-600 bg-emerald-50 border-emerald-200",
-        incoming: true,
-      };
-
-    case "OPENING_STOCK":
-      return {
-        label: "مخزون افتتاحي",
-        icon: LuPackagePlus,
-        className: "text-indigo-600 bg-indigo-50 border-indigo-200",
+        className: "text-emerald-600 bg-emerald-50",
         incoming: true,
       };
 
@@ -60,7 +46,7 @@ const getMovement = (type: InventoryMovement["movement_type"]) => {
       return {
         label: "تسوية إدخال",
         icon: LuRefreshCcw,
-        className: "text-amber-600 bg-amber-50 border-amber-200",
+        className: "text-amber-600 bg-amber-50",
         incoming: true,
       };
 
@@ -68,38 +54,15 @@ const getMovement = (type: InventoryMovement["movement_type"]) => {
       return {
         label: "تسوية إخراج",
         icon: LuRefreshCcw,
-        className: "text-amber-600 bg-amber-50 border-amber-200",
+        className: "text-amber-600 bg-amber-50",
         incoming: false,
-      };
-
-    case "PRODUCTION_ISSUE":
-      return {
-        label: "تفصيل وخياطة",
-        icon: LuScissors,
-        className: "text-blue-600 bg-blue-50 border-blue-200",
-        incoming: false, // حركة خروج (صادر من المخزون)
-      };
-    case "PRODUCTION_RECEIPT":
-      return {
-        label: "تصنيع",
-        icon: LuArrowDownLeft,
-        className: "text-gray-600 bg-gray-50 border-gray-200",
-        incoming: true, // حركة دخول (وارد للمخزون)
-      };
-
-    case "GIFT":
-      return {
-        label: "إهداء",
-        icon: LuArrowUpRight,
-        className: "text-violet-600 bg-violet-50 border-violet-200",
-        incoming: false, // حركة خروج
       };
 
     default:
       return {
         label: "حركة",
         icon: LuRefreshCcw,
-        className: "text-gray-500 bg-gray-50 border-gray-200",
+        className: "text-gray-500 bg-gray-50",
         incoming: false,
       };
   }
@@ -119,7 +82,7 @@ export default function Movement({ movements }: Props) {
           لا توجد تحركات مخزنية حتى الآن.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {movements.map((movement, index) => {
             const info = getMovement(movement.movement_type);
 
@@ -136,7 +99,7 @@ export default function Movement({ movements }: Props) {
                   <Icon className="h-4 w-4" />
 
                   {index < movements.length - 1 && (
-                    <div className="absolute -bottom-9 left-1/2 h-9 w-px -translate-x-1/2 bg-gray-200" />
+                    <div className="absolute -bottom-4 left-1/2 h-4 w-px -translate-x-1/2 bg-gray-200" />
                   )}
                 </div>
 

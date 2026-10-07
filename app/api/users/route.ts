@@ -1,4 +1,3 @@
-import { errorMessage } from "@/lib/errors";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import {
@@ -9,14 +8,13 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { can, normalizeRole } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "users.manageStaff")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -43,12 +41,8 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from("users")
-      .select('id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"', { count: "exact" })
+      .select("*", { count: "exact" })
       .eq("branchId", MAIN_BRANCH_ID);
-
-    if (normalizeRole(user.role) !== "owner") {
-      query = query.neq("role", "owner");
-    }
 
     if (search) {
       query = query.or(
@@ -79,9 +73,9 @@ export async function GET(request: Request) {
         limit,
       },
     });
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر", error: errorMessage(err) },
+      { message: "خطأ في السيرفر", error: err.message },
       { status: 500 },
     );
   }
@@ -92,9 +86,9 @@ export async function POST(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || !can(user.role, "users.manageStaff")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -112,13 +106,6 @@ export async function POST(request: Request) {
     }
 
     const { position, salary, commissionRate } = validation.data;
-
-    if (position === "system_manager" && !can(user.role, "users.manageAdmins")) {
-      return NextResponse.json(
-        { message: "إضافة مدير متاحة للمالك فقط." },
-        { status: 403 },
-      );
-    }
     const isTailor = position === "tailor";
 
     const finalSalary = isTailor ? 0 : salary || 0;
@@ -141,7 +128,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("users")
       .insert([newUserData])
-      .select('id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"')
+      .select()
       .single();
 
     if (error)
@@ -154,9 +141,9 @@ export async function POST(request: Request) {
       { message: "تمت إضافة الموظف بنجاح", data },
       { status: 201 },
     );
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في معالجة الطلب", error: errorMessage(err) },
+      { message: "خطأ في معالجة الطلب", error: err.message },
       { status: 500 },
     );
   }

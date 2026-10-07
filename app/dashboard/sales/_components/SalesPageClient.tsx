@@ -8,10 +8,16 @@ import SalesFilters from "./SalesFilters";
 import SalesTable, { type SaleRow } from "./SalesTable";
 import PageHeader from "@/components/shared/PageHeader";
 import Pagination from "@/components/shared/Pagination";
-import {
-  getSalesOrders,
-  type SalesOrdersResponse,
-} from "@/app/dashboard/pos/services/pos.services";
+
+interface ApiResponse {
+  data: SaleRow[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
 
 export default function SalesPageClient() {
   const searchParams = useSearchParams();
@@ -19,43 +25,34 @@ export default function SalesPageClient() {
 
   const [result, setResult] = useState<{
     queryString: string;
-    data: SalesOrdersResponse | null;
+    data: ApiResponse | null;
   } | null>(null);
 
   useEffect(() => {
-    let active = true;
-    const params = new URLSearchParams(queryString);
+    const controller = new AbortController();
 
     const loadSales = async () => {
       try {
-        const body = await getSalesOrders({
-          search: params.get("search") || undefined,
-          paymentStatus:
-            (params.get("paymentStatus") as
-              | "UNPAID"
-              | "PARTIAL"
-              | "PAID"
-              | undefined) ?? undefined,
-          paymentMethod:
-            (params.get("paymentMethod") as
-              | "CASH"
-              | "CARD"
-              | "BANK_TRANSFER"
-              | "MIXED"
-              | undefined) ?? undefined,
-          orderType:
-            (params.get("orderType") as "POS" | "TAILORING" | undefined) ??
-            undefined,
-          fromDate: params.get("fromDate") || undefined,
-          toDate: params.get("toDate") || undefined,
-          sort:
-            params.get("sort") === "date-asc" ? "date-asc" : "date-desc",
-          page: Number(params.get("page")) || 1,
-          limit: Number(params.get("limit")) || 10,
-        });
-        if (active) setResult({ queryString, data: body });
+        const response = await fetch(
+          `/api/sales/orders${queryString ? `?${queryString}` : ""}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
+
+        const body = (await response.json()) as ApiResponse & {
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(body.error || "تعذر تحميل المبيعات");
+        }
+
+        setResult({ queryString, data: body });
       } catch (error) {
-        if (!active) return;
+        if (controller.signal.aborted) return;
 
         toast.error(
           error instanceof Error ? error.message : "تعذر تحميل المبيعات",
@@ -65,16 +62,13 @@ export default function SalesPageClient() {
     };
 
     void loadSales();
-    return () => {
-      active = false;
-    };
+    return () => controller.abort();
   }, [queryString]);
 
-  const response =
+  const data =
     result?.queryString === queryString ? result.data : null;
-  const rows: SaleRow[] = response?.data ?? [];
   const loading = result?.queryString !== queryString;
-  const total = response?.pagination.total ?? 0;
+  const total = data?.pagination.total ?? 0;
 
   return (
     <div className="space-y-5 p-4 pb-16 md:p-6">
@@ -93,14 +87,14 @@ export default function SalesPageClient() {
             <p className="mt-1 text-xs text-gray-400">
               {loading
                 ? "جارٍ الحساب..."
-                : `${total.toLocaleString("ar-SA-u-nu-latn")} عملية بيع`}
+                : `${total.toLocaleString("ar-SA")} عملية بيع`}
             </p>
           </div>
         </div>
 
-        <SalesTable rows={rows} loading={loading} />
+        <SalesTable rows={data?.data ?? []} loading={loading} />
 
-        <Pagination meta={response?.pagination} />
+        <Pagination meta={data?.pagination} />
       </section>
     </div>
   );

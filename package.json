@@ -6,13 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "db:types": "node scripts/generate-supabase-types.mjs"
+    "lint": "eslint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@recharts/devtools": "^0.0.14",
-    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.112.3",
     "@tanstack/react-table": "^8.21.3",
     "bcryptjs": "^3.0.3",
@@ -42,7 +40,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "supabase": "^2.120.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5"

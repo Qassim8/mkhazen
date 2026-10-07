@@ -13,7 +13,6 @@ import {
 import CartItem from "./CartItem";
 import GiftPicker from "./GiftPicker";
 import type { POSCartItem } from "./POSClient";
-import { formatRate, formatUSD, sdgToUsd } from "@/lib/currency";
 import type { PaymentMethod, PaymentSplit } from "../schemas/pos.schemas";
 import type {
   Product,
@@ -23,8 +22,6 @@ import type {
 interface CartListProps {
   cart: POSCartItem[];
   giftProducts: Product[];
-  /** سعر الصرف الحالي (ج.س لكل 1$) */
-  exchangeRate: number | null;
   paymentMethod: PaymentMethod;
   paymentSplits: PaymentSplit[];
   subtotal: number;
@@ -47,7 +44,9 @@ interface CartListProps {
   onClear: () => void;
   onCheckout: () => void;
   onClose?: () => void;
-  onDiscountInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDiscountInputChange: (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => void;
   onAddGift: (
     product: Product,
     variant: ProductVariant,
@@ -101,7 +100,6 @@ function getOtherMethod(
 export default function CartList({
   cart,
   giftProducts,
-  exchangeRate,
   paymentMethod,
   paymentSplits,
   subtotal,
@@ -147,9 +145,7 @@ export default function CartList({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <LuShoppingCart className="h-4 w-4 text-(--primary-red)" />
-              <h1 className="text-base font-black text-gray-900">
-                الطلب الحالي
-              </h1>
+              <h1 className="text-base font-black text-gray-900">الطلب الحالي</h1>
               <span className="rounded-lg border bg-gray-50 px-2 py-0.5 text-xs font-semibold text-gray-500">
                 {totalItems}
               </span>
@@ -222,7 +218,6 @@ export default function CartList({
                   key={`${item.variant.id}-${item.isGift ? "gift" : "sale"}`}
                   item={item}
                   maxQuantity={maxQuantity}
-                  exchangeRate={exchangeRate}
                   onUpdateQty={onUpdateQty}
                   onSetQty={onSetQty}
                   onRemove={onRemove}
@@ -235,9 +230,7 @@ export default function CartList({
         <div className="shrink-0 space-y-3 border-t border-gray-100 pt-3">
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-700">
-                طريقة الدفع
-              </span>
+              <span className="text-xs font-bold text-gray-700">طريقة الدفع</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {PAYMENT_OPTIONS.map((option) => (
@@ -261,9 +254,7 @@ export default function CartList({
 
           {paymentMethod === "MIXED" && (
             <div className="space-y-2.5 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
-              <div className="text-[10px] font-bold text-gray-700">
-                تقسيم المبلغ
-              </div>
+              <div className="text-[10px] font-bold text-gray-700">تقسيم المبلغ</div>
               {[0, 1].map((index) => {
                 const split = paymentSplits[index];
                 if (!split) return null;
@@ -320,7 +311,7 @@ export default function CartList({
                       : "font-bold text-red-500"
                   }
                 >
-                  {mixedPaymentAmount.toFixed(2)} ج.س
+                  {mixedPaymentAmount.toFixed(2)} ر.س
                 </span>
               </div>
 
@@ -334,14 +325,11 @@ export default function CartList({
 
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <label
-                htmlFor="discount"
-                className="text-xs font-bold text-gray-700"
-              >
+              <label htmlFor="discount" className="text-xs font-bold text-gray-700">
                 الخصم
               </label>
               <span className="text-[10px] text-gray-400">
-                حتى 50% = {maxDiscount.toFixed(2)} ج.س
+                حتى 50% = {maxDiscount.toFixed(2)} ر.س
               </span>
             </div>
             <div className="relative">
@@ -361,13 +349,13 @@ export default function CartList({
                 } disabled:opacity-50`}
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">
-                ج.س
+                ر.س
               </span>
             </div>
             {(discountError || isDiscountOverLimit) && (
               <p className="mt-1 text-[10px] font-medium text-red-500">
                 {discountError ||
-                  `الخصم الحالي يتجاوز الحد المسموح ${maxDiscount.toFixed(2)} ج.س.`}
+                  `الخصم الحالي يتجاوز الحد المسموح ${maxDiscount.toFixed(2)} ر.س.`}
               </p>
             )}
           </div>
@@ -379,7 +367,7 @@ export default function CartList({
             </div>
             <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
               <span>المجموع الفرعي</span>
-              <span>{subtotal.toFixed(2)} ج.س</span>
+              <span>{subtotal.toFixed(2)} ر.س</span>
             </div>
             {discountAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-semibold text-emerald-600">
@@ -390,13 +378,13 @@ export default function CartList({
                     : "0.00"}
                   %)
                 </span>
-                <span>- {discountAmount.toFixed(2)} ج.س</span>
+                <span>- {discountAmount.toFixed(2)} ر.س</span>
               </div>
             )}
             {taxAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
                 <span>الضريبة</span>
-                <span>{taxAmount.toFixed(2)} ج.س</span>
+                <span>{taxAmount.toFixed(2)} ر.س</span>
               </div>
             )}
             <div className="flex items-center justify-between border-t border-gray-200 pt-2.5 text-sm font-black text-gray-900">
@@ -406,20 +394,9 @@ export default function CartList({
                   totalAmount > 0 ? "text-(--primary-red)" : "text-red-600"
                 }`}
               >
-                {totalAmount.toFixed(2)} ج.س
+                {totalAmount.toFixed(2)} ر.س
               </span>
             </div>
-
-            {exchangeRate ? (
-              <div className="flex items-center justify-between text-[10px] font-semibold text-gray-400">
-                <span dir="ltr">{formatRate(exchangeRate)}</span>
-                <span dir="ltr">≈ {formatUSD(sdgToUsd(totalAmount, exchangeRate))}</span>
-              </div>
-            ) : (
-              <p className="text-[10px] font-bold text-red-600">
-                لا يوجد سعر صرف مسجّل — لا يمكن إتمام البيع
-              </p>
-            )}
           </div>
 
           {cart.length > 0 && (
@@ -456,6 +433,7 @@ export default function CartList({
           </button>
         </div>
       </div>
+
       {isGiftPickerOpen && (
         <GiftPicker
           initialProducts={giftProducts}

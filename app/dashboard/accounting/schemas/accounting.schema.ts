@@ -48,9 +48,6 @@ export const accountingAccountEnum = z.enum([
   "RENTS",
   "OTHER_EXPENSE",
   "OTHER_INCOME",
-
-  "GIFTS",
-  "CURRENCY_EXCHANGE",
 ] as const);
 
 /* =========================================================
@@ -67,7 +64,6 @@ export const journalEntryTypeEnum = z.enum([
   "SALE_PAYMENT",
 
   "CUSTOMER_ADVANCE",
-  "CUSTOMER_ADVANCE_REFUND",
 
   "TAILOR_ADVANCE",
   "TAILOR_COST",
@@ -85,9 +81,6 @@ export const journalEntryTypeEnum = z.enum([
   "INVENTORY_ADJUSTMENT",
   "SALES_RETURN",
 
-  "GIFT",
-  "CURRENCY_EXCHANGE",
-
   "OTHER",
 ]);
 
@@ -98,17 +91,6 @@ export const journalEntryTypeEnum = z.enum([
 export const accountingPaymentMethodEnum = z.enum(["CASH", "BANK"], {
   message: "طريقة الدفع يجب أن تكون خزينة أو بنك",
 });
-
-/* =========================================================
-   CURRENCY
-   USD = عملة الحسابات، SDG = عملة التعامل مع الزبون
-========================================================= */
-
-export const currencyEnum = z.enum(["USD", "SDG"], {
-  message: "العملة يجب أن تكون دولار أو جنيه",
-});
-
-export type Currency = z.infer<typeof currencyEnum>;
 
 /* =========================================================
    JOURNAL ENTRY
@@ -150,12 +132,6 @@ export const journalEntrySchema = z
 
     creditAccount: accountingAccountEnum,
 
-    currency: currencyEnum.optional(),
-
-    exchangeRateUsed: z.number().nullable().optional(),
-
-    amountUsd: z.number().optional(),
-
     createdAt: z.string().optional(),
   })
   .refine((data) => data.debitAccount !== data.creditAccount, {
@@ -187,9 +163,6 @@ export const createManualJournalEntrySchema = z
     ),
 
     description: requiredString("البيان مطلوب").max(500, "البيان طويل جدًا"),
-
-    // عملة الحركة: المصروفات المحلية غالبًا بالجنيه، رأس المال غالبًا بالدولار
-    currency: currencyEnum.default("USD"),
   })
   .superRefine((data, ctx) => {
     if (data.entryType === "EXPENSE" && !data.paymentMethod) {
@@ -261,7 +234,6 @@ export const assetSchema = z.object({
     error: "تاريخ الشراء غير صالح",
   }),
   paymentMethod: accountingPaymentMethodEnum,
-  currency: currencyEnum.default("USD"),
   reference: nullableOptionalString.refine(
     (value) => value === null || value === undefined || value.length <= 100,
     {
@@ -272,35 +244,6 @@ export const assetSchema = z.object({
 });
 
 export const createAssetSchema = assetSchema;
-
-/* =========================================================
-   CURRENCY EXCHANGE (تحويل جنيه ⇄ دولار)
-========================================================= */
-
-export const currencyExchangeSchema = z
-  .object({
-    fromCurrency: currencyEnum,
-    fromAccount: accountingPaymentMethodEnum,
-    fromAmount: positiveAmount,
-    toAccount: accountingPaymentMethodEnum,
-    toAmount: positiveAmount,
-    notes: nullableOptionalString,
-  })
-  .superRefine((data, ctx) => {
-    const sdg = data.fromCurrency === "SDG" ? data.fromAmount : data.toAmount;
-    const usd = data.fromCurrency === "SDG" ? data.toAmount : data.fromAmount;
-    const rate = sdg / usd;
-
-    if (!Number.isFinite(rate) || rate < 1) {
-      ctx.addIssue({
-        code: "custom",
-        message: "سعر التحويل الناتج غير منطقي، راجع المبالغ",
-        path: ["toAmount"],
-      });
-    }
-  });
-
-export type CurrencyExchangeInput = z.input<typeof currencyExchangeSchema>;
 
 // إضافة أنواع مستقلة للـ Form والـ Output
 export type AssetFormInput = z.input<typeof createAssetSchema>;
@@ -360,9 +303,6 @@ export interface Asset {
     | string;
 
   purchaseValue: number;
-  purchaseValueUsd: number;
-  currency: "USD" | "SDG";
-  exchangeRateUsed: number | null;
   purchaseDate: string;
 
   paymentMethod: "CASH" | "BANK";

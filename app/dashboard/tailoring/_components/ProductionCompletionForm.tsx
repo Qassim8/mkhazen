@@ -137,9 +137,9 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
         <div className="space-y-5 p-5">
           <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <div><p className="text-[11px] font-bold text-gray-400">تكلفة القماش</p><p dir="ltr" className="mt-1 text-sm font-black">{order.fabricCost.toFixed(2)} $</p></div>
-              <div><p className="text-[11px] font-bold text-gray-400">تكلفة الخياطة</p><p dir="ltr" className="mt-1 text-sm font-black">{order.tailoringCost.toFixed(2)} $</p></div>
-              <div><p className="text-[11px] font-bold text-gray-400">إجمالي تكلفة الإنتاج</p><p dir="ltr" className="mt-1 text-sm font-black">{estimatedTotalCost.toFixed(2)} $</p></div>
+              <div><p className="text-[11px] font-bold text-gray-400">تكلفة القماش</p><p dir="ltr" className="mt-1 text-sm font-black">{order.fabricCost.toFixed(2)} ر.س</p></div>
+              <div><p className="text-[11px] font-bold text-gray-400">تكلفة الخياطة</p><p dir="ltr" className="mt-1 text-sm font-black">{order.tailoringCost.toFixed(2)} ر.س</p></div>
+              <div><p className="text-[11px] font-bold text-gray-400">إجمالي تكلفة الإنتاج</p><p dir="ltr" className="mt-1 text-sm font-black">{estimatedTotalCost.toFixed(2)} ر.س</p></div>
             </div>
             <p className="mt-3 text-[11px] text-gray-500">الكمية هنا هي عدد القطع الناتجة. {mode === "CONVERT_CUSTOMER" ? "القماش الذي أحضره العميل خارج المخزون لا يدخل في التكلفة؛ أما قماش المحل فيكون ضمن تكلفة القطعة." : "هذه ليست كمية القماش."}</p>
           </section>
@@ -174,7 +174,7 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
             </label>
             <div className="rounded-xl bg-emerald-50 p-3">
               <p className="text-[11px] font-bold text-emerald-600">تكلفة القطعة التقديرية</p>
-              <p dir="ltr" className="mt-1 text-sm font-black text-emerald-700">{estimatedUnitCost.toFixed(2)} $</p>
+              <p dir="ltr" className="mt-1 text-sm font-black text-emerald-700">{estimatedUnitCost.toFixed(2)} ر.س</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-3">
               <p className="text-[11px] font-bold text-blue-600">وحدة المنتج</p>
@@ -184,12 +184,12 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="text-xs font-bold text-gray-600">سعر البيع ($)</span>
+              <span className="text-xs font-bold text-gray-600">سعر البيع</span>
               <input {...register("sellingPrice")} disabled={isSubmitting} type="number" min="0.01" step="0.01" inputMode="decimal" className={inputClass(Boolean(errors.sellingPrice))} placeholder="مثال: 350" />
               <InlineError message={errors.sellingPrice?.message} />
             </label>
             <label className="block">
-              <span className="text-xs font-bold text-gray-600">الحد الأدنى لسعر البيع ($)</span>
+              <span className="text-xs font-bold text-gray-600">الحد الأدنى لسعر البيع</span>
               <input {...register("minSellingPrice")} disabled={isSubmitting} type="number" min="0" step="0.01" inputMode="decimal" className={inputClass(Boolean(errors.minSellingPrice))} placeholder="اختياري" />
               <InlineError message={errors.minSellingPrice?.message} />
             </label>

@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -26,11 +25,6 @@ import ProductVariantsSection from "./ProductVariants";
 import { Category } from "../../categories/schemas/category.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 
-function mergeById<T extends { id: string | number }>(base: T[], added: T[]) {
-  const seen = new Set(base.map((item) => String(item.id)));
-  return [...added.filter((item) => !seen.has(String(item.id))), ...base];
-}
-
 interface AddProductFormProps {
   initialCategories: Category[];
   initialSuppliers: Supplier[];
@@ -44,18 +38,8 @@ export default function AddProductClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // اللي اتضاف من المودال يظهر فورًا (من غير انتظار تحديث الصفحة)
-  const [addedCategories, setAddedCategories] = useState<Category[]>([]);
-  const [addedSuppliers, setAddedSuppliers] = useState<Supplier[]>([]);
-
-  const categories = useMemo(
-    () => mergeById(initialCategories, addedCategories),
-    [initialCategories, addedCategories],
-  );
-  const suppliers = useMemo(
-    () => mergeById(initialSuppliers, addedSuppliers),
-    [initialSuppliers, addedSuppliers],
-  );
+  const categories = initialCategories;
+  const suppliers = initialSuppliers;
 
   const {
     register,
@@ -256,15 +240,6 @@ export default function AddProductClient({
           categories={categories}
           suppliers={suppliers}
           loadingOptions={false}
-          onCategoryCreated={(category) => {
-            // نرسم الخيار الجديد الأول، بعدين نختاره
-            flushSync(() => setAddedCategories((prev) => [category, ...prev]));
-            setValue("categoryId", String(category.id), { shouldValidate: true });
-          }}
-          onSupplierCreated={(supplier) => {
-            flushSync(() => setAddedSuppliers((prev) => [supplier, ...prev]));
-            setValue("supplierId", String(supplier.id), { shouldValidate: true });
-          }}
         />
       </div>
 
@@ -311,7 +286,6 @@ export default function AddProductClient({
         <ProductVariantsSection
           control={control}
           register={register}
-          setValue={setValue}
           errors={errors}
           categories={categories}
           hasVariants={hasVariants}

@@ -26,8 +26,6 @@ export interface CheckoutTransactionInput {
   paymentSplits?: CheckoutPaymentSplit[];
   notes?: string | null;
   items: CheckoutItemInput[];
-  /** سعر الصرف المعروض على شاشة الكاشير (حماية من تغيّر السعر أثناء البيع) */
-  expectedExchangeRate?: number | null;
 }
 
 export interface CheckoutTransactionResult {
@@ -37,8 +35,6 @@ export interface CheckoutTransactionResult {
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
-  totalAmountUsd: number;
-  exchangeRateUsed: number;
   paidAmount: number;
   paymentStatus: "PAID";
   status: "COMPLETED";
@@ -53,8 +49,6 @@ interface CheckoutRpcResult {
   discount_amount?: unknown;
   tax_amount?: unknown;
   total_amount?: unknown;
-  total_amount_usd?: unknown;
-  exchange_rate_used?: unknown;
   paid_amount?: unknown;
   payment_status?: unknown;
   status?: unknown;
@@ -82,7 +76,6 @@ export async function completeSalesCheckout(
       isGift: item.isGift,
       giftNote: item.giftNote ?? null,
     })),
-    p_expected_exchange_rate: input.expectedExchangeRate ?? null,
   });
 
   if (error) {
@@ -114,8 +107,6 @@ export async function completeSalesCheckout(
     discountAmount: Number(result.discount_amount ?? 0),
     taxAmount: Number(result.tax_amount ?? 0),
     totalAmount: Number(result.total_amount ?? 0),
-    totalAmountUsd: Number(result.total_amount_usd ?? 0),
-    exchangeRateUsed: Number(result.exchange_rate_used ?? 0),
     paidAmount: Number(result.paid_amount ?? 0),
     paymentStatus: "PAID",
     status: "COMPLETED",

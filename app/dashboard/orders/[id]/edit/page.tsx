@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getPurchaseOrderById } from "../../services/order.services";
-import { getProductOptions } from "@/app/dashboard/products/services/products.services";
-import { getSupplierOptions } from "@/app/dashboard/suppliers/services/supplier.services";
+import { getProducts } from "@/app/dashboard/products/services/products.services";
+import { getSuppliers } from "@/app/dashboard/suppliers/services/supplier.services";
 
 import EditPurchaseOrderForm from "../../_components/EditPurchaseOrder";
 import BackLink from "@/components/shared/BackLink";
@@ -16,10 +16,10 @@ export default async function EditPurchaseOrderPage({ params }: Props) {
 
   const [orderRes, productsRes, suppliersRes] = await Promise.all([
     getPurchaseOrderById(id).catch(() => null),
-    getProductOptions().catch(() => ({
+    getProducts({ limit: 100 }).catch(() => ({
       data: [],
     })),
-    getSupplierOptions().catch(() => ({
+    getSuppliers({ limit: 100 }).catch(() => ({
       data: [],
     })),
   ]);

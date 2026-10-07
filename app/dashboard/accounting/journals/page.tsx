@@ -53,6 +53,11 @@ const Accounting = async ({ searchParams }: AccountingPageProps) => {
     <AccountingEntriesClient
       initialData={data}
       initialMeta={meta}
+      initialFilters={{
+        year,
+        entryType,
+        search,
+      }}
     />
   );
 };

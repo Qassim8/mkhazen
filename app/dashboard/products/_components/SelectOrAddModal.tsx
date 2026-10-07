@@ -1,9 +1,6 @@
 // @/components/SelectOrAddModal.tsx
 "use client";
 
-import type { UseFormRegister } from "react-hook-form";
-import type { ProductFormInputType } from "../schemas/product.schemas";
-
 import { LuPlus, LuLoader, LuCircleAlert } from "react-icons/lu";
 
 interface Option {
@@ -13,13 +10,13 @@ interface Option {
 
 interface SelectOrAddProps {
   label: string;
-  name: "categoryId" | "supplierId";
+  name: string;
   options: Option[];
   isLoading?: boolean;
   placeholder: string;
   emptyText: string;
   onOpenModal: () => void;
-  register: UseFormRegister<ProductFormInputType>;
+  register: any;
   error?: string;
   required?: boolean;
 }

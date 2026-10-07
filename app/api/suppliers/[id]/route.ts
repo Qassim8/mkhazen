@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { updateSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier.schemas";
 
@@ -12,9 +11,9 @@ interface RouteParams {
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -47,9 +46,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -134,9 +133,9 @@ export async function PUT(request: Request, { params }: RouteParams) {
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }

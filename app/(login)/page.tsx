@@ -1,6 +1,5 @@
 "use client";
 
-import { errorMessage } from "@/lib/errors";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -47,9 +46,9 @@ export default function LoginPage() {
 
       router.push("/dashboard");
       router.refresh();
-    } catch (error: unknown) {
+    } catch (error: any) {
       toast.error(
-        errorMessage(error, "فشل تسجيل الدخول، يرجى التأكد من البيانات"),
+        error.message || "فشل تسجيل الدخول، يرجى التأكد من البيانات",
         {
           duration: 4000,
         },

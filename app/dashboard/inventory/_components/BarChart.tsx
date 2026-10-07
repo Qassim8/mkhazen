@@ -22,10 +22,7 @@ interface Props {
 }
 
 const isIncoming = (type: InventoryMovement["movement_type"]) =>
-  type === "PURCHASE" ||
-  type === "SALE_RETURN" ||
-  type === "ADJUSTMENT_IN" ||
-  type === "OPENING_STOCK";
+  type === "PURCHASE" || type === "SALE_RETURN" || type === "ADJUSTMENT_IN";
 
 export default function BarChartComponent({ movements }: Props) {
   const data = useMemo(() => {

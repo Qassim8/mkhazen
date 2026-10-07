@@ -1,43 +1,43 @@
-import { redirect } from "next/navigation";
+import { reportsData } from "@/data/data";
+import Filters from "./components/Filters";
+import StatsCard from "../components/StatsCard";
+import RevenueChart from "./components/RevenueChart";
+import CategoryChart from "./components/CategoryChart";
+import TopProductsChart from "./components/TopProductsChart";
+import InventoryChart from "./components/InventoryChart";
+import ProductTable from "./components/ProductTable";
+import PageHeader from "@/components/shared/PageHeader";
 
-import { getSession } from "@/lib/auth";
-import {
-  buildReport,
-  describeFilters,
-  resolveReportFilters,
-} from "@/lib/reports/build-report";
-
-import ReportsClient from "./_components/ReportsClient";
-import { can } from "@/lib/permissions";
-
-export const dynamic = "force-dynamic";
-
-interface ReportsPageProps {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-export default async function ReportsPage({ searchParams }: ReportsPageProps) {
-  const user = await getSession();
-
-  if (!user || !can(user.role, "reports.view")) {
-    redirect("/dashboard");
-  }
-
-  const params = await searchParams;
-  const filters = resolveReportFilters(params);
-  const report = await buildReport(filters);
-
-  const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
-  const initialTab =
-    tabParam === "products" || tabParam === "categories" || tabParam === "inventory"
-      ? tabParam
-      : "summary";
-
+const Reports = () => {
   return (
-    <ReportsClient
-      report={report}
-      filterLabels={describeFilters(report)}
-      initialTab={initialTab}
-    />
+    <main>
+      <PageHeader title="التقارير" subtitle="رؤى وتحليلات شاملة لمتجرك" />
+      <Filters />
+      <section className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+        {/* Stats cards */}
+        {reportsData.map((stat) => (
+          <StatsCard
+            key={stat.title}
+            title={stat.title}
+            value={stat.value}
+          />
+        ))}
+      </section>
+      <RevenueChart />
+      <div className="grid md:grid-cols-2 gap-5 py-8">
+        <TopProductsChart />
+        <CategoryChart />
+      </div>
+      <div className="grid md:grid-cols-2 gap-5 max-h-[80vh] pb-8">
+        <div className="col-span-1">
+          <InventoryChart />
+        </div>
+        <div className="col-span-1">
+          <ProductTable />
+        </div>
+      </div>
+    </main>
   );
-}
+};
+
+export default Reports;

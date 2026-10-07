@@ -1,13 +1,12 @@
 "use client";
 
-import BackLink from "@/components/shared/BackLink";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import { LuSave, LuShoppingBag, LuFactory, LuTrash2, LuPlus } from "react-icons/lu";
+import { LuArrowRight, LuSave, LuShoppingBag, LuFactory, LuTrash2, LuPlus } from "react-icons/lu";
 
 import FabricSearch from "./FabricSearch";
 import {
@@ -61,9 +60,6 @@ function initialMeasurements(order: TailoringOrder) {
     : [{ label: "الطول", value: "", unit: "M" as MeasurementUnit }];
 }
 
-// مرجع ثابت: [] جديدة كل رندر كانت بتخلّي useMemo يعيد الحساب كل مرة
-const NO_MEASUREMENTS: never[] = [];
-
 export default function EditTailoringOrderForm({ order, tailors }: Props) {
   const router = useRouter();
   const [selectedFabric, setSelectedFabric] = useState<SelectedFabric | null>(
@@ -102,8 +98,7 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
       fabricVariantId: order.fabricVariantId,
       fabricQuantity: order.fabricQuantity != null ? order.fabricQuantity.toFixed(2) : "",
       totalAmount: order.tailoringPurpose === "CUSTOMER" ? order.totalAmount.toFixed(2) : "",
-      // الأجرة تُعدَّل بالجنيه (المبلغ المتفق عليه مع الخياط)
-      tailoringCost: (order.tailoringCostSdg || order.tailoringCost).toFixed(2),
+      tailoringCost: order.tailoringCost.toFixed(2),
       notes: order.notes ?? "",
     },
   });
@@ -112,7 +107,7 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
   const purpose = useWatch({ control, name: "tailoringPurpose" });
   const useStoreFabric = useWatch({ control, name: "useStoreFabric" });
   const selectedFabricId = useWatch({ control, name: "fabricVariantId" });
-  const measurements = useWatch({ control, name: "measurements" }) ?? NO_MEASUREMENTS;
+  const measurements = useWatch({ control, name: "measurements" }) ?? [];
   const intakeDate = useWatch({ control, name: "intakeDate" });
 
   const numericMeasurements = useMemo(
@@ -209,10 +204,14 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
   return (
     <form onSubmit={submitHandler} dir="rtl" className="space-y-6 pb-16" noValidate>
       <header className="border-b border-gray-100 pb-5">
-        <div className="mb-3">
-          <BackLink href={`/dashboard/tailoring/${order.id}`} label="العودة إلى الطلب" />
-        </div>
         <div className="flex items-start gap-2">
+          <Link
+            href={`/dashboard/tailoring/${order.id}`}
+            className="mt-1 rounded-lg p-1 text-gray-500 hover:bg-gray-100"
+            aria-label="العودة إلى الطلب"
+          >
+            <LuArrowRight />
+          </Link>
           <div>
             <h1 className="text-2xl font-black text-gray-950">تعديل الطلب {order.orderNumber}</h1>
             <p className="mt-1 text-sm text-gray-500">
@@ -354,17 +353,17 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
                 <input type="hidden" {...register("totalAmount")} />
                 <div className="relative">
                   <input readOnly disabled={isSubmitting} value={order.totalAmount.toFixed(2)} dir="ltr" className={`${inputClass(Boolean(errors.totalAmount))} bg-gray-50 pl-16 text-left`} />
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">ج.س</span>
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">ر.س</span>
                 </div>
                 <p className="mt-1 text-[11px] text-gray-400">القيمة ثابتة بعد إنشاء الطلب ولا تعدّل من هذه الصفحة.</p>
                 <InlineError message={errors.totalAmount?.message} />
               </label>
             )}
             <label className="block">
-              <span className="text-xs font-bold text-gray-600">أجرة الخياطة (بالجنيه)</span>
+              <span className="text-xs font-bold text-gray-600">تكلفة الخياطة</span>
               <div className="relative">
                 <input {...register("tailoringCost")} disabled={isSubmitting} type="number" min="0.01" step="0.01" inputMode="decimal" dir="ltr" className={`${inputClass(Boolean(errors.tailoringCost))} pl-16 text-left`} />
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">ج.س</span>
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">ر.س</span>
               </div>
               <InlineError message={errors.tailoringCost?.message} />
               <p className="mt-1 text-[11px] text-gray-400">يمكن تعديل تكلفة الخياطة فقط قبل دفع دفعة مقدمة للخياط أو بدء التنفيذ.</p>

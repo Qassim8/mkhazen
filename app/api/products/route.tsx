@@ -4,9 +4,6 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { requireLogin } from "@/lib/permissions-server";
-import { fetchAll, pageByAllowedIds } from "@/lib/supabase-fetch-all";
-import { can } from "@/lib/permissions";
 import { createProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
 
 const querySchema = z.object({
@@ -37,7 +34,7 @@ async function requireAdmin() {
     );
   }
 
-  if (!can(session.role, "catalog.manage")) {
+  if (session.role !== "admin") {
     return NextResponse.json(
       { message: "هذه العملية مقتصرة على المدير." },
       { status: 403 },
@@ -81,13 +78,10 @@ const productListSelect = `
 
 /* =========================================================
    GET /api/products
-   أي مستخدم مسجّل (الكاشير والتفصيل بيستخدموه)
+   Public
    ========================================================= */
 
 export async function GET(request: Request) {
-  const guard = await requireLogin();
-  if (!guard.ok) return guard.response;
-
   try {
     const { searchParams } = new URL(request.url);
 
@@ -121,89 +115,116 @@ export async function GET(request: Request) {
       limit,
     } = parsed.data;
 
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     const safeSearch = sanitizeSearch(search);
 
-    const sortMap = {
-      "createdAt-desc": { column: "createdAt", ascending: false },
-      "createdAt-asc": { column: "createdAt", ascending: true },
-      "name-asc": { column: "name", ascending: true },
-      "name-desc": { column: "name", ascending: false },
-    } as const;
-
-    const sort = sortMap[sortBy];
-
-    const eqFilters: [string, string][] = [];
-    if (categoryId) eqFilters.push(["categoryId", categoryId]);
-    if (supplierId) eqFilters.push(["supplierId", supplierId]);
-
     /* =====================================================
-       فلاتر بتتحسب في الكود (البحث في الباركود/SKU + حالة المخزون).
-       كل القراءات على دفعات (حد الـ 1000 صف)، والنتيجة قائمة IDs
-       بتتقسم صفحات في الكود بدل .in() بقائمة طويلة في الرابط.
+       Search inside variants
     ===================================================== */
 
-    let searchIds: Set<string> | null = null;
+    let matchingTemplateIdsFromVariants: string[] = [];
 
     if (safeSearch) {
-      const pattern = `%${safeSearch}%`;
-      const [nameMatches, variantMatches] = await Promise.all([
-        fetchAll<{ id: string }>((rangeFrom, rangeTo) =>
-          supabaseAdmin
-            .from("product_templates")
-            .select("id")
-            .ilike("name", pattern)
-            .order("id")
-            .range(rangeFrom, rangeTo),
-        ),
-        fetchAll<{ templateId: string }>((rangeFrom, rangeTo) =>
-          supabaseAdmin
-            .from("product_variants")
-            .select('id, "templateId"')
-            .or(`sku.ilike.${pattern},barcode.ilike.${pattern},packBarcode.ilike.${pattern}`)
-            .order("id")
-            .range(rangeFrom, rangeTo),
-        ),
-      ]);
+      const { data: variantMatches, error } = await supabaseAdmin
+        .from("product_variants")
+        .select("templateId")
+        .or(
+          `sku.ilike.%${safeSearch}%,barcode.ilike.%${safeSearch}%,packBarcode.ilike.%${safeSearch}%`,
+        );
 
-      searchIds = new Set([
-        ...nameMatches.map((row) => row.id),
-        ...variantMatches.map((row) => row.templateId),
-      ]);
+      if (error) {
+        console.error("Variant search error:", error);
+
+        return NextResponse.json(
+          {
+            message: "حدث خطأ أثناء البحث عن المنتجات.",
+          },
+          { status: 500 },
+        );
+      }
+
+      matchingTemplateIdsFromVariants = [
+        ...new Set((variantMatches ?? []).map((variant) => variant.templateId)),
+      ];
     }
 
-    let stockIds: Set<string> | null = null;
+    /* =====================================================
+       Stock filter
+
+       We calculate for every template:
+
+       totalStock
+       totalMinStock
+
+       using ACTIVE variants only.
+    ===================================================== */
+
+    let stockFilteredTemplateIds: string[] | null = null;
 
     if (status) {
-      const stockRows = await fetchAll<{
-        templateId: string;
-        stockQuantity: number | string | null;
-        minStockLevel: number | string | null;
-        isActive: boolean | null;
-      }>((rangeFrom, rangeTo) =>
-        supabaseAdmin
-          .from("product_variants")
-          .select('id, "templateId", "stockQuantity", "minStockLevel", "isActive"')
-          .order("id")
-          .range(rangeFrom, rangeTo),
-      );
+      const { data: stockRows, error } = await supabaseAdmin
+        .from("product_variants")
+        .select('templateId, "stockQuantity", "minStockLevel", "isActive"');
 
-      const grouped = new Map<string, { totalStock: number; totalMinStock: number }>();
+      if (error) {
+        console.error("Stock filter error:", error);
 
-      for (const row of stockRows) {
+        return NextResponse.json(
+          {
+            message: "حدث خطأ أثناء فلترة المخزون.",
+          },
+          { status: 500 },
+        );
+      }
+
+      const grouped = new Map<
+        string,
+        {
+          totalStock: number;
+          totalMinStock: number;
+          activeCount: number;
+        }
+      >();
+
+      for (const row of stockRows ?? []) {
         // المنتجات غير النشطة لا تدخل في حساب حالة المخزون
-        if (!row.isActive) continue;
+        if (!row.isActive) {
+          continue;
+        }
 
-        const current = grouped.get(row.templateId) ?? { totalStock: 0, totalMinStock: 0 };
+        const current = grouped.get(row.templateId) ?? {
+          totalStock: 0,
+          totalMinStock: 0,
+          activeCount: 0,
+        };
+
+        current.activeCount += 1;
+
         current.totalStock += Number(row.stockQuantity ?? 0);
+
         current.totalMinStock += Number(row.minStockLevel ?? 0);
+
         grouped.set(row.templateId, current);
       }
 
-      stockIds = new Set();
+      stockFilteredTemplateIds = [];
 
       for (const [templateId, info] of grouped) {
+        /*
+         * إذا لم توجد variants نشطة فلا نعتبر المنتج
+         * متوفرًا أو منخفضًا أو نافدًا من خلال هذا الفلتر.
+         */
+        if (info.activeCount === 0) {
+          continue;
+        }
+
         const isOutOfStock = info.totalStock <= 0;
-        const isLowStock = info.totalStock > 0 && info.totalStock <= info.totalMinStock;
+
+        const isLowStock =
+          info.totalStock > 0 && info.totalStock <= info.totalMinStock;
+
         const isInStock = info.totalStock > info.totalMinStock;
 
         if (
@@ -211,67 +232,134 @@ export async function GET(request: Request) {
           (status === "lowstock" && isLowStock) ||
           (status === "outstock" && isOutOfStock)
         ) {
-          stockIds.add(templateId);
+          stockFilteredTemplateIds.push(templateId);
         }
       }
-    }
 
-    const allowed =
-      searchIds && stockIds
-        ? new Set([...searchIds].filter((id) => stockIds.has(id)))
-        : (searchIds ?? stockIds);
-
-    let data: unknown[];
-    let total: number;
-
-    if (allowed) {
-      const result = await pageByAllowedIds<{ id: string }>({
-        allowed,
-        page,
-        limit,
-        orderedIds: (rangeFrom, rangeTo) => {
-          let idsQuery = supabaseAdmin.from("product_templates").select("id");
-          for (const [column, value] of eqFilters) idsQuery = idsQuery.eq(column, value);
-          return idsQuery
-            .order(sort.column, { ascending: sort.ascending })
-            .order("id")
-            .range(rangeFrom, rangeTo);
-        },
-        fetchRows: (ids) =>
-          supabaseAdmin.from("product_templates").select(productListSelect).in("id", ids),
-      });
-
-      data = result.rows;
-      total = result.total;
-    } else {
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-
-      let query = supabaseAdmin
-        .from("product_templates")
-        .select(productListSelect, { count: "exact" });
-      for (const [column, value] of eqFilters) query = query.eq(column, value);
-
-      const result = await query
-        .order(sort.column, { ascending: sort.ascending })
-        .order("id")
-        .range(from, to);
-
-      if (result.error) {
-        console.error("Products GET error:", result.error);
+      /*
+       * لا توجد نتائج لهذا الفلتر.
+       */
+      if (stockFilteredTemplateIds.length === 0) {
         return NextResponse.json(
-          { message: "حدث خطأ أثناء جلب المنتجات." },
-          { status: 500 },
+          {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          },
+          { status: 200 },
         );
       }
-
-      data = result.data ?? [];
-      total = result.count ?? 0;
     }
+
+    /* =====================================================
+       Main query
+    ===================================================== */
+
+    let query = supabaseAdmin
+      .from("product_templates")
+      .select(productListSelect, {
+        count: "exact",
+      });
+
+    /* =====================================================
+       Search
+    ===================================================== */
+
+    if (safeSearch) {
+      if (matchingTemplateIdsFromVariants.length > 0) {
+        query = query.or(
+          `name.ilike.%${safeSearch}%,id.in.(${matchingTemplateIdsFromVariants.join(",")})`,
+        );
+      } else {
+        query = query.ilike("name", `%${safeSearch}%`);
+      }
+    }
+
+    /* =====================================================
+       Category
+    ===================================================== */
+
+    if (categoryId) {
+      query = query.eq("categoryId", categoryId);
+    }
+
+    /* =====================================================
+       Preferred Supplier
+    ===================================================== */
+
+    if (supplierId) {
+      query = query.eq("supplierId", supplierId);
+    }
+
+    /* =====================================================
+       Stock
+    ===================================================== */
+
+    if (stockFilteredTemplateIds) {
+      query = query.in("id", stockFilteredTemplateIds);
+    }
+
+    /* =====================================================
+       Sorting
+    ===================================================== */
+
+    const sortMap = {
+      "createdAt-desc": {
+        column: "createdAt",
+        ascending: false,
+      },
+
+      "createdAt-asc": {
+        column: "createdAt",
+        ascending: true,
+      },
+
+      "name-asc": {
+        column: "name",
+        ascending: true,
+      },
+
+      "name-desc": {
+        column: "name",
+        ascending: false,
+      },
+    } as const;
+
+    const sort = sortMap[sortBy];
+
+    query = query.order(sort.column, {
+      ascending: sort.ascending,
+    });
+
+    /* =====================================================
+       Pagination
+    ===================================================== */
+
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Products GET error:", error);
+
+      return NextResponse.json(
+        {
+          message: "حدث خطأ أثناء جلب المنتجات.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const total = count ?? 0;
 
     return NextResponse.json(
       {
-        data,
+        data: data ?? [],
+
         meta: {
           total,
           page,

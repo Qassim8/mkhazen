@@ -1,11 +1,8 @@
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
-
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession, invalidateAccountCache, type TokenPayload } from "@/lib/auth";
-import { can, normalizeRole } from "@/lib/permissions";
 import { updateEmployeeSchema } from "@/app/dashboard/employees/schemas/employee.schemas";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { getSession } from "@/lib/auth";
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -17,55 +14,7 @@ const positionToRoleMap: Record<string, string> = {
   tailor: "tailor",
 };
 
-// أعمدة آمنة للعرض (بدون كلمة السر)
-const SAFE_COLUMNS =
-  'id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"';
-
-function forbidden(message: string) {
-  return NextResponse.json({ message }, { status: 403 });
-}
-
-/**
- * قواعد التسلسل:
- * • حساب المالك: محدش يعدّله غير المالك نفسه، ومحدش يحذفه، ودوره ما يتغيرش.
- * • حسابات المديرين: المالك بس يضيفها أو يعدّلها أو يحذفها.
- * • الكاشير والخياط: المالك والمدير.
- */
-function checkCanManageTarget(
-  actor: TokenPayload,
-  target: { id: string; role: string },
-): string | null {
-  const targetRole = normalizeRole(target.role);
-
-  if (targetRole === "owner") {
-    return actor.userId === target.id ? null : "لا يمكن تعديل حساب المالك.";
-  }
-
-  if (targetRole === "admin" && !can(actor.role, "users.manageAdmins")) {
-    return "إدارة حسابات المديرين متاحة للمالك فقط.";
-  }
-
-  if (!can(actor.role, "users.manageStaff")) {
-    return "ليس لديك صلاحية إدارة الموظفين.";
-  }
-
-  return null;
-}
-
-function actorIsSelf(actor: TokenPayload, target: { id: string }) {
-  return actor.userId === target.id;
-}
-
-async function loadTarget(id: string) {
-  const { data } = await supabaseAdmin
-    .from("users")
-    .select("id, name, role")
-    .eq("id", id)
-    .maybeSingle();
-  return data as { id: string; name: string; role: string } | null;
-}
-
-// GET: جلب موظف محدد (لنفسه أو للإدارة) — بدون كلمة السر
+// GET: جلب موظف محدد
 export async function GET(request: Request, { params }: Params) {
   try {
     const user = await getSession();
@@ -74,89 +23,96 @@ export async function GET(request: Request, { params }: Params) {
     }
 
     const { id } = await params;
-    const target = await loadTarget(id);
-
-    if (
-      !target ||
-      (normalizeRole(target.role) === "owner" &&
-        normalizeRole(user.role) !== "owner")
-    ) {
-      return NextResponse.json({ message: "الموظف غير موجود" }, { status: 404 });
-    }
-
-    if (id !== user.userId && !can(user.role, "users.manageStaff")) {
-      return forbidden("ليس لديك صلاحية عرض بيانات هذا الموظف.");
-    }
 
     const { data, error } = await supabaseAdmin
       .from("users")
-      .select(SAFE_COLUMNS)
+      .select("*")
       .eq("id", id)
       .single();
 
     if (error || !data) {
-      return NextResponse.json({ message: "الموظف غير موجود" }, { status: 404 });
+      return NextResponse.json(
+        { message: "الموظف غير موجود" },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({ data }, { status: 200 });
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر", error: err instanceof Error ? err.message : String(err) },
+      { message: "خطأ في السيرفر", error: err.message },
       { status: 500 },
     );
   }
 }
 
-// PUT: تعديل بيانات موظف أو إعادة تعيين كلمة السر
+// PUT: تعديل بيانات موظف
 export async function PUT(request: Request, { params }: Params) {
   try {
     const user = await getSession();
-    if (!user) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json(
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
+      );
     }
 
     const { id } = await params;
-    const target = await loadTarget(id);
-
-    if (!target) {
-      return NextResponse.json({ message: "الموظف غير موجود" }, { status: 404 });
-    }
-
     const body = await request.json();
-    const targetIsOwner = normalizeRole(target.role) === "owner";
 
-    // إعادة تعيين كلمة السر عملية تشغيلية: المدير يقدر يعملها لأي موظف
-    // (حتى مدير تاني)، والمالك بس هو اللي يغيّر كلمة سر نفسه.
-    const denied = body.password
-      ? targetIsOwner
-        ? actorIsSelf(user, target) ? null : "لا يمكن تعديل حساب المالك."
-        : can(user.role, "users.resetPasswords")
-          ? null
-          : "ليس لديك صلاحية إعادة تعيين كلمات السر."
-      : checkCanManageTarget(user, target);
-
-    if (denied) return forbidden(denied);
-
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: Record<string, any> = {
       updatedAt: new Date().toISOString(),
     };
 
-    // 1️⃣ إعادة تعيين كلمة السر
-    // تسجيل الدخول بيقارن users.password (bcrypt)، فالتحديث لازم يكون هنا.
-    // الموظف هيتطلب منه تغييرها أول ما يدخل.
+    // 1️⃣ تحديث كلمة المرور في Supabase Auth إذا كانت موجودة
     if (body.password) {
-      const password = String(body.password);
+      const { error: authError } =
+        await supabaseAdmin.auth.admin.updateUserById(id, {
+          password: body.password,
+        });
 
-      if (password.length < 6) {
-        return NextResponse.json(
-          { message: "كلمة السر يجب ألا تقل عن 6 أحرف" },
-          { status: 422 },
-        );
+      // إذا لم يكن المستخدم موجوداً في Supabase Auth، نحاول إيجاده بالـ Email أو ربطه
+      if (authError) {
+        // إذا كان الخطأ أن المستخدم غير موجود في Auth
+        if (authError.message.includes("User not found")) {
+          // جلب بريد المستخدم من جدول users لربطه/تحديثه
+          const { data: dbUser } = await supabaseAdmin
+            .from("users")
+            .select("email")
+            .eq("id", id)
+            .single();
+
+          if (dbUser?.email) {
+            // إنشاء المستخدم في Supabase Auth بنفس الـ ID والـ Email
+            const { error: createAuthError } =
+              await supabaseAdmin.auth.admin.createUser({
+                id: id,
+                email: dbUser.email,
+                password: body.password,
+                email_confirm: true,
+              });
+
+            if (
+              createAuthError &&
+              !createAuthError.message.includes("already")
+            ) {
+              return NextResponse.json(
+                { message: `فشل تحديث Auth: ${createAuthError.message}` },
+                { status: 400 },
+              );
+            }
+          }
+        } else {
+          return NextResponse.json(
+            { message: authError.message },
+            { status: 400 },
+          );
+        }
       }
 
-      updatePayload.password = await bcrypt.hash(password, 10);
-      updatePayload.isPasswordChanged = false;
-      updatePayload.resetRequested = false;
+      if (typeof body.resetRequested !== "undefined") {
+        updatePayload.resetRequested = Boolean(body.resetRequested);
+      }
     }
     // 2️⃣ تحديث البيانات العادية
     else {
@@ -174,17 +130,8 @@ export async function PUT(request: Request, { params }: Params) {
       Object.assign(updatePayload, validation.data);
 
       if (validation.data.position) {
-        const nextRole = positionToRoleMap[validation.data.position] || "tailor";
-
-        if (targetIsOwner) {
-          // دور المالك ثابت مهما اتغير المسمى
-          delete updatePayload.position;
-        } else {
-          if (nextRole === "admin" && !can(user.role, "users.manageAdmins")) {
-            return forbidden("الترقية لمدير متاحة للمالك فقط.");
-          }
-          updatePayload.role = nextRole;
-        }
+        updatePayload.role =
+          positionToRoleMap[validation.data.position] || "tailor";
       }
 
       if (typeof body.resetRequested !== "undefined") {
@@ -192,44 +139,28 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
+    // 3️⃣ تحديث البيانات في جدول users
     const { data, error } = await supabaseAdmin
       .from("users")
       .update(updatePayload)
       .eq("id", id)
-      .select(SAFE_COLUMNS)
+      .select()
       .single();
 
     if (error) {
       return NextResponse.json({ message: error.message }, { status: 400 });
     }
 
-    invalidateAccountCache(id);
-
-    if (body.password) {
-      // طلب إعادة التعيين اتنفذ → إشعاره يتقفل
-      await supabaseAdmin
-        .from("notifications")
-        .update({ isRead: true })
-        .eq("type", "RESET_PASSWORD")
-        .eq("metadata->>user_id", id)
-        .eq("isRead", false);
-    }
-
     revalidateTag("employees-list", "default");
     revalidatePath("/dashboard/employees");
 
     return NextResponse.json(
-      {
-        message: body.password
-          ? "تم تعيين كلمة السر الجديدة، وسيُطلب من الموظف تغييرها عند الدخول"
-          : "تم تحديث بيانات الموظف بنجاح",
-        data,
-      },
+      { message: "تم تحديث بيانات الموظف بنجاح", data },
       { status: 200 },
     );
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر", error: err instanceof Error ? err.message : String(err) },
+      { message: "خطأ في السيرفر", error: err.message },
       { status: 500 },
     );
   }
@@ -239,43 +170,25 @@ export async function PUT(request: Request, { params }: Params) {
 export async function DELETE(request: Request, { params }: Params) {
   try {
     const user = await getSession();
-    if (!user) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json(
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
+        { status: 403 },
+      );
     }
 
     const { id } = await params;
-
-    if (id === user.userId) {
-      return forbidden("لا يمكنك حذف حسابك.");
-    }
-
-    const target = await loadTarget(id);
-    if (!target) {
-      return NextResponse.json({ message: "فشل الحذف، الموظف غير موجود" }, { status: 400 });
-    }
-
-    if (normalizeRole(target.role) === "owner") {
-      return forbidden("لا يمكن حذف حساب المالك.");
-    }
-
-    const denied = checkCanManageTarget(user, target);
-    if (denied) return forbidden(denied);
 
     const { data, error } = await supabaseAdmin
       .from("users")
       .delete()
       .eq("id", id)
-      .select("id, name")
+      .select()
       .single();
-
-    invalidateAccountCache(id);
 
     if (error || !data) {
       return NextResponse.json(
-        {
-          message:
-            "تعذر حذف الموظف. لو عليه عمليات مسجلة (مبيعات، طلبات، قيود) عطّل حسابه بدل الحذف.",
-        },
+        { message: "فشل الحذف، الموظف غير موجود" },
         { status: 400 },
       );
     }
@@ -284,12 +197,15 @@ export async function DELETE(request: Request, { params }: Params) {
     revalidatePath("/dashboard/employees");
 
     return NextResponse.json(
-      { message: `تم حذف الموظف ${data.name} بنجاح ✅`, data },
+      {
+        message: `تم حذف الموظف ${data.name} بنجاح ✅`,
+        data,
+      },
       { status: 200 },
     );
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر", error: err instanceof Error ? err.message : String(err) },
+      { message: "خطأ في السيرفر", error: err.message },
       { status: 500 },
     );
   }

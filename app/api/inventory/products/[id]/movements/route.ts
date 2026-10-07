@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { fetchAllResult } from "@/lib/supabase-fetch-all";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 
 interface Props {
   params: Promise<{
@@ -15,10 +13,10 @@ export async function GET(request: Request, { params }: Props) {
   try {
     const user = await getSession();
 
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
         },
         { status: 403 },
       );
@@ -85,9 +83,7 @@ export async function GET(request: Request, { params }: Props) {
        MOVEMENTS
     ===================================================== */
 
-    // السجل كامل على دفعات (مش آخر 100 حركة بس)
-    const { data: movements, error: movementsError } = await fetchAllResult((from, to) =>
-      supabaseAdmin
+    const { data: movements, error: movementsError } = await supabaseAdmin
       .from("inventory_movements")
       .select(
         `
@@ -108,9 +104,7 @@ export async function GET(request: Request, { params }: Props) {
       .order("created_at", {
         ascending: false,
       })
-      .order("id")
-      .range(from, to),
-    );
+      .limit(100);
 
     if (movementsError) {
       console.error("Inventory movements GET:", movementsError);

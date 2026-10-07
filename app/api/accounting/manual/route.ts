@@ -3,22 +3,17 @@ import { NextResponse } from "next/server";
 import { createManualJournalEntrySchema } from "@/app/dashboard/accounting/schemas/accounting.schema";
 
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 
-import {
-  createJournalEntry,
-  formatBalanceMessage,
-  getAccountBalance,
-} from "../_lib/accounting";
+import { createJournalEntry, getAccountBalance } from "../_lib/accounting";
 
 export async function POST(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || !can(user.role, "accounting.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
         },
         { status: 403 },
       );
@@ -45,7 +40,6 @@ export async function POST(request: Request) {
       account,
       reference,
       description,
-      currency,
     } = validation.data;
 
     /* =====================================================
@@ -54,13 +48,6 @@ export async function POST(request: Request) {
        DR BANK / CASH
        CR CAPITAL
     ===================================================== */
-
-    if (entryType === "CAPITAL" && !can(user.role, "accounting.capital")) {
-      return NextResponse.json(
-        { message: "قيود رأس المال متاحة للمالك فقط." },
-        { status: 403 },
-      );
-    }
 
     if (entryType === "CAPITAL") {
       if (!paymentMethod) {
@@ -82,7 +69,6 @@ export async function POST(request: Request) {
         description,
         reference,
         createdBy: user.userId ?? null,
-        currency,
       });
 
       return NextResponse.json(
@@ -138,11 +124,17 @@ export async function POST(request: Request) {
          CHECK BALANCE
       ================================================= */
 
-      const currentBalance = await getAccountBalance(creditAccount, currency);
+      const currentBalance = await getAccountBalance(creditAccount);
 
       if (amount > currentBalance) {
+        const accountLabel = creditAccount === "BANK" ? "البنك" : "الخزينة";
+
         return NextResponse.json(
-          { message: formatBalanceMessage(creditAccount, currency, currentBalance) },
+          {
+            message: `الرصيد غير كافٍ في ${accountLabel}. الرصيد الحالي ${currentBalance.toFixed(
+              2,
+            )} ريال`,
+          },
           { status: 400 },
         );
       }
@@ -155,7 +147,6 @@ export async function POST(request: Request) {
         description,
         reference,
         createdBy: user.userId ?? null,
-        currency,
       });
 
       return NextResponse.json(
@@ -194,7 +185,6 @@ export async function POST(request: Request) {
         description,
         reference,
         createdBy: user.userId ?? null,
-        currency,
       });
 
       return NextResponse.json(

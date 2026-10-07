@@ -21,7 +21,7 @@ export interface Meta {
   totalPages: number;
 }
 
-type RawTailoringOrder = Record<string, unknown>;
+interface RawTailoringOrder extends Record<string, unknown> {}
 
 function mapMeasurements(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -65,9 +65,7 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
   const tailoringCost = Number(raw.tailoring_cost ?? 0);
   const fabricCost = Number(raw.fabric_cost ?? raw.tailoring_fabric_cost ?? 0);
   const productionTotalCost =
-    raw.production_total_cost == null
-      ? null
-      : Number(raw.production_total_cost);
+    raw.production_total_cost == null ? null : Number(raw.production_total_cost);
   const totalCost = Number(
     (productionTotalCost ?? fabricCost + tailoringCost).toFixed(2),
   );
@@ -75,23 +73,19 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
   const measurements = mapMeasurements(raw.measurements);
   const measurementMeters = Number(
     Number(
-      raw.measurement_meters ??
-        calculateMeasurementMetersFromRaw(raw.measurements),
+      raw.measurement_meters ?? calculateMeasurementMetersFromRaw(raw.measurements),
     ).toFixed(2),
   );
 
   const producedQuantity =
     raw.produced_quantity == null ? null : Number(raw.produced_quantity);
   const producedProduct =
-    raw.produced_product_name &&
-    (raw.produced_product_variant_id || raw.production_completed)
+    raw.produced_product_name && raw.produced_product_variant_id
       ? {
           templateId: String(raw.produced_product_template_id ?? ""),
-          variantId: String(raw.produced_product_variant_id ?? ""),
+          variantId: String(raw.produced_product_variant_id),
           name: String(raw.produced_product_name),
-          sku: raw.produced_product_sku
-            ? String(raw.produced_product_sku)
-            : null,
+          sku: raw.produced_product_sku ? String(raw.produced_product_sku) : null,
           barcode: raw.produced_product_barcode
             ? String(raw.produced_product_barcode)
             : null,
@@ -106,42 +100,22 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
   return {
     id: String(raw.id ?? ""),
     orderNumber: String(raw.order_number ?? ""),
-    tailoringItemName: String(
-      raw.tailoring_item_name ?? `طلب تفصيل ${String(raw.order_number ?? "")}`,
-    ),
-    tailoringItemDescription: raw.tailoring_item_description
-      ? String(raw.tailoring_item_description)
-      : null,
-    cancellationReason: raw.cancellation_reason
-      ? String(raw.cancellation_reason)
-      : null,
-    convertedToProductAt: raw.converted_to_product_at
-      ? String(raw.converted_to_product_at)
-      : null,
-    customerAdvanceAvailable: Number(
-      Number(raw.customer_advance_available ?? 0).toFixed(2),
-    ),
-    customerAdvanceTransferredIn: Number(
-      Number(raw.customer_advance_transferred_in ?? 0).toFixed(2),
-    ),
-    customerAdvanceTransferredOut: Number(
-      Number(raw.customer_advance_transferred_out ?? 0).toFixed(2),
-    ),
-    customerAdvanceRefunded: Number(
-      Number(raw.customer_advance_refunded ?? 0).toFixed(2),
-    ),
+    tailoringItemName: String(raw.tailoring_item_name ?? `طلب تفصيل ${String(raw.order_number ?? "")}`),
+    tailoringItemDescription: raw.tailoring_item_description ? String(raw.tailoring_item_description) : null,
+    cancellationReason: raw.cancellation_reason ? String(raw.cancellation_reason) : null,
+    convertedToProductAt: raw.converted_to_product_at ? String(raw.converted_to_product_at) : null,
+    customerAdvanceAvailable: Number(Number(raw.customer_advance_available ?? 0).toFixed(2)),
+    customerAdvanceTransferredIn: Number(Number(raw.customer_advance_transferred_in ?? 0).toFixed(2)),
+    customerAdvanceTransferredOut: Number(Number(raw.customer_advance_transferred_out ?? 0).toFixed(2)),
+    customerAdvanceRefunded: Number(Number(raw.customer_advance_refunded ?? 0).toFixed(2)),
     customerAdvanceMovements: Array.isArray(raw.customer_advance_movements)
       ? raw.customer_advance_movements.map((movement) => {
           const row = movement as Record<string, unknown>;
           return {
             direction: (row.direction ?? "IN") as "IN" | "OUT" | "REFUND",
             amount: Number(row.amount ?? 0),
-            relatedOrderId: row.related_order_id
-              ? String(row.related_order_id)
-              : null,
-            relatedOrderNumber: row.related_order_number
-              ? String(row.related_order_number)
-              : null,
+            relatedOrderId: row.related_order_id ? String(row.related_order_id) : null,
+            relatedOrderNumber: row.related_order_number ? String(row.related_order_number) : null,
             createdAt: String(row.created_at ?? ""),
           };
         })
@@ -177,9 +151,7 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
     maxFabricQuantity: Number(
       Number(raw.max_fabric_quantity ?? measurementMeters + 1).toFixed(2),
     ),
-    fabricVariantId: raw.fabric_variant_id
-      ? String(raw.fabric_variant_id)
-      : null,
+    fabricVariantId: raw.fabric_variant_id ? String(raw.fabric_variant_id) : null,
     fabricQuantity:
       raw.fabric_quantity != null ? Number(raw.fabric_quantity) : null,
     fabric: raw.fabric_name
@@ -187,27 +159,14 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
           id: String(raw.fabric_variant_id ?? ""),
           name: String(raw.fabric_name),
           sku: raw.fabric_sku ? String(raw.fabric_sku) : null,
-          sellingUnit: raw.fabric_selling_unit
-            ? String(raw.fabric_selling_unit)
-            : null,
+          sellingUnit: raw.fabric_selling_unit ? String(raw.fabric_selling_unit) : null,
           stockQuantity: Number(raw.fabric_stock_quantity ?? 0),
         }
       : null,
     fabricCost,
     tailoringCost,
     totalCost,
-    // الربح بالدولار محسوب في السيرفر (الإيراد بالجنيه متحوّل بسعر صرفه)
-    grossProfit:
-      purpose === "CUSTOMER" && raw.gross_profit != null
-        ? Number(raw.gross_profit)
-        : purpose === "CUSTOMER" && raw.total_amount_usd != null
-          ? Number((Number(raw.total_amount_usd) - totalCost).toFixed(2))
-          : null,
-    totalAmountUsd:
-      raw.total_amount_usd != null ? Number(raw.total_amount_usd) : null,
-    exchangeRateUsed:
-      raw.exchange_rate_used != null ? Number(raw.exchange_rate_used) : null,
-    revenueIsFinal: Boolean(raw.revenue_is_final),
+    grossProfit: purpose === "CUSTOMER" ? Number((total - totalCost).toFixed(2)) : null,
     tailoringMaterialJournalEntryId: raw.tailoring_material_journal_entry_id
       ? String(raw.tailoring_material_journal_entry_id)
       : null,
@@ -222,18 +181,9 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
       : null,
     tailoringCostRecognized:
       purpose === "PRODUCTION"
-        ? Boolean(
-            raw.production_labor_journal_entry_id ??
-            raw.tailoring_labor_journal_entry_id,
-          )
-        : Boolean(
-            raw.tailoring_labor_journal_entry_id ??
-            raw.tailoring_cogs_journal_entry_id,
-          ),
+        ? Boolean(raw.production_labor_journal_entry_id ?? raw.tailoring_labor_journal_entry_id)
+        : Boolean(raw.tailoring_labor_journal_entry_id ?? raw.tailoring_cogs_journal_entry_id),
     tailorPaidAmount: Number(tailorPaidAmount.toFixed(2)),
-    tailoringCostSdg: Number(raw.tailoring_cost_sdg ?? 0),
-    tailorPaidAmountSdg: Number(raw.tailor_paid_amount_sdg ?? 0),
-    tailorRemainingAmountSdg: Number(raw.tailor_remaining_amount_sdg ?? 0),
     tailorRemainingAmount: Number(
       Math.max(tailoringCost - tailorPaidAmount, 0).toFixed(2),
     ),
@@ -241,11 +191,10 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
     paidAmount: Number(paid.toFixed(2)),
     remainingAmount: Number(Math.max(total - paid, 0).toFixed(2)),
     paymentStatus: (raw.payment_status ??
-      (paid >= total && total > 0
-        ? "PAID"
-        : paid > 0
-          ? "PARTIAL"
-          : "UNPAID")) as "UNPAID" | "PARTIAL" | "PAID",
+      (paid >= total && total > 0 ? "PAID" : paid > 0 ? "PARTIAL" : "UNPAID")) as
+      | "UNPAID"
+      | "PARTIAL"
+      | "PAID",
     paymentMethod:
       raw.payment_method === "BANK_TRANSFER"
         ? "BANK_TRANSFER"
@@ -293,14 +242,7 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
           return {
             id: String(row.id ?? ""),
             amount: Number(row.amount ?? 0),
-            amountOriginal:
-              row.amount_original != null ? Number(row.amount_original) : null,
-            currency: row.currency === "SDG" ? "SDG" : "USD",
-            exchangeRateUsed:
-              row.exchange_rate_used != null ? Number(row.exchange_rate_used) : null,
-            paymentType: (row.payment_type ?? "SETTLEMENT") as
-              | "ADVANCE"
-              | "SETTLEMENT",
+            paymentType: (row.payment_type ?? "SETTLEMENT") as "ADVANCE" | "SETTLEMENT",
             paymentMethod: (row.payment_method ?? "CASH") as "CASH" | "BANK",
             notes: row.notes ? String(row.notes) : null,
             createdAt: String(row.created_at ?? ""),
@@ -359,9 +301,7 @@ export async function getTailoringOrders(params?: {
     params: {
       search: params?.search,
       purpose:
-        params?.purpose && params.purpose !== "ALL"
-          ? params.purpose
-          : undefined,
+        params?.purpose && params.purpose !== "ALL" ? params.purpose : undefined,
       tailorId: params?.tailorId,
       fromDate: params?.fromDate,
       toDate: params?.toDate,
@@ -526,7 +466,7 @@ export async function convertTailoringToProduct(
 }
 
 export async function createOverdueNotifications() {
-  return serverFetch(`/api/notifications/check-overdue-tailoring`, {
+  return serverFetch(`${API_BASE_URL}/overdue-notifications`, {
     method: "POST",
   });
 }

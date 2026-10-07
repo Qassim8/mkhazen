@@ -75,31 +75,17 @@ export async function getProducts(
   return serverFetch<ProductsResponse>("/api/products", {
     method: "GET",
     params: queryParams,
+    withAuth: false,
     next: {
       tags: ["products-list"],
     },
   });
 }
 
-/**
- * كل المنتجات لقوائم الاختيار (طلبات الشراء).
- * الـ API أقصى حد للصفحة 100، فبنلف على الصفحات لحد ما نجيب الكل.
- */
-export async function getProductOptions(): Promise<ProductsResponse> {
-  const first = await getProducts({ page: 1, limit: 100 });
-  const data = [...first.data];
-
-  for (let page = 2; page <= (first.meta?.totalPages ?? 1); page++) {
-    const next = await getProducts({ page, limit: 100 });
-    data.push(...next.data);
-  }
-
-  return { ...first, data, meta: { ...first.meta, page: 1, limit: data.length, totalPages: 1 } };
-}
-
 export async function getProductById(id: string): Promise<ProductResponse> {
   return serverFetch<ProductResponse>(`/api/products/${id}`, {
     method: "GET",
+    withAuth: false,
   });
 }
 

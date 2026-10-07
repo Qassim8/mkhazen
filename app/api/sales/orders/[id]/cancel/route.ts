@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -39,13 +38,6 @@ export async function POST(
       return NextResponse.json(
         { error: "يرجى تسجيل الدخول أولاً" },
         { status: 401 },
-      );
-    }
-
-    if (!can(session.role, "sales.pos")) {
-      return NextResponse.json(
-        { error: "ليس لديك صلاحية إلغاء الفواتير" },
-        { status: 403 },
       );
     }
 
@@ -93,7 +85,6 @@ export async function POST(
           id,
           order_number,
           status,
-          order_type,
           payment_status,
           total_amount
         `,
@@ -115,14 +106,6 @@ export async function POST(
       return NextResponse.json(
         { error: "طلب البيع غير موجود" },
         { status: 404 },
-      );
-    }
-
-    // طلبات التفصيل ليها إلغاء خاص بيرجّع المخزون والقيود
-    if (order.order_type !== "POS") {
-      return NextResponse.json(
-        { error: "طلبات التفصيل تُلغى من صفحة طلب التفصيل." },
-        { status: 400 },
       );
     }
 

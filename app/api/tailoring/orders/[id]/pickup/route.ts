@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
-import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { completeTailoringPickupSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
 export async function POST(
@@ -30,9 +28,9 @@ export async function POST(
 
     const role = String(user.role).toLowerCase();
 
-    if (!can(role, "tailoring.operate")) {
+    if (role !== "admin" && role !== "cashier") {
       return NextResponse.json(
-        { message: "استلام طلب العميل وتحصيل الباقي متاح للكاشير أو الإدارة فقط." },
+        { message: "استلام طلب العميل وتحصيل الباقي متاح للكاشير أو المدير فقط." },
         { status: 403 },
       );
     }
@@ -51,22 +49,6 @@ export async function POST(
     }
 
     const { id } = await params;
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from("sales_orders")
-      .select("id")
-      .eq("id", id)
-      .eq("branch_id", MAIN_BRANCH_ID)
-      .eq("order_type", "TAILORING")
-      .eq("tailoring_purpose", "CUSTOMER")
-      .maybeSingle();
-
-    if (orderError) throw new Error(orderError.message);
-    if (!order) {
-      return NextResponse.json(
-        { message: "طلب تفصيل العميل غير موجود." },
-        { status: 404 },
-      );
-    }
 
     const { data, error } = await supabaseAdmin.rpc(
       "complete_tailoring_pickup",
@@ -86,13 +68,9 @@ export async function POST(
       );
     }
 
-    await notifyTailoringUpdate({ orderId: id, event: "RECEIVED", actor: user });
-
     return NextResponse.json({
       message: `تم استلام الطلب ${data.order_number} وتحصيل المبلغ المتبقي بنجاح.`,
-      data: can(role, "tailoring.manage")
-        ? data
-        : { id, order_number: data.order_number, tailoring_status: "RECEIVED" },
+      data,
     });
   } catch (error: unknown) {
     console.error("POST /api/tailoring/orders/[id]/pickup:", error);

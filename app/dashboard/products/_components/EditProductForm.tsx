@@ -35,7 +35,6 @@ import { uploadImage } from "@/lib/storage";
 
 import { Category } from "../../categories/schemas/category.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
-import ProductSizes from "./ProductSizes";
 
 /* =========================================================
    Units
@@ -1018,8 +1017,7 @@ export default function EditProductForm({
                       </div>
 
                       {/* Size */}
-                      {!isGarmentCategory && (
-                        <div>
+                      <div>
                         <label className="mb-1 block text-xs font-semibold text-gray-600">
                           المقاس
                         </label>
@@ -1031,31 +1029,87 @@ export default function EditProductForm({
                           {...register(`variants.${index}.size` as const)}
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--primary-red)"
                         />
-                        </div>
-                      )}
+                      </div>
                     </div>
+
+                    {/* Garment dimensions */}
+                    {isGarmentCategory && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            الطول
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            disabled={isDisabled}
+                            {...register(`variants.${index}.length`, {
+                              setValueAs: isNumberOrUndefined,
+                            })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--primary-red)"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-gray-600">
+                            العرض
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            disabled={isDisabled}
+                            {...register(`variants.${index}.width`, {
+                              setValueAs: isNumberOrUndefined,
+                            })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--primary-red)"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
                 {/* Garment dimensions */}
                 {isGarmentCategory && (
-                  <ProductSizes
-                    value={variant?.size}
-                    legacyLength={variant?.length}
-                    legacyWidth={variant?.width}
-                    disabled={isDisabled}
-                    onChange={(value) => {
-                      setValue(`variants.${index}.size` as const, value, {
-                        shouldDirty: true,
-                      });
-                      setValue(`variants.${index}.length` as const, undefined, {
-                        shouldDirty: true,
-                      });
-                      setValue(`variants.${index}.width` as const, undefined, {
-                        shouldDirty: true,
-                      });
-                    }}
-                  />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        الطول
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        disabled={isDisabled}
+                        {...register(`variants.${index}.length`, {
+                          setValueAs: isNumberOrUndefined,
+                        })}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--primary-red)"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-gray-600">
+                        العرض
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        disabled={isDisabled}
+                        {...register(`variants.${index}.width`, {
+                          setValueAs: isNumberOrUndefined,
+                        })}
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--primary-red)"
+                      />
+                    </div>
+                  </div>
                 )}
 
                 {/* Prices + inventory */}
@@ -1063,7 +1117,7 @@ export default function EditProductForm({
                   {/* Purchase price */}
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-gray-600">
-                      سعر الشراء ($) <span className="text-red-500">*</span>
+                      سعر الشراء <span className="text-red-500">*</span>
                     </label>
 
                     <input
@@ -1087,7 +1141,7 @@ export default function EditProductForm({
                   {/* Selling price */}
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-gray-600">
-                      سعر البيع ($) <span className="text-red-500">*</span>
+                      سعر البيع <span className="text-red-500">*</span>
                     </label>
 
                     <input
@@ -1105,7 +1159,7 @@ export default function EditProductForm({
                   {/* Minimum selling price */}
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-gray-600">
-                      أدنى سعر بيع ($)
+                      أدنى سعر بيع
                     </label>
 
                     <input
@@ -1149,7 +1203,7 @@ export default function EditProductForm({
                     </div>
 
                     <div className="text-sm font-bold text-gray-800">
-                      {stock.toLocaleString("en-US")}{" "}
+                      {stock.toLocaleString()}{" "}
                       {initialData.sellingUnit ?? "وحدة"}
                     </div>
 

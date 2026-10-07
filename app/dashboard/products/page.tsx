@@ -1,10 +1,13 @@
+import { Suspense } from "react";
 
+import PageHeader from "@/components/shared/PageHeader";
 
 import ProductsPageClient from "./_components/ProductPageClient";
+import { redirectToNewProductPage } from "./_components/RedirectFunc";
 
 import { getProducts } from "./services/products.services";
 import { getCategories } from "../categories/services/categories.services";
-import { getSupplierOptions } from "../suppliers/services/supplier.services";
+import { getSuppliers } from "../suppliers/services/supplier.services";
 
 interface ProductsPageProps {
   searchParams: Promise<{
@@ -50,7 +53,7 @@ const Products = async ({ searchParams }: ProductsPageProps) => {
             : undefined,
       }),
       getCategories(),
-      getSupplierOptions(),
+      getSuppliers(),
     ]);
 
   const products = productsResponse?.data ?? [];
@@ -81,7 +84,7 @@ const Products = async ({ searchParams }: ProductsPageProps) => {
         title: "المنتجات",
         subtitle: `${meta.total} منتج مسجل في النظام`,
         buttonTitle: "أضف منتج",
-        href: "/dashboard/products/new",
+        redirect: redirectToNewProductPage,
       }}
     />
   );

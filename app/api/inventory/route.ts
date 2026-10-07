@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 
 const MAX_LIMIT = 100;
 
@@ -10,10 +9,10 @@ export async function GET(request: Request) {
   try {
     const user = await getSession();
 
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
         },
         { status: 403 },
       );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import {
   LuCheck,
@@ -15,16 +15,22 @@ import type {
   Product,
   ProductVariant,
 } from "../../products/schemas/product.schemas";
-import { createPortal } from "react-dom";
-import { getProducts } from "@/app/dashboard/products/services/products.services";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../../products/utils/product-size";
 
-const subscribeToNothing = () => () => {};
-const getClientSnapshot = () => true;
-const getServerSnapshot = () => false;
+interface ProductsApiResponse {
+  data: Product[];
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
 
 interface GiftPickerProps {
   initialProducts: Product[];
@@ -39,17 +45,16 @@ interface GiftPickerProps {
 
 function getVariantImage(product: Product, variant: ProductVariant) {
   return (
-    variant.images?.[0] ?? product.images?.[0] ?? "/images/placeholder.png"
+    variant.images?.[0] ??
+    product.images?.[0] ??
+    "/images/placeholder.png"
   );
 }
 
 function getVariantLabel(variant: ProductVariant) {
   const parts: string[] = [];
   if (variant.colorName) parts.push(variant.colorName);
-  const size = formatProductSize(variant.size);
-  if (size) {
-    parts.push(`${isCustomProductSize(variant.size) ? "مقاسات" : "مقاس"} ${size}`);
-  }
+  if (variant.size) parts.push(`مقاس ${variant.size}`);
   if (variant.length !== null && variant.length !== undefined) {
     parts.push(`طول ${variant.length}`);
   }
@@ -76,11 +81,6 @@ export default function GiftPicker({
   const [quantity, setQuantity] = useState(1);
   const [giftNote, setGiftNote] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const mounted = useSyncExternalStore(
-    subscribeToNothing,
-    getClientSnapshot,
-    getServerSnapshot,
-  );
 
   const availableProducts = useMemo(
     () =>
@@ -88,7 +88,8 @@ export default function GiftPicker({
         .map((product) => ({
           ...product,
           variants: product.variants.filter(
-            (variant) => variant.isActive && Number(variant.stockQuantity) > 0,
+            (variant) =>
+              variant.isActive && Number(variant.stockQuantity) > 0,
           ),
         }))
         .filter((product) => product.variants.length > 0),
@@ -117,12 +118,29 @@ export default function GiftPicker({
 
     setIsSearching(true);
     try {
-      const result = await getProducts({
-        search: normalized,
-        page: 1,
-        limit: 100,
+      const params = new URLSearchParams();
+      params.set("search", normalized);
+      params.set("page", "1");
+      params.set("limit", "100");
+
+      const response = await fetch(`/api/products?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
       });
-      setProducts(result.data);
+
+      const result = (await response.json()) as
+        | ProductsApiResponse
+        | { message?: string };
+
+      if (!response.ok) {
+        throw new Error(
+          "message" in result && result.message
+            ? result.message
+            : "فشل البحث عن المنتجات",
+        );
+      }
+
+      setProducts("data" in result ? result.data : []);
       setSelectedProduct(null);
       setSelectedVariantId("");
     } catch (error) {
@@ -142,7 +160,9 @@ export default function GiftPicker({
     setSelectedProduct(product);
     setSelectedVariantId(onlyVariant?.id ?? "");
     setQuantity(
-      onlyVariant ? Math.min(1, Number(onlyVariant.stockQuantity)) : 1,
+      onlyVariant
+        ? Math.min(1, Number(onlyVariant.stockQuantity))
+        : 1,
     );
   };
 
@@ -174,17 +194,13 @@ export default function GiftPicker({
     }
   };
 
-  if (!mounted) {
-    return null;
-  }
-
-  return createPortal(
+  return (
     <div className="fixed inset-0 z-90 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="gift-picker-title"
-        className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
         dir="rtl"
       >
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
@@ -194,20 +210,14 @@ export default function GiftPicker({
                 <LuGift className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400">
-                  نقطة البيع
-                </p>
-                <h2
-                  id="gift-picker-title"
-                  className="text-base font-black text-gray-900"
-                >
+                <p className="text-[10px] font-bold text-gray-400">نقطة البيع</p>
+                <h2 id="gift-picker-title" className="text-base font-black text-gray-900">
                   إضافة هدية
                 </h2>
               </div>
             </div>
             <p className="mt-2 text-[10px] text-gray-400">
-              اختر صنفًا من المخزون ليتم سحبه كهدية بسعر صفر وإظهاره في
-              الفاتورة.
+              اختر صنفًا من المخزون ليتم سحبه كهدية بسعر صفر وإظهاره في الفاتورة.
             </p>
           </div>
 
@@ -248,7 +258,7 @@ export default function GiftPicker({
           </form>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1.1fr)_minmax(0,0.9fr)] overflow-hidden lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:grid-rows-1">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[1.15fr_0.85fr]">
           <div className="min-h-0 overflow-y-auto border-b border-gray-100 p-5 lg:border-b-0 lg:border-l">
             {availableProducts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
@@ -291,8 +301,7 @@ export default function GiftPicker({
                         {product.variants.length} متغير متاح
                       </p>
                       <p className="mt-1 text-[9px] font-semibold text-gray-500">
-                        إجمالي المخزون:{" "}
-                        {product.variants.reduce(
+                        إجمالي المخزون: {product.variants.reduce(
                           (sum, variant) => sum + Number(variant.stockQuantity),
                           0,
                         )}
@@ -313,8 +322,7 @@ export default function GiftPicker({
                     اختر منتجًا لإضافته كهدية
                   </p>
                   <p className="mt-1 text-[10px] text-gray-400">
-                    سيتم استخدام تكلفة الصنف الحالية من قاعدة البيانات عند إتمام
-                    البيع.
+                    سيتم استخدام تكلفة الصنف الحالية من قاعدة البيانات عند إتمام البيع.
                   </p>
                 </div>
               </div>
@@ -327,8 +335,7 @@ export default function GiftPicker({
                         src={
                           selectedVariant
                             ? getVariantImage(selectedProduct, selectedVariant)
-                            : (selectedProduct.images?.[0] ??
-                              "/images/placeholder.png")
+                            : selectedProduct.images?.[0] ?? "/images/placeholder.png"
                         }
                         alt={selectedProduct.name}
                         fill
@@ -337,9 +344,7 @@ export default function GiftPicker({
                       />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[9px] font-bold text-gray-400">
-                        المنتج المختار
-                      </p>
+                      <p className="text-[9px] font-bold text-gray-400">المنتج المختار</p>
                       <p className="mt-0.5 truncate text-xs font-black text-gray-900">
                         {selectedProduct.name}
                       </p>
@@ -371,12 +376,12 @@ export default function GiftPicker({
                     {selectedProduct.variants
                       .filter(
                         (variant) =>
-                          variant.isActive && Number(variant.stockQuantity) > 0,
+                          variant.isActive &&
+                          Number(variant.stockQuantity) > 0,
                       )
                       .map((variant) => (
                         <option key={variant.id} value={variant.id}>
-                          {getVariantLabel(variant)} — المخزون{" "}
-                          {variant.stockQuantity}
+                          {getVariantLabel(variant)} — المخزون {variant.stockQuantity}
                         </option>
                       ))}
                   </select>
@@ -399,14 +404,7 @@ export default function GiftPicker({
                           type="button"
                           onClick={() =>
                             setQuantity((current) =>
-                              Math.max(
-                                0.01,
-                                Number(
-                                  (current - (meterProduct ? 0.01 : 1)).toFixed(
-                                    2,
-                                  ),
-                                ),
-                              ),
+                              Math.max(0.01, Number((current - (meterProduct ? 0.01 : 1)).toFixed(2))),
                             )
                           }
                           className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
@@ -435,11 +433,7 @@ export default function GiftPicker({
                             setQuantity((current) =>
                               Math.min(
                                 maxQuantity,
-                                Number(
-                                  (current + (meterProduct ? 0.01 : 1)).toFixed(
-                                    2,
-                                  ),
-                                ),
+                                Number((current + (meterProduct ? 0.01 : 1)).toFixed(2)),
                               ),
                             )
                           }
@@ -456,10 +450,7 @@ export default function GiftPicker({
                         htmlFor="gift-note"
                         className="mb-2 block text-[10px] font-bold text-gray-700"
                       >
-                        ملاحظة / سبب الهدية{" "}
-                        <span className="font-normal text-gray-400">
-                          (اختياري)
-                        </span>
+                        ملاحظة / سبب الهدية <span className="font-normal text-gray-400">(اختياري)</span>
                       </label>
                       <textarea
                         id="gift-note"
@@ -477,16 +468,11 @@ export default function GiftPicker({
 
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-bold text-amber-800">
-                          قيمة الهدية على الفاتورة
-                        </span>
-                        <span className="text-sm font-black text-amber-700">
-                          0.00 ج.س
-                        </span>
+                        <span className="text-[10px] font-bold text-amber-800">قيمة الهدية على الفاتورة</span>
+                        <span className="text-sm font-black text-amber-700">0.00 ر.س</span>
                       </div>
                       <p className="mt-1 text-[9px] text-amber-700/80">
-                        سيتم خصم تكلفة المنتج من المخزون وتسجيلها كمصروف هدايا
-                        محاسبيًا.
+                        سيتم خصم تكلفة المنتج من المخزون وتسجيلها كمصروف هدايا محاسبيًا.
                       </p>
                     </div>
 
@@ -518,7 +504,6 @@ export default function GiftPicker({
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

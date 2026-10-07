@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
-import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { refundCustomerAdvanceSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
 export async function POST(
@@ -18,8 +16,8 @@ export async function POST(
     if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
-    if (!can(role, "tailoring.manage")) {
-      return NextResponse.json({ message: "استرداد عربون العميل متاح للمدير أو المالك فقط." }, { status: 403 });
+    if (role !== "admin" && role !== "cashier") {
+      return NextResponse.json({ message: "استرداد عربون العميل متاح للكاشير أو المدير فقط." }, { status: 403 });
     }
 
     const parsed = refundCustomerAdvanceSchema.safeParse(await request.json());
@@ -41,8 +39,6 @@ export async function POST(
       console.error("refund_customer_advance RPC:", error);
       return NextResponse.json({ message: error.message || "تعذر استرداد العربون." }, { status: 400 });
     }
-
-    await notifyTailoringUpdate({ orderId: id, event: "REFUNDED", actor: user });
 
     return NextResponse.json({ message: "تم استرداد العربون وتسجيل القيد المحاسبي بنجاح.", data });
   } catch (error: unknown) {

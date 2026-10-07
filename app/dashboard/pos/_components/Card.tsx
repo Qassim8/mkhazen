@@ -15,17 +15,10 @@ import type {
   Product,
   ProductVariant,
 } from "../../products/schemas/product.schemas";
-import { formatSDG, formatUSD, usdToSdg } from "@/lib/currency";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../../products/utils/product-size";
 
 interface CardProps {
   product: Product;
   onAdd: (product: Product, variant: ProductVariant) => void;
-  /** سعر الصرف الحالي (ج.س لكل 1$) — أسعار المنتجات مخزنة بالدولار */
-  exchangeRate: number | null;
 }
 
 function getVariantImage(product: Product, variant: ProductVariant): string {
@@ -43,9 +36,8 @@ function getVariantLabel(variant: ProductVariant): string {
     parts.push(variant.colorName);
   }
 
-  const size = formatProductSize(variant.size);
-  if (size) {
-    parts.push(`${isCustomProductSize(variant.size) ? "مقاسات" : "مقاس"} ${size}`);
+  if (variant.size) {
+    parts.push(`مقاس ${variant.size}`);
   }
 
   if (variant.length !== null && variant.length !== undefined) {
@@ -67,32 +59,26 @@ function formatQuantity(value: number): string {
   return Number(value.toFixed(2)).toString();
 }
 
-/** نطاق سعر البيع بالجنيه (محسوب من سعر الدولار × سعر الصرف الحالي) */
-function formatPriceRange(
-  variants: ProductVariant[],
-  exchangeRate: number | null,
-): string {
+function formatPriceRange(variants: ProductVariant[]): string {
   const prices = variants
-    .map((variant) => usdToSdg(variant.sellingPrice, exchangeRate))
+    .map((variant) => Number(variant.sellingPrice))
     .filter((price) => Number.isFinite(price));
 
-  if (prices.length === 0 || !exchangeRate) {
-    return "—";
+  if (prices.length === 0) {
+    return "0.00";
   }
 
   const min = Math.min(...prices);
   const max = Math.max(...prices);
-  const format = (value: number) =>
-    new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 
   if (Math.abs(min - max) < 0.001) {
-    return format(min);
+    return min.toFixed(2);
   }
 
-  return `${format(min)} – ${format(max)}`;
+  return `${min.toFixed(2)} – ${max.toFixed(2)}`;
 }
 
-export default function Card({ product, onAdd, exchangeRate }: CardProps) {
+export default function Card({ product, onAdd }: CardProps) {
   const [isVariantPickerOpen, setIsVariantPickerOpen] = useState(false);
   const [variantSearch, setVariantSearch] = useState("");
 
@@ -228,9 +214,9 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
               <div>
                 <span className="text-[9px] text-gray-400">سعر البيع</span>
                 <div className="text-sm font-black text-emerald-600">
-                  {formatPriceRange(activeVariants, exchangeRate)}
+                  {formatPriceRange(activeVariants)}
                   <span className="mr-1 text-[9px] font-bold text-gray-400">
-                    ج.س
+                    ر.س
                   </span>
                 </div>
               </div>
@@ -347,9 +333,7 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
 
                           <div className="mt-1.5 flex items-center gap-2">
                             <span className="text-[11px] font-black text-emerald-600">
-                              {exchangeRate
-                                ? formatSDG(usdToSdg(variant.sellingPrice, exchangeRate))
-                                : formatUSD(variant.sellingPrice)}
+                              {Number(variant.sellingPrice).toFixed(2)} ر.س
                             </span>
                             <span
                               className={`text-[9px] font-semibold ${

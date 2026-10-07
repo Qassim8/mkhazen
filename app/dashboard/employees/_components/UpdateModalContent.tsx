@@ -1,6 +1,5 @@
 "use client";
 
-import { errorMessage } from "@/lib/errors";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -58,9 +57,9 @@ export default function UpdateModalContent({
       toast.success(`تم تحديث بيانات ${initialData.name} بنجاح`);
       closeModal();
       router.refresh();
-    } catch (err: unknown) {
-      console.error(errorMessage(err, "حدث خطأ أثناء التحديث"));
-      toast.error(errorMessage(err, "حدث خطأ أثناء التحديث"));
+    } catch (err: any) {
+      console.error(err.message || "حدث خطأ أثناء التحديث");
+      toast.error(err.message || "حدث خطأ أثناء التحديث");
     }
   };
 

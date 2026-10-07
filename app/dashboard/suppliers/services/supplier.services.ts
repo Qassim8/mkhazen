@@ -37,22 +37,6 @@ export async function getSuppliers(
   });
 }
 
-/**
- * كل الموردين لقوائم الاختيار (المنتجات، طلبات الشراء).
- * getSuppliers من غير limit بيرجّع أول 10 بس، فالمورد رقم 11 ما كانش بيظهر.
- */
-export async function getSupplierOptions(): Promise<SuppliersResponse> {
-  const first = await getSuppliers({ page: 1, limit: 100 });
-  const data = [...first.data];
-
-  for (let page = 2; page <= (first.meta?.totalPages ?? 1); page++) {
-    const next = await getSuppliers({ page, limit: 100 });
-    data.push(...next.data);
-  }
-
-  return { data, meta: { ...first.meta, page: 1, limit: data.length, totalPages: 1 } };
-}
-
 export async function getSupplierById(id: string): Promise<SupplierResponse> {
   return serverFetch<SupplierResponse>(`/api/suppliers/${id}`, {
     method: "GET",

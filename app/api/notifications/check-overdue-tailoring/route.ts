@@ -22,7 +22,7 @@ export async function POST() {
       );
     }
 
-    if (!["admin", "owner"].includes(String(user.role).toLowerCase())) {
+    if (String(user.role).toLowerCase() !== "admin") {
       return NextResponse.json(
         { message: "إنشاء تنبيهات التأخير متاح للمدير فقط." },
         { status: 403 },
@@ -30,7 +30,7 @@ export async function POST() {
     }
 
     const { data, error } = await supabaseAdmin.rpc(
-      "generate_overdue_tailoring_notifications",
+      "create_tailoring_overdue_notifications",
       { p_branch_id: MAIN_BRANCH_ID },
     );
 

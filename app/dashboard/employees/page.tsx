@@ -1,5 +1,4 @@
 import { getEmployees } from "./services/employees.services";
-import type { EmployeeQueryParams } from "./schemas/employee.schemas";
 import EmployeesPageClient from "./_components/EmployeesPageClient";
 
 type PageProps = {
@@ -17,9 +16,9 @@ const Employees = async ({ searchParams }: PageProps) => {
     page,
     limit,
     search: query.search || "",
-    position: query.position as EmployeeQueryParams["position"],
-    shift: query.shift as EmployeeQueryParams["shift"],
-    isActive: query.isActive as EmployeeQueryParams["isActive"],
+    position: query.position as any,
+    shift: query.shift as any,
+    isActive: query.isActive as any,
     resetRequested: isResetFilter,
   });
 

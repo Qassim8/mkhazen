@@ -1,6 +1,5 @@
 // src/services/auth.services.ts
 import { LoginInput } from "@/lib/validations/auth.schemas";
-import { serverFetch } from "@/lib/api-client";
 
 export interface LoginResponse {
   message: string;
@@ -15,30 +14,45 @@ export interface LoginResponse {
 export const login = async (
   credentials: LoginInput,
 ): Promise<LoginResponse> => {
-  return serverFetch<LoginResponse>("/api/auth/login", {
+  const res = await fetch("/api/auth/login", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
   });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.message || "حدث خطأ أثناء تسجيل الدخول");
+  }
+
+  return data;
 };
 
 export const logout = async () => {
-  return serverFetch<{ message: string }>("/api/auth/logout", {
+  const res = await fetch("/api/auth/logout", {
     method: "POST",
   });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.message || "حدث خطأ أثناء تسجيل الخروج");
+  }
+
+  return data;
 };
 
 export const getMe = async () => {
-  return serverFetch<{
-    id: string;
-    name: string;
-    email: string;
-    phone: string | null;
-    role: string;
-    shift: string | null;
-    isPasswordChanged: boolean;
-  }>("/api/auth/me", {
+  const res = await fetch("/api/auth/me", {
     method: "GET",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
   });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "فشل جلب البيانات");
+  return data;
 };
 
 export const updateProfile = async (payload: {
@@ -46,16 +60,15 @@ export const updateProfile = async (payload: {
   email: string;
   phone: string;
 }) => {
-  return serverFetch<{
-    message: string;
-    user: { name: string; email: string; phone: string | null };
-  }>(
-    "/api/auth/me/update",
-    {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    },
-  );
+  const res = await fetch("/api/auth/me/update", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "فشل تحديث البيانات");
+  return data;
 };
 
 // تغيير كلمة المرور
@@ -63,18 +76,25 @@ export const changePassword = async (payload: {
   currentPassword: string;
   newPassword: string;
 }) => {
-  return serverFetch<{ message: string; role?: string }>(
-    "/api/auth/me/change-password",
-    {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    },
-  );
+  const res = await fetch("/api/auth/me/change-password", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "فشل تغيير كلمة المرور");
+  return data;
 };
 
 export const requestPasswordReset = async (identifier: string) => {
-  return serverFetch<{ message: string }>("/api/auth/request-reset", {
+  const res = await fetch("/api/auth/request-reset", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ identifier }),
   });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "فشل إرسال الطلب");
+  return data;
 };

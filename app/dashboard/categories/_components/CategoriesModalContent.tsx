@@ -23,14 +23,11 @@ import { uploadImage } from "@/lib/storage";
 interface ModalContentProps {
   categoryToEdit?: Category | null;
   initialData?: Category;
-  /** بعد الإضافة: الصفحة اللي فتحت المودال تضيف الفئة لقائمتها فورًا */
-  onSaved?: (category: Category) => void;
 }
 
 export default function ModalContent({
   categoryToEdit,
   initialData,
-  onSaved,
 }: ModalContentProps) {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
@@ -100,8 +97,7 @@ export default function ModalContent({
         await updateCategory(String(category.id), formattedData);
         toast.success(`تم تحديث "${category.name}" بنجاح`);
       } else {
-        const created = await createCategory(formattedData);
-        if (created?.data) onSaved?.(created.data);
+        await createCategory(formattedData);
         toast.success("تمت إضافة الفئة بنجاح");
       }
 

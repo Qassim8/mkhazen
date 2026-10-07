@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { requirePermission } from "@/lib/permissions-server";
+import { createClient } from "@supabase/supabase-js";
 import { posProductSearchSchema } from "@/app/dashboard/pos/schemas/pos.schemas";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
 
 export async function GET(req: NextRequest) {
-  const guard = await requirePermission("sales.pos");
-  if (!guard.ok) return guard.response;
-
   try {
     const { searchParams } = new URL(req.url);
 
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     // استعلام المنتجات بالربط بين product_variants و product_templates
-    let query = supabaseAdmin
+    let query = supabase
       .from("product_variants")
       .select(
         `

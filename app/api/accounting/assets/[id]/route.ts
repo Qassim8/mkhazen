@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
 interface Props {
@@ -15,10 +14,10 @@ export async function GET(request: Request, { params }: Props) {
   try {
     const user = await getSession();
 
-    if (!user || !can(user.role, "accounting.view")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
         {
-          message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط",
         },
         { status: 403 },
       );
@@ -36,9 +35,6 @@ export async function GET(request: Request, { params }: Props) {
           name,
           category,
           purchase_value,
-          purchase_value_usd,
-          currency,
-          exchange_rate_used,
           purchase_date,
           payment_method,
           reference,

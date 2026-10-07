@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 
 import SalesInvoiceClient from "./_components/SalesInvoiceClient";
-import { can } from "@/lib/permissions";
 
 export default async function SalesDetailsPage({
   params,
@@ -12,7 +11,7 @@ export default async function SalesDetailsPage({
 }) {
   const session = await getSession();
 
-  if (!session || !can(session.role, "sales.view")) {
+  if (!session || String(session.role).toLowerCase() !== "admin") {
     redirect("/dashboard");
   }
 

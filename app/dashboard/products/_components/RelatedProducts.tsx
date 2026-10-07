@@ -122,7 +122,7 @@ export default function RelatedProducts({
               {/* السعر وزر الحذف */}
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-xs font-black text-emerald-500 dir-ltr">
-                  {item.sellingPrice.toLocaleString("en-US")} $
+                  {item.sellingPrice.toLocaleString()} ريال
                 </span>
                 <button
                   type="button"
@@ -139,7 +139,7 @@ export default function RelatedProducts({
       ) : (
         <div className="py-6 text-center border-2 border-dashed border-gray-100 rounded-xl">
           <p className="text-xs text-gray-400">
-            لم يتم ربط أي منتجات بعد. انقر على &quot;إضافة عنصر&quot; للربط.
+            لم يتم ربط أي منتجات بعد. انقر على "إضافة عنصر" للربط.
           </p>
         </div>
       )}
@@ -213,7 +213,7 @@ export default function RelatedProducts({
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs font-bold text-gray-700">
-                        {product.sellingPrice} $
+                        {product.sellingPrice} ج.س
                       </span>
                       <button
                         type="button"
@@ -226,7 +226,7 @@ export default function RelatedProducts({
                 ))
               ) : (
                 <div className="py-8 text-center text-xs text-gray-400">
-                  لا توجد نتائج مطابقة لـ &quot;{searchQuery}&quot;
+                  لا توجد نتائج مطابقة لـ "{searchQuery}"
                 </div>
               )}
             </div>

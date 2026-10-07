@@ -6,7 +6,6 @@ import {
   Asset,
   AssetInput,
   CreateManualJournalEntryInput,
-  CurrencyExchangeInput,
   JournalEntry,
   JournalEntryType,
 } from "../schemas/accounting.schema";
@@ -29,18 +28,12 @@ export interface AccountingEntryResponse {
 }
 
 export interface AccountingSummary {
-  currency: "USD";
-  exchangeRate: number | null;
   revenue: number;
   expenses: number;
-  profit: number;
-  suppliersDebt: number;
-  capital: number;
-  cashUsd: number;
-  cashSdg: number;
-  bankUsd: number;
-  bankSdg: number;
-  totalLiquidityUsd: number;
+  netProfit: number;
+  supplierDebts: number;
+  bank: number;
+  cash: number;
   assets: number;
   inventory: number;
 }
@@ -136,10 +129,6 @@ function mapAsset(raw: Record<string, unknown>): Asset {
     name: String(raw.name ?? ""),
     category: String(raw.category ?? "OTHER") as Asset["category"],
     purchaseValue: Number(raw.purchase_value ?? 0),
-    purchaseValueUsd: Number(raw.purchase_value_usd ?? raw.purchase_value ?? 0),
-    currency: raw.currency === "SDG" ? "SDG" : "USD",
-    exchangeRateUsed:
-      raw.exchange_rate_used != null ? Number(raw.exchange_rate_used) : null,
     purchaseDate: String(raw.purchase_date ?? ""),
     paymentMethod: (raw.payment_method === "BANK"
       ? "BANK"
@@ -235,8 +224,6 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   RENTS: "الإيجارات",
   OTHER_EXPENSE: "مصروفات أخرى",
   OTHER_INCOME: "إيرادات أخرى",
-  GIFTS: "هدايا للعملاء",
-  CURRENCY_EXCHANGE: "تحويل عملة",
 };
 
 export const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
@@ -246,7 +233,6 @@ export const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   SALE: "بيع",
   SALE_PAYMENT: "دفع للخزينة",
   CUSTOMER_ADVANCE: "عربون عميل",
-  CUSTOMER_ADVANCE_REFUND: "استرداد عربون",
   TAILOR_ADVANCE: "سلفة خياط",
   TAILOR_COST: "تكلفة تفصيل",
   TAILOR_ADVANCE_APPLICATION: "تسوية سلفة خياط",
@@ -258,33 +244,19 @@ export const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   ASSET: "أصل",
   INVENTORY_ADJUSTMENT: "تسوية مخزون",
   SALES_RETURN: "مرتجع مبيعات",
-  GIFT: "هدية",
-  CURRENCY_EXCHANGE: "تحويل عملة",
   OTHER: "أخرى",
 };
 
-/** كل الأرقام بالدولار ما عدا cashSdg و bankSdg */
 export interface AccountingOverviewCards {
   revenue: number;
-  cogs: number;
-  grossProfit: number;
   expenses: number;
-  realizedFx: number;
   netProfit: number;
   supplierDebts: number;
-  tailorsPayable: number;
-  customerAdvances: number;
   capital: number;
-  cashUsd: number;
-  cashSdg: number;
-  bankUsd: number;
-  bankSdg: number;
-  totalLiquidityUsd: number;
-  unrealizedFxUsd: number;
+  bank: number;
+  cash: number;
   assets: number;
   inventory: number;
-  workInProgress: number;
-  tailorAdvances: number;
 }
 
 export interface AccountingOverviewMonth {
@@ -304,8 +276,6 @@ export interface AccountingOverviewExpense {
 
 export interface AccountingOverview {
   year: number;
-  currency?: "USD";
-  exchangeRate?: number | null;
   cards: AccountingOverviewCards;
   monthly: AccountingOverviewMonth[];
   expenseBreakdown: AccountingOverviewExpense[];
@@ -331,24 +301,5 @@ export async function getAccountingOverview(
         `accounting-overview-${year ?? new Date().getFullYear()}`,
       ],
     },
-  });
-}
-
-/* =========================================================
-   CURRENCY EXCHANGE (تحويل جنيه ⇄ دولار)
-========================================================= */
-
-export async function createCurrencyExchange(payload: CurrencyExchangeInput) {
-  return serverFetch<{
-    message: string;
-    data: {
-      reference: string;
-      actual_rate: number;
-      system_rate: number;
-      fx_result_usd: number;
-    };
-  }>(`${API_BASE_URL}/exchange`, {
-    method: "POST",
-    body: JSON.stringify(payload),
   });
 }

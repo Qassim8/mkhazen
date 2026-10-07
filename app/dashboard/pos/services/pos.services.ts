@@ -110,83 +110,13 @@ export interface SalesOrder {
 }
 
 export interface SalesOrdersResponse {
-  data: SalesOrderListItem[];
+  data: SalesOrder[];
   pagination: {
     total: number;
     page: number;
     limit: number;
     totalPages: number;
   };
-}
-
-export interface SalesOrderListItem {
-  id: string;
-  orderNumber: string;
-  orderType: SalesOrderType;
-  customerName: string | null;
-  tailorName: string | null;
-  cashierName: string | null;
-  totalAmount: number;
-  totalAmountUsd: number | null;
-  exchangeRateUsed: number | null;
-  paidAmount: number;
-  remainingAmount: number;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  createdAt: string;
-}
-
-export interface SalesOrderDetail {
-  id: string;
-  orderNumber: string;
-  orderType: SalesOrderType;
-  customer: {
-    id: string;
-    name: string;
-    whatsappNumber: string | null;
-  } | null;
-  tailor: {
-    id: string;
-    name: string;
-    phone: string | null;
-    email: string | null;
-  } | null;
-  cashier: { id: string; name: string; email: string | null } | null;
-  subtotal: number;
-  discountAmount: number;
-  discountPercentage: number;
-  taxAmount: number;
-  totalAmount: number;
-  paidAmount: number;
-  remainingAmount: number;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  notes: string | null;
-  createdAt: string;
-  completedAt: string | null;
-  intakeDate: string | null;
-  expectedDeliveryDate: string | null;
-  items: Array<{
-    id: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    product: {
-      name: string;
-      sku: string | null;
-      colorName: string | null;
-      size: string | null;
-    };
-  }>;
-  payments: Array<{
-    id: string;
-    amount: number;
-    paymentDate: string;
-    paymentMethod: string;
-    reference: string | null;
-    notes: string | null;
-    createdByName: string | null;
-  }>;
 }
 
 // =========================================================
@@ -229,7 +159,6 @@ export interface GetSalesParams {
   orderType?: SalesOrderType;
   fromDate?: string;
   toDate?: string;
-  sort?: "date-desc" | "date-asc";
   page?: number;
   limit?: number;
 }
@@ -283,7 +212,6 @@ export async function getSalesOrders(
       orderType: params?.orderType,
       fromDate: params?.fromDate,
       toDate: params?.toDate,
-      sort: params?.sort,
       page: params?.page ?? 1,
       limit: params?.limit ?? 10,
     },
@@ -331,11 +259,9 @@ export async function getInvoiceReceipt(
 // SINGLE SALES ORDER
 // =========================================================
 
-export async function getSalesOrderById(
-  orderId: string,
-): Promise<SalesOrderDetail> {
+export async function getSalesOrderById(orderId: string): Promise<SalesOrder> {
   const response = await serverFetch<{
-    data: SalesOrderDetail;
+    data: SalesOrder;
   }>(`${API_BASE_URL}/orders/${orderId}`, {
     method: "GET",
     next: {

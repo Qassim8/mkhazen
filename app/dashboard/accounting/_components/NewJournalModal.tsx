@@ -56,10 +56,6 @@ export default function NewJournalEntryModal({
 
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK">("CASH");
 
-  // عملة الحركة: رأس المال غالبًا دولار، والمصروفات المحلية غالبًا جنيه.
-  // القيمة بالدولار بتتحسب تلقائيًا بسعر الصرف الحالي لو جنيه.
-  const [currency, setCurrency] = useState<"USD" | "SDG">("USD");
-
   const [account, setAccount] = useState<AccountingAccount>("UTILITIES");
 
   const [reference, setReference] = useState("");
@@ -103,8 +99,6 @@ export default function NewJournalEntryModal({
       amount: numericAmount,
 
       paymentMethod,
-
-      currency,
 
       account:
         entryType === "EXPENSE"
@@ -215,25 +209,9 @@ export default function NewJournalEntryModal({
                 />
 
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
-                  {currency === "USD" ? "$" : "ج.س"}
+                  ر.س
                 </span>
               </div>
-            </div>
-
-            <div className="md:w-44">
-              <label className="mb-2 block text-sm font-bold text-gray-700">
-                العملة
-              </label>
-              <select
-                value={currency}
-                onChange={(event) =>
-                  setCurrency(event.target.value as "USD" | "SDG")
-                }
-                className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
-              >
-                <option value="USD">دولار $</option>
-                <option value="SDG">جنيه سوداني</option>
-              </select>
             </div>
           </div>
 

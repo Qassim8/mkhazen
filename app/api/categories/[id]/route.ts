@@ -1,20 +1,14 @@
-import { errorMessage } from "@/lib/errors";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { categorySchema } from "@/app/dashboard/categories/schemas/category.schemas";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
-import { requireLogin } from "@/lib/permissions-server";
 
 type Params = {
   params: Promise<{ id: string }>;
 };
 
 export async function GET(_request: Request, { params }: Params) {
-  const guard = await requireLogin();
-  if (!guard.ok) return guard.response;
-
   try {
     const { id } = await params;
 
@@ -40,11 +34,12 @@ export async function GET(_request: Request, { params }: Params) {
       ...data,
       productsCount: data.product_templates?.[0]?.count ?? 0,
     };
+    delete (formattedData as any).products;
 
     return NextResponse.json({ data: formattedData }, { status: 200 });
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر", error: errorMessage(err) },
+      { message: "خطأ في السيرفر", error: err.message },
       { status: 500 },
     );
   }
@@ -53,9 +48,9 @@ export async function GET(_request: Request, { params }: Params) {
 export async function PUT(request: Request, { params }: Params) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -74,7 +69,7 @@ export async function PUT(request: Request, { params }: Params) {
       );
     }
 
-    const updatePayload: Record<string, string | null | undefined> = {
+    const updatePayload: Record<string, any> = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -103,9 +98,9 @@ export async function PUT(request: Request, { params }: Params) {
       { message: "تم تعديل الفئة بنجاح", data },
       { status: 200 },
     );
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء التعديل", error: errorMessage(err) },
+      { message: "خطأ في السيرفر أثناء التعديل", error: err.message },
       { status: 500 },
     );
   }
@@ -114,9 +109,9 @@ export async function PUT(request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -165,9 +160,9 @@ export async function DELETE(_request: Request, { params }: Params) {
       { message: "تم حذف الفئة بنجاح" },
       { status: 200 },
     );
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء الحذف", error: errorMessage(err) },
+      { message: "خطأ في السيرفر أثناء الحذف", error: err.message },
       { status: 500 },
     );
   }

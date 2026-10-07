@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
-import type { SaleItemRow, SalePaymentRow } from "../../_lib/sale-rows";
 
 function calculatePaymentStatus(
   totalAmount: number,
@@ -34,9 +32,9 @@ export async function GET(
 
     const session = await getSession();
 
-    if (!session || !can(session.role, "sales.view")) {
+    if (!session || String(session.role).toLowerCase() !== "admin") {
       return NextResponse.json(
-        { error: "عذراً، صفحة المبيعات غير متاحة لصلاحياتك" },
+        { error: "عذراً، صفحة المبيعات مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -253,7 +251,7 @@ export async function GET(
             email: cashierResult.data.email ?? null,
           }
         : null,
-      items: ((order.items ?? []) as unknown as SaleItemRow[]).map((item) => {
+      items: (order.items ?? []).map((item: any) => {
         const variant = singleRelation(item.variant);
         const template = singleRelation(variant?.template);
 
@@ -277,7 +275,7 @@ export async function GET(
           },
         };
       }),
-      payments: ((payments ?? []) as unknown as SalePaymentRow[]).map((payment) => {
+      payments: (payments ?? []).map((payment: any) => {
         const createdBy = singleRelation(payment.createdBy);
 
         return {

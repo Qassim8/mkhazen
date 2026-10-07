@@ -196,16 +196,6 @@ export const createSalesOrderSchema = z
       .array(paymentSplitSchema)
       .max(3, "لا يمكن استخدام أكثر من ثلاث طرق دفع")
       .default([]),
-    /**
-     * سعر الصرف اللي اتحسبت بيه المبالغ على شاشة الكاشير (ج.س لكل 1$).
-     * السيرفر بيرفض العملية لو السعر اتغيّر، عشان الزبون ما يدفعش مبلغ
-     * غير اللي اتعرض عليه.
-     */
-    exchangeRate: z
-      .number({ message: "سعر الصرف مطلوب" })
-      .positive("سعر الصرف غير صالح")
-      .nullable()
-      .optional(),
   })
   .superRefine((data, ctx) => {
     const calculatedSubtotal = Number(
@@ -241,7 +231,7 @@ export const createSalesOrderSchema = z
         code: z.ZodIssueCode.custom,
         message:
           `الخصم لا يمكن أن يتجاوز 50% من الإجمالي قبل الخصم ` +
-          `(${maxDiscount.toFixed(2)} ج.س)`,
+          `(${maxDiscount.toFixed(2)} ر.س)`,
         path: ["discountAmount"],
       });
     }

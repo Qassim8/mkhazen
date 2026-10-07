@@ -1,42 +1,21 @@
-import { errorMessage } from "@/lib/errors";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { fetchAllResult } from "@/lib/supabase-fetch-all";
 import { categorySchema } from "@/app/dashboard/categories/schemas/category.schemas";
 import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
-import { requireLogin } from "@/lib/permissions-server";
-
-type CategoryRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  imageUrl: string | null;
-  createdAt: string;
-  updatedAt: string;
-  product_templates?: { count: number }[] | { count: number } | null;
-};
 
 // 1️⃣ جلب جميع الفئات
 export async function GET() {
-  const guard = await requireLogin();
-  if (!guard.ok) return guard.response;
-
   try {
-    const { data, error } = await fetchAllResult<Record<string, unknown>>((from, to) =>
-      supabaseAdmin
-        .from("categories")
-        .select(
-          `
+    const { data, error } = await supabaseAdmin
+      .from("categories")
+      .select(
+        `
         *,
         product_templates(count)
       `,
-        )
-        .order("createdAt", { ascending: false })
-        .order("id")
-        .range(from, to),
-    );
+      )
+      .order("createdAt", { ascending: false });
 
     if (error) {
       const { data: fallbackData, error: fallbackError } = await supabaseAdmin
@@ -51,7 +30,7 @@ export async function GET() {
         );
       }
 
-      const formatted = ((fallbackData || []) as CategoryRow[]).map((cat) => ({
+      const formatted = (fallbackData || []).map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         description: cat.description,
@@ -65,7 +44,7 @@ export async function GET() {
     }
 
     // تنسيق الاستجابة وتأمين جلب count بشكل صحيح
-    const formattedCategories = ((data || []) as CategoryRow[]).map((cat) => {
+    const formattedCategories = (data || []).map((cat: any) => {
       const countVal = Array.isArray(cat.product_templates)
         ? cat.product_templates[0]?.count
         : cat.product_templates?.count;
@@ -82,9 +61,9 @@ export async function GET() {
     });
 
     return NextResponse.json({ data: formattedCategories }, { status: 200 });
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء جلب الفئات", error: errorMessage(err) },
+      { message: "خطأ في السيرفر أثناء جلب الفئات", error: err.message },
       { status: 500 },
     );
   }
@@ -94,9 +73,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await getSession();
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || user.role !== "admin") {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية مقتصرة على المدير فقط" },
         { status: 403 },
       );
     }
@@ -143,9 +122,9 @@ export async function POST(request: Request) {
       { message: "تمت إضافة الفئة بنجاح", data },
       { status: 201 },
     );
-  } catch (err: unknown) {
+  } catch (err: any) {
     return NextResponse.json(
-      { message: "خطأ في السيرفر أثناء إضافة الفئة", error: errorMessage(err) },
+      { message: "خطأ في السيرفر أثناء إضافة الفئة", error: err.message },
       { status: 500 },
     );
   }

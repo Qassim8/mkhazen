@@ -9,9 +9,21 @@ import {
   LuShoppingBag,
 } from "react-icons/lu";
 import Table from "@/components/shared/Table";
-import type { SalesOrderListItem } from "@/app/dashboard/pos/services/pos.services";
 
-export type SaleRow = SalesOrderListItem;
+export interface SaleRow {
+  id: string;
+  orderNumber: string;
+  orderType: "POS" | "TAILORING";
+  customerName: string | null;
+  tailorName: string | null;
+  cashierName: string | null;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  paymentMethod: "CASH" | "CARD" | "BANK_TRANSFER" | "MIXED";
+  paymentStatus: "UNPAID" | "PARTIAL" | "PAID";
+  createdAt: string;
+}
 
 interface Props {
   rows: SaleRow[];
@@ -31,24 +43,16 @@ const paymentMethodLabels = {
   MIXED: "مختلط",
 } as const;
 
-/** مبالغ البيع للزبون بالجنيه السوداني */
 function money(value: number) {
-  return `${value.toLocaleString("ar-SA-u-nu-latn", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })} ج.س`;
-}
-
-function usd(value: number) {
-  return `${value.toLocaleString("en-US", {
+  return `${value.toLocaleString("ar-SA", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })} $`;
+  })} ر.س`;
 }
 
 function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
-    timeZone: "Africa/Khartoum",
+  return new Intl.DateTimeFormat("ar-SA", {
+    timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -117,25 +121,6 @@ export default function SalesTable({ rows, loading }: Props) {
           {money(row.original.totalAmount)}
         </span>
       ),
-    },
-    {
-      id: "totalAmountUsd",
-      header: "بالدولار",
-      cell: ({ row }) =>
-        row.original.totalAmountUsd != null ? (
-          <div dir="ltr" className="text-left">
-            <span className="text-xs font-bold text-gray-700">
-              {usd(row.original.totalAmountUsd)}
-            </span>
-            {row.original.exchangeRateUsed ? (
-              <span className="block text-[10px] text-gray-400">
-                @ {row.original.exchangeRateUsed.toLocaleString("en-US")}
-              </span>
-            ) : null}
-          </div>
-        ) : (
-          "-"
-        ),
     },
     {
       accessorKey: "paidAmount",
