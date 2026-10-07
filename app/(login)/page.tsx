@@ -2,7 +2,6 @@
 
 import { errorMessage } from "@/lib/errors";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -21,7 +20,6 @@ import { login } from "./services/auth.services";
 import { useModalStore } from "@/store/useModalStore";
 
 export default function LoginPage() {
-  const router = useRouter();
   const openModal = useModalStore((state) => state.openModal);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,8 +43,7 @@ export default function LoginPage() {
         duration: 3000,
       });
 
-      router.push("/dashboard");
-      router.refresh();
+      window.location.assign("/dashboard");
     } catch (error: unknown) {
       toast.error(
         errorMessage(error, "فشل تسجيل الدخول، يرجى التأكد من البيانات"),

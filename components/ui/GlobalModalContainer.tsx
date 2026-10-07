@@ -1,11 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useModalStore } from "@/store/useModalStore";
-import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
-import UpdateModal from "@/components/ui/UpdateModal";
-import ViewDataModal from "@/components/ui/ViewDataModal";
-import AddNewModal from "./AddNewModal";
-import ForgotPasswordModal from "./ForgotPasswordModal";
+
+const DeleteConfirmationModal = dynamic(
+  () => import("@/components/ui/DeleteConfirmationModal"),
+);
+const UpdateModal = dynamic(() => import("@/components/ui/UpdateModal"));
+const ViewDataModal = dynamic(() => import("@/components/ui/ViewDataModal"));
+const AddNewModal = dynamic(() => import("./AddNewModal"));
+const ForgotPasswordModal = dynamic(() => import("./ForgotPasswordModal"));
 
 export default function GlobalModalContainer() {
   const { isOpen, type, closeModal } = useModalStore();

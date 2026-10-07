@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAllResult, fetchIn } from "@/lib/supabase-fetch-all";
 import {
@@ -584,11 +583,7 @@ export async function GET(request: NextRequest) {
         return {
           id: variant.id,
           name: template?.name ?? "منتج غير معروف",
-          variantLabel: [
-            variant.colorName,
-            formatProductSize(variant.size),
-            variant.sku,
-          ]
+          variantLabel: [variant.colorName, variant.size, variant.sku]
             .filter(Boolean)
             .join(" · "),
           stockQuantity,

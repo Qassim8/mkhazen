@@ -1,12 +1,5 @@
 "use client";
 
-/**
- * مودال تحويل العملة (جنيه ⇄ دولار)
- * الكاشير بيستلم جنيه، والمشتريات بتتدفع دولار، فالمدير محتاج يسجّل
- * عملية شراء الدولار (أو بيعه) عشان أرصدة الخزينة بالعملتين تفضل صحيحة.
- * أي فرق بين سعر التحويل الفعلي وسعر النظام بيتسجل ربح/خسارة فروق صرف.
- */
-
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { LuArrowLeftRight, LuX } from "react-icons/lu";
@@ -116,10 +109,14 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-gray-700">نوع العملية</span>
+            <span className="mb-2 block text-sm font-bold text-gray-700">
+              نوع العملية
+            </span>
             <select
               value={fromCurrency}
-              onChange={(event) => setFromCurrency(event.target.value as "SDG" | "USD")}
+              onChange={(event) =>
+                setFromCurrency(event.target.value as "SDG" | "USD")
+              }
               className={fieldClass}
             >
               <option value="SDG">بيع جنيه / شراء دولار</option>
@@ -128,10 +125,14 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-gray-700">من حساب</span>
+            <span className="mb-2 block text-sm font-bold text-gray-700">
+              من حساب
+            </span>
             <select
               value={fromAccount}
-              onChange={(event) => setFromAccount(event.target.value as Account)}
+              onChange={(event) =>
+                setFromAccount(event.target.value as Account)
+              }
               className={fieldClass}
             >
               <option value="CASH">الخزينة</option>
@@ -168,7 +169,9 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-gray-700">إلى حساب</span>
+            <span className="mb-2 block text-sm font-bold text-gray-700">
+              إلى حساب
+            </span>
             <select
               value={toAccount}
               onChange={(event) => setToAccount(event.target.value as Account)}
@@ -180,7 +183,9 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-bold text-gray-700">ملاحظة</span>
+            <span className="mb-2 block text-sm font-bold text-gray-700">
+              ملاحظة
+            </span>
             <input
               value={notes}
               onChange={(event) => setNotes(event.target.value)}

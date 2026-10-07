@@ -17,10 +17,6 @@ import type {
 } from "../../products/schemas/product.schemas";
 import { createPortal } from "react-dom";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../../products/utils/product-size";
 
 const subscribeToNothing = () => () => {};
 const getClientSnapshot = () => true;
@@ -46,10 +42,7 @@ function getVariantImage(product: Product, variant: ProductVariant) {
 function getVariantLabel(variant: ProductVariant) {
   const parts: string[] = [];
   if (variant.colorName) parts.push(variant.colorName);
-  const size = formatProductSize(variant.size);
-  if (size) {
-    parts.push(`${isCustomProductSize(variant.size) ? "مقاسات" : "مقاس"} ${size}`);
-  }
+  if (variant.size) parts.push(`مقاس ${variant.size}`);
   if (variant.length !== null && variant.length !== undefined) {
     parts.push(`طول ${variant.length}`);
   }

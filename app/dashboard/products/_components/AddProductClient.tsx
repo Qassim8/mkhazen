@@ -311,7 +311,6 @@ export default function AddProductClient({
         <ProductVariantsSection
           control={control}
           register={register}
-          setValue={setValue}
           errors={errors}
           categories={categories}
           hasVariants={hasVariants}

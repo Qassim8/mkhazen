@@ -90,19 +90,20 @@ export async function GET(request: Request) {
     }
 
     const requestedTailorId = isTailor ? user.userId : params.tailorId;
-    const safeSearch = canManageAll
-      ? params.search?.replace(/[,%()]/g, " ").trim()
-      : undefined;
+    const safeSearch = params.search?.replace(/[,%()]/g, " ").trim();
     // كل العملاء المطابقين (من غير حد 100)
     const matchingCustomerIds = new Set<string>();
 
-    if (safeSearch && !isTailor) {
+    if (safeSearch) {
+      const customerSearch = isTailor
+        ? `name.ilike.%${safeSearch}%`
+        : `name.ilike.%${safeSearch}%,whatsapp_number.ilike.%${safeSearch}%`;
       const customerRows = await fetchAll<{ id: string }>((from, to) =>
         supabaseAdmin
           .from("customers")
           .select("id")
           .eq("branch_id", MAIN_BRANCH_ID)
-          .or(`name.ilike.%${safeSearch}%,whatsapp_number.ilike.%${safeSearch}%`)
+          .or(customerSearch)
           .order("id")
           .range(from, to),
       );

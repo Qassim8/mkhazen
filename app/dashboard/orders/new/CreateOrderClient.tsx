@@ -19,7 +19,6 @@ import {
   LuTruck,
   LuWalletCards,
 } from "react-icons/lu";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 import PurchaseCart, { PurchaseItem } from "../_components/Cart";
 
@@ -124,8 +123,7 @@ function mapItemsToPayload(items: PurchaseItem[]) {
 function getVariantAttributes(variant: Variant) {
   return [
     variant.colorName && `اللون: ${variant.colorName}`,
-    formatProductSize(variant.size) &&
-      `المقاس: ${formatProductSize(variant.size)}`,
+    variant.size && `المقاس: ${variant.size}`,
     variant.length !== null &&
       variant.length !== undefined &&
       `الطول: ${variant.length}`,

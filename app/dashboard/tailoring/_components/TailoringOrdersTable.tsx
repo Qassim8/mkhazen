@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -72,10 +71,6 @@ export default function TailoringOrdersTable({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [localSearch, setLocalSearch] = useState(
-    searchParams.get("search") ?? "",
-  );
-
   function updateParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
     if (updates.page === undefined) params.set("page", "1");
@@ -228,21 +223,30 @@ export default function TailoringOrdersTable({
     <div dir="rtl" className="space-y-4">
       <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_170px_170px_170px_170px]">
-          {canManageAll && <form
+          <form
+            key={searchParams.get("search") ?? ""}
             onSubmit={(event) => {
               event.preventDefault();
-              updateParams({ search: localSearch.trim() || null });
+              const formData = new FormData(event.currentTarget);
+              const search = String(formData.get("search") ?? "").trim();
+              updateParams({ search: search || null });
             }}
-            className="relative"
+            className="relative flex"
           >
             <LuSearch className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
-              value={localSearch}
-              onChange={(event) => setLocalSearch(event.target.value)}
+              name="search"
+              defaultValue={searchParams.get("search") ?? ""}
               placeholder="بحث برقم الطلب أو اسم العمل أو العميل أو الواتساب..."
-              className="w-full rounded-xl border border-gray-300 bg-gray-50 py-2.5 pr-10 pl-3 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              className="w-full rounded-r-xl rounded-l-none border border-gray-300 bg-gray-50 py-2.5 pr-10 pl-3 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
             />
-          </form>}
+            <button
+              type="submit"
+              className="shrink-0 rounded-l-xl rounded-r-none bg-(--primary-red) px-3 text-xs font-bold text-white hover:opacity-90"
+            >
+              بحث
+            </button>
+          </form>
           {canManageAll && <select
             value={searchParams.get("purpose") ?? ""}
             onChange={(event) =>

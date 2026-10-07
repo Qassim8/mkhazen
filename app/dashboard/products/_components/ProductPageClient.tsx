@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 
 import TableSearchbar from "@/components/shared/TableSearchbar";
 import PageHeader from "@/components/shared/PageHeader";
@@ -43,13 +44,15 @@ const ProductsPageClient = ({
   suppliers,
   header,
 }: ProductsPageProps) => {
+  const router = useRouter();
+
   return (
     <main>
       <PageHeader
         title={header.title}
         subtitle={header.subtitle}
         buttonTitle={header.buttonTitle}
-        href={header.href}
+        redirect={() => router.push(header.href)}
       />
 
       <section className="frame p-0! my-8">

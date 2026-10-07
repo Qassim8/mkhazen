@@ -9,7 +9,6 @@ import {
   LuRefreshCcw,
   LuScissors,
 } from "react-icons/lu";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 import Table from "@/components/shared/Table";
 import { createColumnHelper } from "@tanstack/react-table";
 import { InventoryMovement } from "../services/inventory.services";
@@ -135,7 +134,7 @@ export default function MovementTable({ movements }: Props) {
         const movement = row.original;
         const product = movement.product_variants?.product_templates?.name;
         const color = movement.product_variants?.colorName;
-        const size = formatProductSize(movement.product_variants?.size);
+        const size = movement.product_variants?.size;
 
         const attributes = [
           color && `اللون: ${color}`,

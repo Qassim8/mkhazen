@@ -15,16 +15,47 @@ export interface LoginResponse {
 export const login = async (
   credentials: LoginInput,
 ): Promise<LoginResponse> => {
-  return serverFetch<LoginResponse>("/api/auth/login", {
+  const response = await fetch("/api/auth/login", {
     method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
   });
+
+  const result = (await response.json().catch(() => null)) as LoginResponse | null;
+
+  if (!response.ok) {
+    throw new Error(result?.message || `فشل تسجيل الدخول (${response.status})`);
+  }
+
+  if (!result) {
+    throw new Error("تعذر قراءة استجابة تسجيل الدخول.");
+  }
+
+  return result;
 };
 
 export const logout = async () => {
-  return serverFetch<{ message: string }>("/api/auth/logout", {
+  const response = await fetch("/api/auth/logout", {
     method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
   });
+
+  const result = (await response.json().catch(() => null)) as
+    | { message?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(result?.message || `فشل تسجيل الخروج (${response.status})`);
+  }
+
+  if (!result) {
+    throw new Error("تعذر قراءة استجابة تسجيل الخروج.");
+  }
+
+  return { message: result.message ?? "تم تسجيل الخروج بنجاح" };
 };
 
 export const getMe = async () => {
@@ -63,13 +94,30 @@ export const changePassword = async (payload: {
   currentPassword: string;
   newPassword: string;
 }) => {
-  return serverFetch<{ message: string; role?: string }>(
-    "/api/auth/me/change-password",
-    {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    },
-  );
+  const response = await fetch("/api/auth/me/change-password", {
+    method: "PUT",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const result = (await response.json().catch(() => null)) as
+    | { message?: string; role?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(result?.message || `فشل تغيير كلمة المرور (${response.status})`);
+  }
+
+  if (!result) {
+    throw new Error("تعذر قراءة استجابة تغيير كلمة المرور.");
+  }
+
+  return {
+    message: result.message ?? "تم تغيير كلمة المرور بنجاح",
+    role: result.role,
+  };
 };
 
 export const requestPasswordReset = async (identifier: string) => {

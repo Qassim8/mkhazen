@@ -1,8 +1,9 @@
 /**
- * /api/notifications — إشعارات المالك والمدير
+ * /api/notifications — إشعارات الإدارة وتحديثات التفصيل للكاشير والخياط
  *
  * مين يشوف إيه:
  * • target_roles فاضي → إشعارات الإدارة (المالك والمدير): مخزون، تأخير، كلمات السر…
+ * • تحديثات التفصيل موجّهة للمالك والمدير والكاشير والخياط المعيّن فقط.
  * • target_roles فيه أدوار → للإدارة إذا كانت ضمن الأدوار المستهدفة
  * • اللي عمل الإجراء ما يشوفش إشعاره بنفسه (metadata.actor_id)
  *
@@ -21,6 +22,7 @@ import { getSession } from "@/lib/auth";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { can, isManager, normalizeRole } from "@/lib/permissions";
+import { ensureTailorAssignmentNotifications } from "@/app/api/tailoring/_lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -39,11 +41,13 @@ async function requireViewer() {
   return role ? { role, userId: session.userId } : null;
 }
 
-/** فلتر الجمهور: الإدارة تشوف العام + الموجّه ليها، وباقي الأدوار الموجّه ليهم بس */
+/** كل دور يرى الإشعارات المخوّلة له؛ الخياط مقيّد بالطلبات المسندة لحسابه. */
 function audience(role: string) {
-  return isManager(role)
-    ? `target_roles.is.null,target_roles.cs.{${role}}`
-    : `target_roles.cs.{${role}}`;
+  if (isManager(role)) return `target_roles.is.null,target_roles.cs.{${role}}`;
+  if (role === "cashier") {
+    return `and(type.eq.TAILORING_UPDATE,target_roles.is.null),target_roles.cs.{cashier}`;
+  }
+  return `target_roles.cs.{${role}}`;
 }
 
 /** الإجراء اللي المستخدم عمله بنفسه ما يظهرلوش كإشعار */
@@ -80,34 +84,58 @@ export async function GET(request: NextRequest) {
     const { role, userId } = viewer;
 
     await runMaintenanceIfDue();
+    if (role === "tailor") {
+      await ensureTailorAssignmentNotifications(userId);
+    }
 
     const params = request.nextUrl.searchParams;
     const limit = Math.min(Math.max(Number(params.get("limit")) || 20, 1), 50);
     const offset = Math.max(Number(params.get("offset")) || 0, 0);
     const unreadOnly = params.get("filter") === "unread";
+    const countOnly = params.get("countOnly") === "true";
+
+    let unreadQuery = supabaseAdmin
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("isRead", false);
+    if (role === "tailor") {
+      unreadQuery = unreadQuery
+        .contains("target_roles", ["tailor"])
+        .contains("metadata", { tailor_id: userId });
+    } else {
+      unreadQuery = unreadQuery.or(audience(role));
+    }
+    unreadQuery = unreadQuery.not("metadata", "cs", ownActionFilter(userId));
+
+    if (countOnly) {
+      const unreadResult = await unreadQuery;
+      if (unreadResult.error) throw unreadResult.error;
+      return NextResponse.json(
+        { unreadCount: unreadResult.count ?? 0 },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
     let query = supabaseAdmin
       .from("notifications")
       .select("id, title, message, type, link, isRead, created_at")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
-      .range(offset, offset + limit)
-      .or(audience(role))
-      .not("metadata", "cs", ownActionFilter(userId));
+      .range(offset, offset + limit);
+    if (role === "tailor") {
+      query = query
+        .contains("target_roles", ["tailor"])
+        .contains("metadata", { tailor_id: userId });
+    } else {
+      query = query.or(audience(role));
+    }
+    query = query.not("metadata", "cs", ownActionFilter(userId));
 
     if (unreadOnly) {
       query = query.eq("isRead", false);
     }
 
-    const [listResult, unreadResult] = await Promise.all([
-      query,
-      supabaseAdmin
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("isRead", false)
-        .or(audience(role))
-        .not("metadata", "cs", ownActionFilter(userId)),
-    ]);
+    const [listResult, unreadResult] = await Promise.all([query, unreadQuery]);
 
     if (listResult.error) throw listResult.error;
     if (unreadResult.error) throw unreadResult.error;
@@ -137,7 +165,7 @@ export async function GET(request: NextRequest) {
       unreadCount: unreadResult.count ?? 0,
       hasMore,
       nextOffset: offset + limit,
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Notifications GET error:", error);
     return NextResponse.json({ message: "تعذر تحميل الإشعارات" }, { status: 500 });
@@ -155,23 +183,40 @@ export async function PATCH(request: Request) {
     const { id, markAll } = (await request.json()) as { id?: string; markAll?: boolean };
 
     if (markAll) {
-      const { error } = await supabaseAdmin
+      let updateQuery = supabaseAdmin
         .from("notifications")
         .update({ isRead: true })
-        .eq("isRead", false)
-        .or(audience(role))
-        .not("metadata", "cs", ownActionFilter(userId));
+        .eq("isRead", false);
+      if (role === "tailor") {
+        updateQuery = updateQuery
+          .contains("target_roles", ["tailor"])
+          .contains("metadata", { tailor_id: userId });
+      } else {
+        updateQuery = updateQuery.or(audience(role));
+      }
+      const { error } = await updateQuery.not(
+        "metadata",
+        "cs",
+        ownActionFilter(userId),
+      );
 
       if (error) throw error;
       return NextResponse.json({ success: true, message: "تم تعليم جميع الإشعارات كمقروءة" });
     }
 
     if (id) {
-      const { error } = await supabaseAdmin
+      let updateQuery = supabaseAdmin
         .from("notifications")
         .update({ isRead: true })
-        .eq("id", id)
-        .or(audience(role));
+        .eq("id", id);
+      if (role === "tailor") {
+        updateQuery = updateQuery
+          .contains("target_roles", ["tailor"])
+          .contains("metadata", { tailor_id: userId });
+      } else {
+        updateQuery = updateQuery.or(audience(role));
+      }
+      const { error } = await updateQuery;
 
       if (error) throw error;
       return NextResponse.json({ success: true });
@@ -199,21 +244,40 @@ export async function DELETE(request: NextRequest) {
     let query;
 
     if (id) {
-      query = supabaseAdmin.from("notifications").delete().eq("id", id).or(audience(role));
+      query = supabaseAdmin.from("notifications").delete().eq("id", id);
+      if (role === "tailor") {
+        query = query
+          .contains("target_roles", ["tailor"])
+          .contains("metadata", { tailor_id: userId });
+      } else {
+        query = query.or(audience(role));
+      }
     } else if (scope === "read") {
       query = supabaseAdmin
         .from("notifications")
         .delete()
-        .eq("isRead", true)
-        .or(audience(role))
-        .not("metadata", "cs", ownActionFilter(userId));
+        .eq("isRead", true);
+      if (role === "tailor") {
+        query = query
+          .contains("target_roles", ["tailor"])
+          .contains("metadata", { tailor_id: userId });
+      } else {
+        query = query.or(audience(role));
+      }
+      query = query.not("metadata", "cs", ownActionFilter(userId));
     } else if (scope === "all") {
       query = supabaseAdmin
         .from("notifications")
         .delete()
-        .gte("created_at", "1970-01-01T00:00:00Z")
-        .or(audience(role))
-        .not("metadata", "cs", ownActionFilter(userId));
+        .gte("created_at", "1970-01-01T00:00:00Z");
+      if (role === "tailor") {
+        query = query
+          .contains("target_roles", ["tailor"])
+          .contains("metadata", { tailor_id: userId });
+      } else {
+        query = query.or(audience(role));
+      }
+      query = query.not("metadata", "cs", ownActionFilter(userId));
     } else {
       return NextResponse.json({ message: "حدد الإشعار أو نوع الحذف" }, { status: 400 });
     }

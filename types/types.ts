@@ -63,7 +63,7 @@ export interface Employee {
   commissionRate?: number;
   address?: string;
   shift?: "morning" | "night" | "full_time" | "Morning" | "Night" | "Flexible";
-  role?: "admin" | "tailor" | "cashier";
+  role?: "owner" | "admin" | "tailor" | "cashier";
   status?: "active" | "inactive";
   isActive?: "TRUE" | "FALSE" | boolean;
   resetRequested?: boolean;

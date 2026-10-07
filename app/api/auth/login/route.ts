@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "@/lib/validations/auth.schemas";
-import { createSession } from "@/lib/auth";
+import { createSession, isAccountActive } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function POST(req: Request) {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     }
 
     // التأكد من أن الحساب نشط
-    if (user.isActive === false || user.isActive === "FALSE") {
+    if (!isAccountActive(user.isActive)) {
       return NextResponse.json(
         { message: "هذا الحساب غير نشط، يرجى مراجعة الإدارة" },
         { status: 403 },
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     // حفظ الجلسة
-    const token = await createSession({
+    await createSession({
       userId: user.id,
       email: user.email,
       role: user.role,
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       isPasswordChanged: Boolean(user.isPasswordChanged),
     });
 
-    const response = NextResponse.json(
+    return NextResponse.json(
       {
         message: "تم تسجيل الدخول بنجاح",
         user: {
@@ -70,16 +70,6 @@ export async function POST(req: Request) {
       },
       { status: 200 },
     );
-
-    response.cookies.set("auth_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
-    });
-
-    return response;
   } catch (err: unknown) {
     console.error("Login Error:", err);
     return NextResponse.json(

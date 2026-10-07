@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { LuCircleDollarSign } from "react-icons/lu";
 import PaymentModal from "./PaymentModal";
 import BackLink from "@/components/shared/BackLink";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 interface Props {
   order: PurchaseOrder;
@@ -393,8 +392,7 @@ export default function PurchaseOrderDetailView({ order }: Props) {
 
                     const attributes = [
                       item.colorName && `اللون: ${item.colorName}`,
-                      formatProductSize(item.size) &&
-                        `المقاس: ${formatProductSize(item.size)}`,
+                      item.size && `المقاس: ${item.size}`,
                     ]
                       .filter(Boolean)
                       .join(" | ");

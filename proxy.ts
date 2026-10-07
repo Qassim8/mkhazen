@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+
 import { getSession } from "@/lib/auth";
+import { canAccessPath, homePageFor } from "@/lib/permissions";
 
-const ROLE_HOME_PAGES: Record<string, string> = {
-  admin: "/dashboard",
-  cashier: "/dashboard/pos",
-  tailor: "/dashboard/orders",
-};
-
+/**
+ * حماية الصفحات. قواعد الصلاحيات نفسها في lib/permissions.ts
+ * (نفس المرجع اللي بتستخدمه الـ APIs والقائمة الجانبية).
+ */
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -20,47 +20,28 @@ export async function proxy(req: NextRequest) {
   const isAuthPage = pathname === "/";
   const isSettingsPage = pathname.startsWith("/dashboard/settings");
 
-  // 1. إذا لم يكن مسجلاً الدخول وحاول الوصول للداشبورد
+  // 1. غير مسجل دخول ويحاول يفتح الداشبورد
   if (!session && pathname.startsWith("/dashboard")) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
   if (session) {
-    const userRole = (session.role || "").toLowerCase();
-
-    // 2. توجيه من صفحة اللوجن
+    // 2. توجيه من صفحة الدخول
     if (isAuthPage) {
       if (!session.isPasswordChanged) {
-        return NextResponse.redirect(
-          new URL("/dashboard/settings?forceChange=true", req.url),
-        );
+        return NextResponse.redirect(new URL("/dashboard/settings?forceChange=true", req.url));
       }
-      const defaultPage = ROLE_HOME_PAGES[userRole] || "/dashboard";
-      return NextResponse.redirect(new URL(defaultPage, req.url));
+      return NextResponse.redirect(new URL(homePageFor(session.role), req.url));
     }
 
-    // 3. حظر التنقل إذا لم يُغيّر كلمة المرور
+    // 3. لازم يغيّر كلمة السر الأول
     if (!session.isPasswordChanged && !isSettingsPage) {
-      return NextResponse.redirect(
-        new URL("/dashboard/settings?forceChange=true", req.url),
-      );
+      return NextResponse.redirect(new URL("/dashboard/settings?forceChange=true", req.url));
     }
 
-    // 4. حماية مسارات الأدمن المقيدة (تضمن المقارنة بـ lowercase)
-    const isAdminOnlyRoute =
-      pathname === "/dashboard" ||
-      pathname.startsWith("/dashboard/employees") ||
-      pathname.startsWith("/dashboard/products") ||
-      pathname.startsWith("/dashboard/categories") ||
-      pathname.startsWith("/dashboard/suppliers") ||
-      pathname.startsWith("/dashboard/inventory") ||
-      pathname.startsWith("/dashboard/accounting") ||
-      pathname.startsWith("/dashboard/reports") ||
-      pathname.startsWith("/dashboard/admin");
-
-    if (isAdminOnlyRoute && userRole !== "admin") {
-      const userHome = ROLE_HOME_PAGES[userRole] || "/dashboard/settings";
-      return NextResponse.redirect(new URL(userHome, req.url));
+    // 4. صلاحية الصفحة
+    if (pathname.startsWith("/dashboard") && !canAccessPath(session.role, pathname)) {
+      return NextResponse.redirect(new URL(homePageFor(session.role), req.url));
     }
   }
 

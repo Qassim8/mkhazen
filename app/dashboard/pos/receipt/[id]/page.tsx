@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import ReceiptPrintClient from "./ReceiptPrintClient";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 interface Props {
   params: Promise<{
@@ -51,8 +50,7 @@ function getVariantLabel(variant: {
 }) {
   return [
     variant.colorName && `اللون: ${variant.colorName}`,
-    formatProductSize(variant.size) &&
-      `المقاس: ${formatProductSize(variant.size)}`,
+    variant.size && `المقاس: ${variant.size}`,
     variant.length != null && `الطول: ${variant.length}`,
     variant.width != null && `العرض: ${variant.width}`,
   ]

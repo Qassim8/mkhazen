@@ -177,7 +177,12 @@ export default function TailoringOrderDetail({
     reset: resetTailorPayment,
   } = useForm<PayTailorPaymentFormValues>({
     resolver: zodResolver(payTailorPaymentFormSchema),
-    defaultValues: { amount: "", paymentMethod: "CASH", currency: "SDG", notes: "" },
+    defaultValues: {
+      amount: "",
+      paymentMethod: "CASH",
+      currency: "SDG",
+      notes: "",
+    },
   });
 
   const {
@@ -510,7 +515,10 @@ export default function TailoringOrderDetail({
       <header className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="mb-3">
-            <BackLink href="/dashboard/tailoring" label="العودة إلى طلبات التفصيل" />
+            <BackLink
+              href="/dashboard/tailoring"
+              label="العودة إلى طلبات التفصيل"
+            />
           </div>
           <h1 className="text-2xl font-black text-gray-950">
             {order.tailoringItemName}
@@ -521,7 +529,7 @@ export default function TailoringOrderDetail({
               ? "تصنيع للمخزون"
               : canContactCustomer
                 ? `${order.customer?.name ?? "-"} · ${order.customer?.whatsappNumber ?? "-"}`
-                : order.customer?.name ?? "-"}
+                : (order.customer?.name ?? "-")}
           </p>
           {order.tailoringItemDescription && (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
@@ -700,27 +708,27 @@ export default function TailoringOrderDetail({
           {canContactCustomer &&
             !isProduction &&
             order.customer?.whatsappNumber && (
-            <>
-              <button
-                type="button"
-                disabled={pdfLoading}
-                onClick={handleDownloadCustomerPdf}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <LuDownload className="h-4 w-4" />
-                {pdfLoading ? "جارٍ تجهيز PDF..." : "PDF للعميل"}
-              </button>
-              <button
-                type="button"
-                disabled={pdfLoading}
-                onClick={handleShareCustomerPdf}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <LuShare2 className="h-4 w-4" />
-                إرسال PDF عبر واتساب
-              </button>
-            </>
-          )}
+              <>
+                <button
+                  type="button"
+                  disabled={pdfLoading}
+                  onClick={handleDownloadCustomerPdf}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <LuDownload className="h-4 w-4" />
+                  {pdfLoading ? "جارٍ تجهيز PDF..." : "PDF للعميل"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pdfLoading}
+                  onClick={handleShareCustomerPdf}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <LuShare2 className="h-4 w-4" />
+                  إرسال PDF عبر واتساب
+                </button>
+              </>
+            )}
 
           {canRefundAdvance && (
             <button
@@ -835,8 +843,8 @@ export default function TailoringOrderDetail({
         </section>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 lg:col-span-2">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 ">
           <div className="flex items-center gap-2">
             <LuPackage className="h-4 w-4 text-gray-500" />
             <h2 className="text-sm font-black">المقاسات</h2>
@@ -870,78 +878,84 @@ export default function TailoringOrderDetail({
           <section className="rounded-2xl border border-gray-200 bg-white p-5">
             <h2 className="text-sm font-black">الملخص المالي</h2>
             <div className="mt-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">قيمة الطلب</span>
-              <strong>
-                {isProduction
-                  ? usd(order.totalCost)
-                  : money(order.totalAmount)}
-              </strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">تكلفة القماش</span>
-              <strong>{usd(order.fabricCost)}</strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">أجرة الخياطة</span>
-              <strong dir="ltr">
-                {formatSDG(order.tailoringCostSdg)}
-                <span className="mr-1 text-[10px] font-semibold text-gray-400">
-                  ≈ {usd(order.tailoringCost)}
-                </span>
-              </strong>
-            </div>
-            {!isProduction && order.grossProfit != null && (
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">
-                  {order.revenueIsFinal ? "الربح الفعلي" : "الربح المتوقع"}
-                  {order.exchangeRateUsed
-                    ? ` (بسعر ${order.exchangeRateUsed.toLocaleString("en-US")})`
-                    : ""}
-                </span>
-                <strong className={order.grossProfit < 0 ? "text-red-600" : "text-emerald-700"}>
-                  {usd(order.grossProfit)}
+                <span className="text-gray-500">قيمة الطلب</span>
+                <strong>
+                  {isProduction
+                    ? usd(order.totalCost)
+                    : money(order.totalAmount)}
                 </strong>
               </div>
-            )}
-            {!isProduction && (
-              <>
-                <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-                  <span className="text-gray-500">العربون/الرصيد المسجل</span>
-                  <strong>{money(order.paidAmount)}</strong>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">الباقي عند التسليم</span>
-                  <strong>{money(order.remainingAmount)}</strong>
-                </div>
-                {order.customerAdvanceAvailable > 0 &&
-                  order.tailoringStatus === "CANCELLED" && (
-                    <div className="rounded-xl bg-amber-50 p-3 text-amber-900">
-                      <p className="font-black">عربون متاح للتصرف</p>
-                      <p className="mt-1">
-                        {money(order.customerAdvanceAvailable)}
-                      </p>
-                      <p className="mt-1 text-[11px]">
-                        يمكن نقله إلى طلب بديل أو استرداده للعميل.
-                      </p>
-                    </div>
-                  )}
-              </>
-            )}
-            {order.tailorPaidAmountSdg > 0 && (
-              <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
-                <span className="text-gray-500">المدفوع للخياط</span>
-                <strong>{formatSDG(order.tailorPaidAmountSdg)}</strong>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">تكلفة القماش</span>
+                <strong>{usd(order.fabricCost)}</strong>
               </div>
-            )}
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-[11px] font-bold text-gray-400">
-                متبقي للخياط
-              </p>
-              <p className="mt-1 text-sm font-black">
-                {formatSDG(order.tailorRemainingAmountSdg)}
-              </p>
-            </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">أجرة الخياطة</span>
+                <strong dir="ltr">
+                  {formatSDG(order.tailoringCostSdg)}
+                  <span className="mr-1 text-[10px] font-semibold text-gray-400">
+                    ≈ {usd(order.tailoringCost)}
+                  </span>
+                </strong>
+              </div>
+              {!isProduction && order.grossProfit != null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">
+                    {order.revenueIsFinal ? "الربح الفعلي" : "الربح المتوقع"}
+                    {order.exchangeRateUsed
+                      ? ` (بسعر ${order.exchangeRateUsed.toLocaleString("en-US")})`
+                      : ""}
+                  </span>
+                  <strong
+                    className={
+                      order.grossProfit < 0
+                        ? "text-red-600"
+                        : "text-emerald-700"
+                    }
+                  >
+                    {usd(order.grossProfit)}
+                  </strong>
+                </div>
+              )}
+              {!isProduction && (
+                <>
+                  <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                    <span className="text-gray-500">العربون/الرصيد المسجل</span>
+                    <strong>{money(order.paidAmount)}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">الباقي عند التسليم</span>
+                    <strong>{money(order.remainingAmount)}</strong>
+                  </div>
+                  {order.customerAdvanceAvailable > 0 &&
+                    order.tailoringStatus === "CANCELLED" && (
+                      <div className="rounded-xl bg-amber-50 p-3 text-amber-900">
+                        <p className="font-black">عربون متاح للتصرف</p>
+                        <p className="mt-1">
+                          {money(order.customerAdvanceAvailable)}
+                        </p>
+                        <p className="mt-1 text-[11px]">
+                          يمكن نقله إلى طلب بديل أو استرداده للعميل.
+                        </p>
+                      </div>
+                    )}
+                </>
+              )}
+              {order.tailorPaidAmountSdg > 0 && (
+                <div className="border-t border-gray-100 pt-3 flex items-center justify-between">
+                  <span className="text-gray-500">المدفوع للخياط</span>
+                  <strong>{formatSDG(order.tailorPaidAmountSdg)}</strong>
+                </div>
+              )}
+              <div className="rounded-xl bg-gray-50 p-3">
+                <p className="text-[11px] font-bold text-gray-400">
+                  متبقي للخياط
+                </p>
+                <p className="mt-1 text-sm font-black">
+                  {formatSDG(order.tailorRemainingAmountSdg)}
+                </p>
+              </div>
             </div>
           </section>
         )}
@@ -1033,108 +1047,116 @@ export default function TailoringOrderDetail({
         !isProduction &&
         order.payments &&
         order.payments.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black">دفعات العميل النقدية/البنكية</h2>
-            <p className="mt-1 text-xs text-gray-400">
-              هذه هي الدفعات التي دخلت الخزينة أو البنك فعليًا لهذا الطلب.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-5 py-3 text-right">التاريخ</th>
-                  <th className="px-5 py-3 text-right">المبلغ</th>
-                  <th className="px-5 py-3 text-right">الطريقة</th>
-                  <th className="px-5 py-3 text-right">المرجع</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {order.payments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td className="px-5 py-3 text-gray-600">
-                      {dateTimeLabel(payment.paymentDate)}
-                    </td>
-                    <td dir="ltr" className="px-5 py-3 font-black">
-                      {money(payment.amount)}
-                    </td>
-                    <td className="px-5 py-3 font-semibold">
-                      {payment.paymentMethod === "CASH"
-                        ? "الخزينة"
-                        : payment.paymentMethod === "BANK_TRANSFER"
-                          ? "البنك"
-                          : "بطاقة"}
-                    </td>
-                    <td className="px-5 py-3 text-gray-500">
-                      {payment.reference ?? "-"}
-                    </td>
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-black">
+                دفعات العميل النقدية/البنكية
+              </h2>
+              <p className="mt-1 text-xs text-gray-400">
+                هذه هي الدفعات التي دخلت الخزينة أو البنك فعليًا لهذا الطلب.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500">
+                  <tr>
+                    <th className="px-5 py-3 text-right">التاريخ</th>
+                    <th className="px-5 py-3 text-right">المبلغ</th>
+                    <th className="px-5 py-3 text-right">الطريقة</th>
+                    <th className="px-5 py-3 text-right">المرجع</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {order.payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="px-5 py-3 text-gray-600">
+                        {dateTimeLabel(payment.paymentDate)}
+                      </td>
+                      <td dir="ltr" className="px-5 py-3 font-black">
+                        {money(payment.amount)}
+                      </td>
+                      <td className="px-5 py-3 font-semibold">
+                        {payment.paymentMethod === "CASH"
+                          ? "الخزينة"
+                          : payment.paymentMethod === "BANK_TRANSFER"
+                            ? "البنك"
+                            : "بطاقة"}
+                      </td>
+                      <td className="px-5 py-3 text-gray-500">
+                        {payment.reference ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
-      {canManageAll && order.tailorPayments && order.tailorPayments.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black">دفعات الخياط</h2>
-            <p className="mt-1 text-xs text-gray-400">
-              التكلفة المتفق عليها: {formatSDG(order.tailoringCostSdg)} — المدفوع:{" "}
-              {formatSDG(order.tailorPaidAmountSdg)} — المتبقي:{" "}
-              {formatSDG(order.tailorRemainingAmountSdg)}
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-5 py-3 text-right">التاريخ</th>
-                  <th className="px-5 py-3 text-right">النوع</th>
-                  <th className="px-5 py-3 text-right">المبلغ</th>
-                  <th className="px-5 py-3 text-right">الطريقة</th>
-                  <th className="px-5 py-3 text-right">الملاحظات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {order.tailorPayments.map((payment) => (
-                  <tr key={payment.id}>
-                    <td className="px-5 py-3 text-gray-600">
-                      {dateTimeLabel(payment.createdAt)}
-                    </td>
-                    <td className="px-5 py-3 font-semibold">
-                      {payment.paymentType === "ADVANCE"
-                        ? "دفعة مقدمة"
-                        : "سداد مستحق"}
-                    </td>
-                    <td dir="ltr" className="px-5 py-3 font-black">
-                      {payment.currency === "SDG" && payment.amountOriginal != null
-                        ? formatSDG(payment.amountOriginal)
-                        : usd(payment.amount)}
-                      {payment.currency === "SDG" && (
-                        <span dir="ltr" className="block text-[10px] font-semibold text-gray-400">
-                          ≈ {usd(payment.amount)}
-                          {payment.exchangeRateUsed
-                            ? ` @ ${payment.exchangeRateUsed.toLocaleString("en-US")}`
-                            : ""}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 font-semibold">
-                      {payment.paymentMethod === "CASH" ? "الخزينة" : "البنك"}
-                    </td>
-                    <td className="px-5 py-3 text-gray-500">
-                      {payment.notes ?? "-"}
-                    </td>
+      {canManageAll &&
+        order.tailorPayments &&
+        order.tailorPayments.length > 0 && (
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-sm font-black">دفعات الخياط</h2>
+              <p className="mt-1 text-xs text-gray-400">
+                التكلفة المتفق عليها: {formatSDG(order.tailoringCostSdg)} —
+                المدفوع: {formatSDG(order.tailorPaidAmountSdg)} — المتبقي:{" "}
+                {formatSDG(order.tailorRemainingAmountSdg)}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px] text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500">
+                  <tr>
+                    <th className="px-5 py-3 text-right">التاريخ</th>
+                    <th className="px-5 py-3 text-right">النوع</th>
+                    <th className="px-5 py-3 text-right">المبلغ</th>
+                    <th className="px-5 py-3 text-right">الطريقة</th>
+                    <th className="px-5 py-3 text-right">الملاحظات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {order.tailorPayments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="px-5 py-3 text-gray-600">
+                        {dateTimeLabel(payment.createdAt)}
+                      </td>
+                      <td className="px-5 py-3 font-semibold">
+                        {payment.paymentType === "ADVANCE"
+                          ? "دفعة مقدمة"
+                          : "سداد مستحق"}
+                      </td>
+                      <td dir="ltr" className="px-5 py-3 font-black">
+                        {payment.currency === "SDG" &&
+                        payment.amountOriginal != null
+                          ? formatSDG(payment.amountOriginal)
+                          : usd(payment.amount)}
+                        {payment.currency === "SDG" && (
+                          <span
+                            dir="ltr"
+                            className="block text-[10px] font-semibold text-gray-400"
+                          >
+                            ≈ {usd(payment.amount)}
+                            {payment.exchangeRateUsed
+                              ? ` @ ${payment.exchangeRateUsed.toLocaleString("en-US")}`
+                              : ""}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 font-semibold">
+                        {payment.paymentMethod === "CASH" ? "الخزينة" : "البنك"}
+                      </td>
+                      <td className="px-5 py-3 text-gray-500">
+                        {payment.notes ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
       {pickupOpen && (
         <ModalShell>
@@ -1208,7 +1230,8 @@ export default function TailoringOrderDetail({
                 <strong>{formatSDG(order.tailorPaidAmountSdg)}</strong>
               </p>
               <p className="mt-1">
-                المتبقي: <strong>{formatSDG(order.tailorRemainingAmountSdg)}</strong>
+                المتبقي:{" "}
+                <strong>{formatSDG(order.tailorRemainingAmountSdg)}</strong>
               </p>
               {!order.tailoringCostRecognized && (
                 <p className="mt-2 font-semibold text-blue-700">

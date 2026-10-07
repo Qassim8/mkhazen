@@ -6,10 +6,6 @@ import { LuGift, LuMinus, LuPlus, LuTrash2 } from "react-icons/lu";
 import toast from "react-hot-toast";
 import type { POSCartItem } from "./POSClient";
 import { formatSDG, roundMoney, usdToSdg } from "@/lib/currency";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../../products/utils/product-size";
 
 interface CartItemProps {
   item: POSCartItem;
@@ -166,12 +162,7 @@ export default function CartItem({
           <div className="flex items-center gap-2 truncate text-[9px] text-gray-400">
             {variant.sku && <span>{variant.sku}</span>}
             {variant.colorName && <span>{variant.colorName}</span>}
-            {formatProductSize(variant.size) && (
-              <span>
-                {isCustomProductSize(variant.size) ? "مقاسات" : "مقاس"}{" "}
-                {formatProductSize(variant.size)}
-              </span>
-            )}
+            {variant.size && <span>مقاس {variant.size}</span>}
             {variant.length != null && <span>طول {variant.length}</span>}
             {variant.width != null && <span>عرض {variant.width}</span>}
           </div>

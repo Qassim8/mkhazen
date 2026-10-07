@@ -16,10 +16,6 @@ import type {
   ProductVariant,
 } from "../../products/schemas/product.schemas";
 import { formatSDG, formatUSD, usdToSdg } from "@/lib/currency";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../../products/utils/product-size";
 
 interface CardProps {
   product: Product;
@@ -43,9 +39,8 @@ function getVariantLabel(variant: ProductVariant): string {
     parts.push(variant.colorName);
   }
 
-  const size = formatProductSize(variant.size);
-  if (size) {
-    parts.push(`${isCustomProductSize(variant.size) ? "مقاسات" : "مقاس"} ${size}`);
+  if (variant.size) {
+    parts.push(`مقاس ${variant.size}`);
   }
 
   if (variant.length !== null && variant.length !== undefined) {

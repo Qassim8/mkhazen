@@ -3,7 +3,6 @@
 import {
   Control,
   UseFormRegister,
-  UseFormSetValue,
   useFieldArray,
   useWatch,
   FieldErrors,
@@ -22,7 +21,6 @@ import {
   LuUpload,
 } from "react-icons/lu";
 import Image from "next/image";
-import ProductSizes from "./ProductSizes";
 
 interface Category {
   id: string;
@@ -32,7 +30,6 @@ interface Category {
 interface ProductVariantsSectionProps {
   control: Control<ProductFormInputType>;
   register: UseFormRegister<ProductFormInputType>;
-  setValue: UseFormSetValue<ProductFormInputType>;
   errors?: FieldErrors<ProductFormInputType>;
   categories?: Category[];
   hasVariants?: boolean;
@@ -46,7 +43,6 @@ interface ProductVariantsSectionProps {
 export default function ProductVariantsSection({
   control,
   register,
-  setValue,
   errors,
   categories = [],
   hasVariants = false,
@@ -67,21 +63,18 @@ export default function ProductVariantsSection({
   );
   const categoryName = selectedCategoryObj?.name?.toLowerCase() || "";
 
-  const isJallabiya =
+  const isJallabiyaOrFabric =
     categoryName.includes("جلاليب") ||
     categoryName.includes("جلابيه") ||
-    categoryName.includes("جلابية") ||
-    categoryName.includes("ثوب");
-  const isFabric =
+    categoryName.includes("ثوب") ||
     categoryName.includes("أقمشة") ||
-    categoryName.includes("اقمشة") ||
     categoryName.includes("قماش");
 
   const addVariant = () => {
     append({
       size: "",
-      length: undefined,
-      width: undefined,
+      length: 0,
+      width: 0,
       colorName: "",
       colorCode: "#000000",
       sku: "",
@@ -232,7 +225,7 @@ export default function ProductVariantsSection({
                     </div>
                   </div>
 
-                  {isJallabiya ? null : isFabric ? (
+                  {isJallabiyaOrFabric ? (
                     <>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
@@ -279,19 +272,6 @@ export default function ProductVariantsSection({
                     </div>
                   )}
                 </div>
-              )}
-
-              {isJallabiya && (
-                <ProductSizes
-                  value={variants[index]?.size}
-                  legacyLength={variants[index]?.length}
-                  legacyWidth={variants[index]?.width}
-                  onChange={(value) => {
-                    setValue(`variants.${index}.size` as const, value);
-                    setValue(`variants.${index}.length` as const, undefined);
-                    setValue(`variants.${index}.width` as const, undefined);
-                  }}
-                />
               )}
 
               <div
@@ -374,7 +354,7 @@ export default function ProductVariantsSection({
                   )}
                 </div>
 
-                {/* <div>
+                <div>
                   <label className="block text-xs font-bold text-amber-700 mb-1.5 truncate flex items-center gap-1">
                     <LuDollarSign className="h-3.5 w-3.5" />
                     أقل سعر بيع (الخصم) — $
@@ -393,7 +373,7 @@ export default function ProductVariantsSection({
                       {variantErrors.minSellingPrice.message}
                     </p>
                   )}
-                </div> */}
+                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 border-t border-gray-200/60 pt-4">

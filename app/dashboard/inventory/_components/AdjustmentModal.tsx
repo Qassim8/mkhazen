@@ -23,7 +23,6 @@ import {
   LuSearch,
   LuX,
 } from "react-icons/lu";
-import { formatProductSize } from "../../products/utils/product-size";
 
 interface AdjustmentModalProps {
   isOpen: boolean;
@@ -168,7 +167,7 @@ export default function AdjustmentModal({
 
         const color = variant.colorName || "";
 
-        const size = formatProductSize(variant.size);
+        const size = variant.size || "";
 
         return (
           productName.toLowerCase().includes(q) ||
@@ -448,8 +447,7 @@ export default function AdjustmentModal({
                     const attributes = [
                       variant.colorName && `اللون: ${variant.colorName}`,
 
-                      formatProductSize(variant.size) &&
-                        `المقاس: ${formatProductSize(variant.size)}`,
+                      variant.size && `المقاس: ${variant.size}`,
                     ]
                       .filter(Boolean)
                       .join(" | ");
@@ -601,10 +599,7 @@ export default function AdjustmentModal({
                       text-gray-500
                     "
                   >
-                    {[
-                      currentVariant.colorName,
-                      formatProductSize(currentVariant.size),
-                    ]
+                    {[currentVariant.colorName, currentVariant.size]
                       .filter(Boolean)
                       .join(" | ") || "المتغير الأساسي"}
                   </p>
@@ -1258,7 +1253,7 @@ export default function AdjustmentModal({
 function getVariantLabel(variant: InventoryVariant) {
   const productName = variant.product_templates?.name || "منتج";
 
-  const attributes = [variant.colorName, formatProductSize(variant.size)]
+  const attributes = [variant.colorName, variant.size]
     .filter(Boolean)
     .join(" / ");
 

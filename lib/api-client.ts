@@ -2,9 +2,12 @@
 import { cookies } from "next/headers";
 import { BASE_URL } from "@/lib/constants";
 
+export type ResponseType = "json" | "arraybuffer" | "blob" | "text";
+
 interface FetchOptions extends RequestInit {
   params?: Record<string, any>;
   withAuth?: boolean;
+  responseType?: ResponseType;
 }
 
 export async function serverFetch<T>(
@@ -14,13 +17,14 @@ export async function serverFetch<T>(
   const {
     params,
     withAuth = true,
+    responseType = "json",
     headers: customHeaders,
     ...fetchOptions
   } = options;
 
-  const headers: any = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(customHeaders || {}),
+    ...((customHeaders as Record<string, string>) || {}),
   };
 
   if (withAuth) {
@@ -52,11 +56,29 @@ export async function serverFetch<T>(
     headers,
   });
 
-  const data = await res.json().catch(() => ({}));
-
+  // معالجة الأخطاء قبل محاولة قراءة البيانات
   if (!res.ok) {
-    throw new Error(data.message || `خطأ في الطلب: ${res.status}`);
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.message || `خطأ في الطلب: ${res.status}`);
   }
 
+  // ارجاع البيانات بناءً على responseType المطلوبة
+  if (responseType === "arraybuffer") {
+    const buffer = await res.arrayBuffer();
+    return buffer as T;
+  }
+
+  if (responseType === "blob") {
+    const blob = await res.blob();
+    return blob as T;
+  }
+
+  if (responseType === "text") {
+    const text = await res.text();
+    return text as T;
+  }
+
+  // الافتراضي: JSON
+  const data = await res.json().catch(() => ({}));
   return data as T;
 }

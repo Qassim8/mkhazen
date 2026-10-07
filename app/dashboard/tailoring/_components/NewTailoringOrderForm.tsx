@@ -6,12 +6,7 @@ import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
-import {
-  LuFactory,
-  LuPlus,
-  LuShoppingBag,
-  LuTrash2,
-} from "react-icons/lu";
+import { LuFactory, LuPlus, LuShoppingBag, LuTrash2 } from "react-icons/lu";
 
 import FabricSearch from "./FabricSearch";
 import {
@@ -130,12 +125,12 @@ export default function NewTailoringOrderForm({
               ...row,
               value: String(row.value),
             }))
-        : [
-            { label: "الطول", value: "", unit: "M" },
-            { label: "الصدر", value: "", unit: "CM" },
-            { label: "الكتف", value: "", unit: "CM" },
-            { label: "الخصر", value: "", unit: "CM" },
-          ],
+          : [
+              { label: "الطول", value: "", unit: "M" },
+              { label: "الصدر", value: "", unit: "CM" },
+              { label: "الكتف", value: "", unit: "CM" },
+              { label: "الخصر", value: "", unit: "CM" },
+            ],
       intakeDate: todayISO(),
       expectedDeliveryDate:
         advanceSource?.expectedDeliveryDate &&
@@ -159,7 +154,8 @@ export default function NewTailoringOrderForm({
 
   const purpose = useWatch({ control, name: "tailoringPurpose" });
   const useStoreFabric = useWatch({ control, name: "useStoreFabric" });
-  const measurements = useWatch({ control, name: "measurements" }) ?? NO_MEASUREMENTS;
+  const measurements =
+    useWatch({ control, name: "measurements" }) ?? NO_MEASUREMENTS;
   const totalAmountValue = useWatch({ control, name: "totalAmount" });
   const tailoringCostValue = useWatch({ control, name: "tailoringCost" });
   const selectedFabricId = useWatch({ control, name: "fabricVariantId" });
@@ -394,7 +390,10 @@ export default function NewTailoringOrderForm({
     >
       <header className="border-b border-gray-100 pb-5">
         <div className="mb-3">
-          <BackLink href="/dashboard/tailoring" label="العودة إلى طلبات التفصيل" />
+          <BackLink
+            href="/dashboard/tailoring"
+            label="العودة إلى طلبات التفصيل"
+          />
         </div>
         <div className="flex items-start gap-2">
           <div>
@@ -451,7 +450,9 @@ export default function NewTailoringOrderForm({
               }`}
             >
               <LuShoppingBag className="h-5 w-5 text-gray-700" />
-              <p className="mt-2 text-sm font-black text-gray-900">تفصيل لعميل</p>
+              <p className="mt-2 text-sm font-black text-gray-900">
+                تفصيل لعميل
+              </p>
             </button>
             <button
               type="button"
@@ -812,7 +813,10 @@ export default function NewTailoringOrderForm({
                       {totalAmount.toFixed(2)} ج.س
                     </p>
                     {exchangeRate && totalAmount > 0 && (
-                      <p dir="ltr" className="mt-0.5 text-[10px] font-semibold text-gray-400">
+                      <p
+                        dir="ltr"
+                        className="mt-0.5 text-[10px] font-semibold text-gray-400"
+                      >
                         ≈ {formatUSD(sdgToUsd(totalAmount, exchangeRate))}
                       </p>
                     )}
@@ -902,8 +906,12 @@ export default function NewTailoringOrderForm({
               />
               <InlineError message={errors.tailoringCost?.message} />
               {exchangeRate && tailoringCost > 0 && (
-                <p dir="ltr" className="mt-1 text-right text-[11px] font-semibold text-emerald-700">
-                  ≈ {formatUSD(sdgToUsd(tailoringCost, exchangeRate))} — تُحسب داخليًا بالدولار بسعر اليوم
+                <p
+                  dir="ltr"
+                  className="mt-1 text-right text-[11px] font-semibold text-emerald-700"
+                >
+                  ≈ {formatUSD(sdgToUsd(tailoringCost, exchangeRate))} — تُحسب
+                  داخليًا بالدولار بسعر اليوم
                 </p>
               )}
               <p className="mt-1 text-[11px] text-gray-400">
@@ -916,7 +924,7 @@ export default function NewTailoringOrderForm({
               <p className="text-[11px] font-bold text-gray-400">
                 التكلفة المعروفة حاليًا
               </p>
-              <p dir="ltr" className="mt-1 text-sm font-black text-gray-900">
+              <p className="mt-1 text-sm font-black text-gray-900">
                 {formatSDG(tailoringCost > 0 ? tailoringCost : 0)} +{" "}
                 {useStoreFabric
                   ? "تكلفة القماش من المخزون"

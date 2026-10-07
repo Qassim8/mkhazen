@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { getMe } from "@/app/(login)/services/auth.services";
 import { useUIStore } from "@/store/useUIStore";
+import { canAccessPath } from "@/lib/permissions";
 
 import {
   LuBoxes,
@@ -60,25 +61,74 @@ const menuItems: MenuItem[] = [
   },
 
   /* =========================================================
-     PRODUCTS
+     SALES & OPERATIONS (POS, Tailoring, Sales)
   ========================================================= */
 
   {
-    label: "إدارة المنتجات",
+    label: "المبيعات والتشغيل",
+    icon: LuBadgeDollarSign,
+    roles: ["admin", "cashier", "tailor"],
+    subItems: [
+      {
+        href: "/dashboard/pos",
+        label: "الكاشير",
+        icon: LuStore,
+        roles: ["admin", "cashier"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/tailoring",
+        label: "الخياطة",
+        icon: LuScissorsLineDashed,
+        roles: ["admin", "tailor", "cashier"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/customers",
+        label: "العملاء",
+        icon: LuUsers,
+        roles: ["admin", "cashier"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/sales",
+        label: "المبيعات",
+        icon: LuBadgeDollarSign,
+        roles: ["admin"],
+        exact: true,
+      },
+    ],
+  },
+
+  /* =========================================================
+     INVENTORY & PRODUCTS
+  ========================================================= */
+
+  {
+    label: "المخزون والمنتجات",
     icon: LuPackageOpen,
     roles: ["admin"],
     subItems: [
-      {
-        href: "/dashboard/categories",
-        label: "الفئات",
-        icon: LuFolderTree,
-        roles: ["admin"],
-      },
       {
         href: "/dashboard/products",
         label: "المنتجات",
         icon: LuBoxes,
         roles: ["admin"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/categories",
+        label: "الفئات",
+        icon: LuFolderTree,
+        roles: ["admin"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/inventory",
+        label: "المخزون",
+        icon: LuLayers,
+        roles: ["admin"],
+        exact: true,
       },
     ],
   },
@@ -93,54 +143,20 @@ const menuItems: MenuItem[] = [
     roles: ["admin"],
     subItems: [
       {
-        href: "/dashboard/suppliers",
-        label: "الموردون",
-        icon: LuUsers,
-        roles: ["admin"],
-      },
-      {
         href: "/dashboard/orders",
         label: "المشتريات",
         icon: LuClipboardList,
         roles: ["admin"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/suppliers",
+        label: "الموردون",
+        icon: LuUsers,
+        roles: ["admin"],
+        exact: true,
       },
     ],
-  },
-
-  /* =========================================================
-     POS & Tailoring
-  ========================================================= */
-
-  {
-    href: "/dashboard/sales",
-    label: "المبيعات",
-    icon: LuBadgeDollarSign,
-    roles: ["admin"],
-  },
-
-  {
-    href: "/dashboard/tailoring",
-    label: "الخياطة",
-    icon: LuScissorsLineDashed,
-    roles: ["admin", "tailor"],
-  },
-
-  {
-    href: "/dashboard/pos",
-    label: "الكاشير",
-    icon: LuStore,
-    roles: ["admin", "cashier"],
-  },
-
-  /* =========================================================
-     INVENTORY
-  ========================================================= */
-
-  {
-    href: "/dashboard/inventory",
-    label: "المخزون",
-    icon: LuLayers,
-    roles: ["admin"],
   },
 
   /* =========================================================
@@ -152,6 +168,7 @@ const menuItems: MenuItem[] = [
     label: "الموظفون",
     icon: LuUsers,
     roles: ["admin"],
+    exact: true,
   },
 
   /* =========================================================
@@ -182,6 +199,7 @@ const menuItems: MenuItem[] = [
         label: "الأصول",
         icon: LuPackageCheck,
         roles: ["admin"],
+        exact: true,
       },
     ],
   },
@@ -195,6 +213,7 @@ const menuItems: MenuItem[] = [
     label: "التقارير",
     icon: LuFileChartColumn,
     roles: ["admin"],
+    exact: true,
   },
 
   /* =========================================================
@@ -205,12 +224,13 @@ const menuItems: MenuItem[] = [
     href: "/dashboard/settings",
     label: "الإعدادات",
     icon: LuSettings,
-    roles: ["admin"],
+    roles: ["admin", "tailor", "cashier"],
+    exact: true,
   },
 ];
 
 /* =========================================================
-   PATH MATCHING
+    PATH MATCHING
 ========================================================= */
 
 function isPathActive(pathname: string, href: string, exact = false) {
@@ -275,19 +295,13 @@ export function Sidebar() {
      FILTER MENU
   ======================================================= */
 
+  // الصلاحيات من lib/permissions.ts (نفس قواعد الـ proxy)
   const filteredMenuItems = useMemo(() => {
+    if (!userRole) {
+      return [];
+    }
+
     return menuItems
-      .filter((item) => {
-        if (!item.roles) {
-          return true;
-        }
-
-        if (!userRole) {
-          return false;
-        }
-
-        return item.roles.includes(userRole);
-      })
       .map((item) => {
         if (!item.subItems) {
           return item;
@@ -295,13 +309,16 @@ export function Sidebar() {
 
         return {
           ...item,
-
-          subItems: item.subItems.filter(
-            (sub) => !sub.roles || (userRole && sub.roles.includes(userRole)),
+          subItems: item.subItems.filter((sub) =>
+            canAccessPath(userRole, sub.href),
           ),
         };
       })
-      .filter((item) => !item.subItems || item.subItems.length > 0);
+      .filter((item) =>
+        item.subItems
+          ? item.subItems.length > 0
+          : !item.href || canAccessPath(userRole, item.href),
+      );
   }, [userRole]);
 
   /* =======================================================
@@ -353,7 +370,7 @@ export function Sidebar() {
       >
         {/* =================================================
             MOBILE HEADER
-        ================================================= */}
+        ================================================_ */}
 
         <div className="mb-5 flex items-center justify-between md:hidden">
           <span className="text-sm font-semibold text-gray-500">القائمة</span>
@@ -370,7 +387,7 @@ export function Sidebar() {
 
         {/* =================================================
             LOGO
-        ================================================= */}
+        ================================================_ */}
 
         <Link
           href="/"
@@ -392,13 +409,13 @@ export function Sidebar() {
 
         {/* =================================================
             NAVIGATION
-        ================================================= */}
+        ================================================_ */}
 
         <nav className="space-y-1">
           {filteredMenuItems.map((item) => {
             /* =============================================
-                 GROUP
-              ============================================= */
+                GROUP
+             ============================================= */
 
             if (item.subItems && item.subItems.length > 0) {
               const groupKey = item.label;
@@ -471,16 +488,16 @@ export function Sidebar() {
                             href={sub.href}
                             onClick={() => sidebarToggler(false)}
                             className={`
-                                  flex items-center gap-2.5
-                                  rounded-lg px-3 py-2.5
-                                  text-xs font-medium
-                                  transition
-                                  ${
-                                    active
-                                      ? "border border-(--primary-red) text-(--primary-red)"
-                                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                                  }
-                                `}
+                                flex items-center gap-2.5
+                                rounded-lg px-3 py-2.5
+                                text-xs font-medium
+                                transition
+                                ${
+                                  active
+                                    ? "border border-(--primary-red) text-(--primary-red)"
+                                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                }
+                              `}
                           >
                             <SubIcon className="h-4 w-4 shrink-0" />
 
@@ -495,8 +512,8 @@ export function Sidebar() {
             }
 
             /* =============================================
-                 DIRECT LINK
-              ============================================= */
+                DIRECT LINK
+             ============================================= */
 
             const Icon = item.icon;
 

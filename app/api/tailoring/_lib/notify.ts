@@ -1,12 +1,13 @@
 import "server-only";
 
 import type { TokenPayload } from "@/lib/auth";
+import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
  * إشعارات تحديثات طلبات التفصيل.
  *
- * • تحديثات الطلبات تُرسل للإدارة (المالك والمدير: target_roles = NULL).
+ * • تحديثات الطلبات تُرسل للمالك والمدير والكاشير، وللخياط المعيّن فقط.
  * • دفعات الخياط للإدارة بس (معلومة مالية).
  * • اللي عمل التحديث ما يوصلوش إشعار بنفسه (metadata.actor_id، والفلتر في /api/notifications).
  * • أي تحديث جديد للطلب بيعلّم التحديثات القديمة لنفس الطلب كمقروءة (اتجاوزها الحدث).
@@ -44,6 +45,113 @@ type NotificationRow = {
   target_roles: string[] | null;
   metadata: Record<string, unknown>;
 };
+
+const tailorAssignmentSyncAt = new Map<string, number>();
+const TAILOR_ASSIGNMENT_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
+function tailorAssignmentKey(orderId: string) {
+  return `TAILORING_ASSIGNMENT:${orderId}`;
+}
+
+function makeTailorAssignmentNotification(
+  order: OrderInfo,
+  customerName: string | null,
+): NotificationRow {
+  return {
+    title: "طلب تفصيل جديد مسند إليك",
+    message: `${describeOrder(order, customerName)} أُسند إليك للتنفيذ.`,
+    type: TAILORING_NOTIFICATION_TYPE,
+    link: `/dashboard/tailoring/${order.id}`,
+    target_roles: ["tailor"],
+    metadata: {
+      key: tailorAssignmentKey(order.id),
+      sales_order_id: order.id,
+      tailor_id: order.tailor_id,
+      event: "ASSIGNED",
+    },
+  };
+}
+
+/** ينشئ تنبيهات مرة واحدة للطلبات الحالية التي أُسندت قبل تفعيل تنبيهات الخياط. */
+export async function ensureTailorAssignmentNotifications(tailorId: string) {
+  const lastSyncAt = tailorAssignmentSyncAt.get(tailorId) ?? 0;
+  if (Date.now() - lastSyncAt < TAILOR_ASSIGNMENT_SYNC_INTERVAL_MS) return;
+
+  if (!MAIN_BRANCH_ID) {
+    throw new Error("معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام.");
+  }
+
+  const { data: orders, error } = await supabaseAdmin
+    .from("sales_orders")
+    .select(
+      "id, order_number, tailoring_item_name, tailoring_purpose, expected_delivery_date, customer_id, tailor_id",
+    )
+    .eq("branch_id", MAIN_BRANCH_ID)
+    .eq("tailor_id", tailorId)
+    .eq("order_type", "TAILORING")
+    .in("tailoring_status", ["NEW", "UNDER_TAILORING"])
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`تعذر جلب طلبات الخياط المسندة: ${error.message}`);
+  if (!orders?.length) {
+    tailorAssignmentSyncAt.set(tailorId, Date.now());
+    return;
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("notifications")
+    .select("metadata")
+    .eq("type", TAILORING_NOTIFICATION_TYPE)
+    .contains("target_roles", ["tailor"])
+    .contains("metadata", { tailor_id: tailorId });
+
+  if (existingError) {
+    throw new Error(`تعذر التحقق من تنبيهات الطلبات المسندة: ${existingError.message}`);
+  }
+
+  const existingKeys = new Set(
+    (existing ?? []).map((row) => {
+      const metadata = row.metadata as Record<string, unknown> | null;
+      return metadata?.key;
+    }),
+  );
+  const missingOrders = orders.filter(
+    (order) => !existingKeys.has(tailorAssignmentKey(order.id)),
+  );
+
+  if (!missingOrders.length) {
+    tailorAssignmentSyncAt.set(tailorId, Date.now());
+    return;
+  }
+
+  const customerIds = [
+    ...new Set(
+      missingOrders
+        .map((order) => order.customer_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const { data: customers, error: customersError } = customerIds.length
+    ? await supabaseAdmin
+        .from("customers")
+        .select("id, name")
+        .in("id", customerIds)
+    : { data: [], error: null };
+  if (customersError) {
+    throw new Error(`تعذر جلب أسماء عملاء طلبات الخياط: ${customersError.message}`);
+  }
+  const customerNames = new Map(
+    (customers ?? []).map((customer) => [customer.id, customer.name]),
+  );
+  const rows = missingOrders.map((order) =>
+    makeTailorAssignmentNotification(
+      order,
+      customerNames.get(order.customer_id ?? "") ?? null,
+    ),
+  );
+  if (rows.length) await insertRows(rows);
+  tailorAssignmentSyncAt.set(tailorId, Date.now());
+}
 
 async function loadOrder(orderId: string) {
   const { data: order } = await supabaseAdmin
@@ -163,10 +271,10 @@ function withActor(message: string, actor: TokenPayload | null) {
 
 async function insertRows(rows: NotificationRow[]) {
   const { error } = await supabaseAdmin.from("notifications").insert(rows);
-  if (error) console.error("Tailoring notification insert:", error);
+  if (error) throw new Error(`Tailoring notification insert: ${error.message}`);
 }
 
-/** إشعار بتحديث في طلب تفصيل — للإدارة */
+/** إشعار بتحديث في طلب تفصيل — للمالك والمدير والكاشير */
 export async function notifyTailoringUpdate(input: {
   orderId: string;
   event: TailoringEvent;
@@ -201,7 +309,35 @@ export async function notifyTailoringUpdate(input: {
       },
     };
 
-    await insertRows([{ ...base, target_roles: null }]);
+    const rows: NotificationRow[] = [
+      { ...base, target_roles: ["owner", "admin", "cashier"] },
+    ];
+
+    if (info.order.tailor_id) {
+      const tailorMessage =
+        input.event === "CREATED"
+          ? `${describeOrder(info.order, info.customerName)} أُسند إليك للتنفيذ.`
+          : `${describeOrder(info.order, info.customerName)}: ${content.title}.`;
+      rows.push({
+        ...base,
+        title:
+          input.event === "CREATED"
+            ? "طلب تفصيل جديد مسند إليك"
+            : content.title,
+        message: tailorMessage,
+        target_roles: ["tailor"],
+        metadata: {
+          ...base.metadata,
+          key:
+            input.event === "CREATED"
+              ? tailorAssignmentKey(info.order.id)
+              : base.metadata.key,
+          tailor_id: info.order.tailor_id,
+        },
+      });
+    }
+
+    await insertRows(rows);
   } catch (error) {
     console.error("notifyTailoringUpdate:", error);
   }

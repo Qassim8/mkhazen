@@ -12,7 +12,6 @@ import {
   getSalesOrderById,
   type SalesOrderDetail,
 } from "@/app/dashboard/pos/services/pos.services";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 function money(value: number) {
   return `${value.toLocaleString("ar-SA-u-nu-latn", {
@@ -230,12 +229,12 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
                         </p>
                         {(item.product.sku ||
                           item.product.colorName ||
-                          formatProductSize(item.product.size)) && (
+                          item.product.size) && (
                           <p className="mt-1 text-[11px] text-gray-400">
                             {[
                               item.product.sku,
                               item.product.colorName,
-                              formatProductSize(item.product.size),
+                              item.product.size,
                             ]
                               .filter(Boolean)
                               .join(" · ")}

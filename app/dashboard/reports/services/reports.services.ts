@@ -14,13 +14,21 @@ export async function getReportsData(period: string = "month") {
 }
 
 export async function exportReportXlsx(filters: ReportFilters) {
-  const bytes = await serverFetch<number[]>("/api/reports/export", {
-    params: Object.fromEntries(filtersToSearchParams(filters)),
-    responseType: "bytes",
-  });
+  // 1. توحيد نمط الاستجابة مع جلب ArrayBuffer للملفات
+  const response = await serverFetch<{ data: number[] }>(
+    "/api/reports/export",
+    {
+      params: Object.fromEntries(filtersToSearchParams(filters)),
+      responseType: "arraybuffer", // أو بحسب ما يدعمه api-client لديك
+    },
+  );
+
+  // 2. ضمان تحويل التواريخ/القيم إلى نصوص صريحة ومنع ظهور undefined
+  const fromStr = filters.from ? String(filters.from) : "البداية";
+  const toStr = filters.to ? String(filters.to) : "النهاية";
 
   return {
-    fileName: `تقرير-${filters.from}-${filters.to}.xlsx`,
-    bytes,
+    fileName: `تقرير-${fromStr}-${toStr}.xlsx`,
+    bytes: response.data ?? response, // للتعامل مع النمطين سواء كانت ملفوفة بـ data أم لا
   };
 }

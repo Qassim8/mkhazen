@@ -128,8 +128,7 @@ function SettingsContent() {
             <Password
               onSuccess={(userRole: string) => {
                 setMustChangePassword(false);
-                router.refresh();
-                router.push(homePageFor(userRole));
+                window.location.assign(homePageFor(userRole));
               }}
             />
           )}

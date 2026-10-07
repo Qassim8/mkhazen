@@ -17,10 +17,6 @@ import {
 import { Product, ProductVariant } from "../schemas/product.schemas";
 
 import { ProductBarcode } from "./ProductBarcodeCard";
-import {
-  formatProductSize,
-  isCustomProductSize,
-} from "../utils/product-size";
 
 type ProductDetails = Product & {
   category?: {
@@ -473,14 +469,14 @@ export default function ProductDetailsClient({
                         </div>
                       )}
 
-                      {formatProductSize(variant.size) && (
+                      {variant.size && (
                         <div className="rounded-xl border border-gray-100 bg-white p-2.5">
                           <span className="mb-1 block text-[10px] text-gray-400">
-                            {isCustomProductSize(variant.size) ? "المقاسات" : "المقاس"}
+                            المقاس
                           </span>
 
                           <span className="text-xs font-bold text-gray-700">
-                            {formatProductSize(variant.size)}
+                            {variant.size}
                           </span>
                         </div>
                       )}
@@ -702,12 +698,7 @@ function SingleVariantDetails({
         <DetailCard label="اللون" value={variant.colorName} />
       )}
 
-      {formatProductSize(variant.size) && (
-        <DetailCard
-          label={isCustomProductSize(variant.size) ? "المقاسات" : "المقاس"}
-          value={formatProductSize(variant.size)}
-        />
-      )}
+      {variant.size && <DetailCard label="المقاس" value={variant.size} />}
 
       {variant.length !== null && variant.length !== undefined && (
         <DetailCard label="الطول" value={String(variant.length)} />

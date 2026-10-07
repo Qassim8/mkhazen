@@ -14,9 +14,9 @@ import {
 import Searchbar from "./Searchbar";
 import { getMe, logout } from "@/app/(login)/services/auth.services";
 import PageName from "../shared/PageName";
-import { useRouter } from "next/navigation";
 import NotificationDropdown from "./NotificationsDropdown";
 import { useUIStore } from "@/store/useUIStore";
+import { errorMessage } from "@/lib/errors";
 
 interface UserProfile {
   name: string;
@@ -30,7 +30,6 @@ export default function Navbar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sidebarToggler = useUIStore((state) => state.sidebarToggler);
-  const router = useRouter();
 
   const fetchUserData = () => {
     getMe()
@@ -69,10 +68,9 @@ export default function Navbar() {
       setIsLoggingOut(true);
       const res = await logout();
       toast.success(res.message || "تم تسجيل الخروج بنجاح");
-      router.replace("/");
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error.message || "حدث خطأ أثناء تسجيل الخروج");
+      window.location.replace("/");
+    } catch (error: unknown) {
+      toast.error(errorMessage(error, "حدث خطأ أثناء تسجيل الخروج"));
       setIsLoggingOut(false);
     }
   };
@@ -95,7 +93,9 @@ export default function Navbar() {
 
           <Searchbar />
 
-          {user?.role === "admin" && <NotificationDropdown />}
+          {["owner", "admin", "cashier", "tailor"].includes(user?.role ?? "") && (
+            <NotificationDropdown />
+          )}
 
           <div className="relative" ref={dropdownRef}>
             <button
@@ -111,11 +111,13 @@ export default function Navbar() {
                   {user?.name || "جاري التحميل..."}
                 </h2>
                 <span className="text-[10px] font-bold text-gray-400">
-                  {user?.role === "admin"
-                    ? "المدير"
-                    : user?.role === "cashier"
-                      ? "كاشير"
-                      : "خياط"}
+                  {user?.role === "owner"
+                    ? "المالك"
+                    : user?.role === "admin"
+                      ? "المدير"
+                      : user?.role === "cashier"
+                        ? "كاشير"
+                        : "خياط"}
                 </span>
               </div>
               <LuChevronDown

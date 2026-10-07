@@ -7,8 +7,6 @@ import {
 import PageHeader from "@/components/shared/PageHeader";
 import { getSession } from "@/lib/auth";
 
-import AreaChartComponent from "./components/AreaChart";
-import PieChartComponent from "./components/PieChart";
 import StatsCard from "./components/StatsCard";
 import {
   DashboardMetric,
@@ -16,6 +14,7 @@ import {
   getDashboardOverview,
 } from "./services/dashboard.services";
 import QuickActions from "./components/QuickActions";
+import DashboardCharts from "./components/DashboardCharts";
 
 const PERIODS: { value: DashboardPeriod; label: string }[] = [
   { value: "week", label: "أسبوع" },
@@ -172,13 +171,8 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
       </section>
 
       <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <AreaChartComponent
-            data={dashboard.trend}
-            periodLabel={dashboard.periodLabel}
-          />
-        </div>
-        <PieChartComponent
+        <DashboardCharts
+          trend={dashboard.trend}
           data={dashboard.topProducts}
           periodLabel={dashboard.periodLabel}
         />

@@ -19,7 +19,6 @@ import {
 import { updatePurchaseOrder } from "../services/order.services";
 
 import { z } from "zod";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 /* =========================================================
    TYPES
@@ -78,8 +77,7 @@ export default function EditPurchaseOrderForm({
       initialOrder.items?.map((item) => {
         const attributesStr = [
           item.colorName && `اللون: ${item.colorName}`,
-          formatProductSize(item.size) &&
-            `المقاس: ${formatProductSize(item.size)}`,
+          item.size && `المقاس: ${item.size}`,
         ]
           .filter(Boolean)
           .join(" | ");
@@ -233,8 +231,7 @@ export default function EditPurchaseOrderForm({
         const attributesStr = [
           variant.colorName && `اللون: ${variant.colorName}`,
 
-          formatProductSize(variant.size) &&
-            `المقاس: ${formatProductSize(variant.size)}`,
+          variant.size && `المقاس: ${variant.size}`,
         ]
           .filter(Boolean)
           .join(" | ");
@@ -299,8 +296,7 @@ export default function EditPurchaseOrderForm({
     const attributesStr = [
       foundVariant.colorName && `اللون: ${foundVariant.colorName}`,
 
-      formatProductSize(foundVariant.size) &&
-        `المقاس: ${formatProductSize(foundVariant.size)}`,
+      foundVariant.size && `المقاس: ${foundVariant.size}`,
     ]
       .filter(Boolean)
       .join(" | ");

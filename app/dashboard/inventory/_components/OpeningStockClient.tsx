@@ -17,7 +17,6 @@ import { formatSDG, formatUSD } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import { recordOpeningStock } from "../services/inventory.services";
 import type { OpeningStockCandidate } from "../schema/inventory.schemas";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 interface Props {
   candidates: OpeningStockCandidate[];
@@ -26,13 +25,7 @@ interface Props {
 type Draft = { quantity: string; unitCost: string };
 
 function variantLabel(item: OpeningStockCandidate) {
-  return [
-    item.colorName,
-    formatProductSize(item.size),
-    item.sku,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  return [item.colorName, item.size, item.sku].filter(Boolean).join(" · ");
 }
 
 /** رقم من حقل نصي: فاضي أو غير صالح = صفر */
@@ -55,13 +48,7 @@ export default function OpeningStockClient({ candidates }: Props) {
     if (!needle) return candidates;
 
     return candidates.filter((item) =>
-      [
-        item.productName,
-        item.sku,
-        item.barcode,
-        item.colorName,
-        formatProductSize(item.size),
-      ]
+      [item.productName, item.sku, item.barcode, item.colorName, item.size]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle)),
     );

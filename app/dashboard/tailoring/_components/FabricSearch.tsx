@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { LuCheck, LuLoaderCircle, LuSearch, LuX } from "react-icons/lu";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
-import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
 
 type FabricVariant = {
   id: string;
@@ -179,9 +178,7 @@ export default function FabricSearch({ value, onChange, disabled, initialSelecti
                         >
                           <span className="min-w-0 truncate text-xs text-gray-700">
                             {variant.colorName ?? "متغير"}
-                            {formatProductSize(variant.size)
-                              ? ` · ${formatProductSize(variant.size)}`
-                              : ""}
+                            {variant.size ? ` · ${variant.size}` : ""}
                             {variant.sku ? ` · ${variant.sku}` : ""}
                           </span>
                           <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-emerald-600">
