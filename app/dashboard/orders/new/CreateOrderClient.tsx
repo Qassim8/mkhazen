@@ -1,0 +1,1078 @@
+"use client";
+
+import { useMemo, useRef, useState, useEffect } from "react";
+
+import { FieldErrors, useForm, useWatch } from "react-hook-form";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import { useRouter } from "next/navigation";
+
+import toast from "react-hot-toast";
+
+import {
+  LuBanknote,
+  LuCalendarDays,
+  LuCheck,
+  LuLoader,
+  LuSearch,
+  LuTruck,
+  LuWalletCards,
+} from "react-icons/lu";
+import { formatProductSize } from "@/app/dashboard/products/utils/product-size";
+
+import PurchaseCart, { PurchaseItem } from "../_components/Cart";
+
+import {
+  CreatePurchaseOrderInput,
+  createPurchaseOrderSchema,
+  CreatePurchaseOrderFormInput,
+} from "../schemas/orders.schemas";
+
+import {
+  createPurchaseOrder,
+  createPurchaseOrderPayment,
+} from "../services/order.services";
+
+/* =========================================================
+   PRODUCT TYPES
+========================================================= */
+
+interface Variant {
+  id: string;
+
+  templateId: string;
+
+  sku?: string | null;
+
+  barcode?: string | null;
+
+  colorName?: string | null;
+
+  colorCode?: string | null;
+
+  size?: string | null;
+
+  length?: number | null;
+
+  width?: number | null;
+
+  purchasePrice: number;
+
+  isActive?: boolean;
+}
+
+interface ProductTemplate {
+  id: string;
+
+  name: string;
+
+  purchaseUnit?: string | null;
+
+  sellingUnit?: string | null;
+
+  conversionFactor?: number | null;
+
+  variants: Variant[];
+
+  isActive?: boolean;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+}
+
+interface Props {
+  products: ProductTemplate[];
+  suppliers: Supplier[];
+  initialVariantId?: string;
+}
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function normalizeConversionFactor(value: unknown) {
+  const factor = Number(value ?? 1);
+
+  if (!Number.isFinite(factor) || factor <= 0) {
+    return 1;
+  }
+
+  return factor;
+}
+
+function mapItemsToPayload(items: PurchaseItem[]) {
+  return items.map((item) => ({
+    templateId: item.templateId,
+
+    variantId: item.variantId,
+
+    /*
+     * This remains PURCHASE UNIT quantity.
+     */
+    quantity: item.quantity,
+
+    /*
+     * This remains PURCHASE UNIT cost.
+     */
+    unitCost: item.unitCost,
+  }));
+}
+
+function getVariantAttributes(variant: Variant) {
+  return [
+    variant.colorName && `اللون: ${variant.colorName}`,
+    formatProductSize(variant.size) &&
+      `المقاس: ${formatProductSize(variant.size)}`,
+    variant.length !== null &&
+      variant.length !== undefined &&
+      `الطول: ${variant.length}`,
+    variant.width !== null &&
+      variant.width !== undefined &&
+      `العرض: ${variant.width}`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function getInitialPurchaseItems(
+  products: ProductTemplate[],
+  variantId?: string,
+): PurchaseItem[] {
+  if (!variantId) return [];
+
+  for (const product of products) {
+    if (product.isActive === false) continue;
+
+    const variant = product.variants.find(
+      (item) => item.id === variantId && item.isActive !== false,
+    );
+    if (!variant) continue;
+
+    return [
+      {
+        id: variant.id,
+        templateId: product.id,
+        variantId: variant.id,
+        productName: product.name,
+        sku: variant.sku ?? undefined,
+        barcode: variant.barcode ?? undefined,
+        variantAttributes: getVariantAttributes(variant),
+        unitCost: Number(variant.purchasePrice || 0),
+        quantity: 1,
+      },
+    ];
+  }
+
+  return [];
+}
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
+export default function CreateOrderClient({
+  products,
+  suppliers,
+  initialVariantId,
+}: Props) {
+  const router = useRouter();
+  const initialPurchaseItems = useMemo(
+    () => getInitialPurchaseItems(products, initialVariantId),
+    [initialVariantId, products],
+  );
+
+  /* =======================================================
+     PURCHASE ITEMS
+  ======================================================= */
+
+  const [purchaseItems, setPurchaseItems] =
+    useState<PurchaseItem[]>(initialPurchaseItems);
+
+  /* =======================================================
+     PRODUCT SEARCH
+  ======================================================= */
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  /* =======================================================
+     PAYMENT UI
+  ======================================================= */
+
+  const [paymentMode, setPaymentMode] = useState<"FULL" | "PARTIAL">("FULL");
+
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK">("CASH");
+
+  const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
+
+  /* =======================================================
+     FORM
+  ======================================================= */
+
+  const defaultToday = new Date().toISOString().split("T")[0];
+
+  const {
+    register,
+    setValue,
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<CreatePurchaseOrderFormInput, unknown, CreatePurchaseOrderInput>({
+    resolver: zodResolver(createPurchaseOrderSchema),
+
+    defaultValues: {
+      supplierId: null,
+
+      orderNumber: "",
+
+      purchaseType: "WORKFLOW",
+
+      orderDate: defaultToday,
+
+      expectedDate: null,
+
+      notes: null,
+
+      deliveryCost: 0,
+
+      discountAmount: 0,
+
+      items: mapItemsToPayload(initialPurchaseItems),
+    },
+  });
+
+  const purchaseType = useWatch({ control, name: "purchaseType" });
+
+  const deliveryCost = Number(useWatch({ control, name: "deliveryCost" }) || 0);
+
+  const discountAmount = Number(
+    useWatch({ control, name: "discountAmount" }) || 0,
+  );
+
+  const isDirectPurchase = purchaseType === "DIRECT";
+
+  /* =======================================================
+     TOTALS
+  ======================================================= */
+
+  const subtotal = useMemo(
+    () =>
+      purchaseItems.reduce(
+        (sum, item) => sum + item.quantity * item.unitCost,
+        0,
+      ),
+    [purchaseItems],
+  );
+
+  const totalAmount = Math.max(0, subtotal + deliveryCost - discountAmount);
+
+  /*
+   * A WORKFLOW order is still DRAFT.
+   * Therefore no payment is recorded at this stage.
+   */
+
+  const currentPaymentAmount = isDirectPurchase
+    ? paymentMode === "FULL"
+      ? totalAmount
+      : Math.max(0, Number(partialPaymentAmount || 0))
+    : 0;
+
+  const remainingAfterPayment = Math.max(0, totalAmount - currentPaymentAmount);
+
+  /* =======================================================
+     SYNC CART -> FORM
+  ======================================================= */
+
+  const syncPurchaseItems = (items: PurchaseItem[]) => {
+    setPurchaseItems(items);
+
+    setValue("items", mapItemsToPayload(items), {
+      shouldDirty: true,
+
+      shouldValidate: true,
+    });
+  };
+
+  /* =======================================================
+     CLOSE DROPDOWN
+  ======================================================= */
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  /* =======================================================
+     FLATTEN PRODUCT VARIANTS
+  ======================================================= */
+
+  const flattenedVariants = useMemo(() => {
+    const list: {
+      variantId: string;
+
+      templateId: string;
+
+      productName: string;
+
+      purchaseUnit: string;
+
+      sellingUnit: string;
+
+      conversionFactor: number;
+
+      sku?: string | null;
+
+      barcode?: string | null;
+
+      attributesStr: string;
+
+      price: number;
+
+      variant: Variant;
+    }[] = [];
+
+    for (const product of products) {
+      if (product.isActive === false) {
+        continue;
+      }
+
+      const purchaseUnit = product.purchaseUnit ?? "وحدة";
+
+      const sellingUnit = product.sellingUnit ?? purchaseUnit;
+
+      const conversionFactor = normalizeConversionFactor(
+        product.conversionFactor,
+      );
+
+      for (const variant of product.variants ?? []) {
+        if (variant.isActive === false) {
+          continue;
+        }
+
+        list.push({
+          variantId: variant.id,
+
+          templateId: product.id,
+
+          productName: product.name,
+
+          purchaseUnit,
+
+          sellingUnit,
+
+          conversionFactor,
+
+          sku: variant.sku,
+
+          barcode: variant.barcode,
+
+          attributesStr: getVariantAttributes(variant),
+
+          price: Number(variant.purchasePrice || 0),
+
+          variant,
+        });
+      }
+    }
+
+    return list;
+  }, [products]);
+
+  /* =======================================================
+     SEARCH
+  ======================================================= */
+
+  const filteredVariants = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return flattenedVariants;
+    }
+
+    return flattenedVariants.filter(
+      (item) =>
+        item.productName.toLowerCase().includes(query) ||
+        item.sku?.toLowerCase().includes(query) ||
+        item.barcode?.toLowerCase().includes(query) ||
+        item.attributesStr.toLowerCase().includes(query),
+    );
+  }, [flattenedVariants, searchQuery]);
+
+  /* =======================================================
+     ADD VARIANT
+  ======================================================= */
+
+  const addVariantToOrder = (variantId: string) => {
+    const selected = flattenedVariants.find(
+      (item) => item.variantId === variantId,
+    );
+
+    if (!selected) {
+      return;
+    }
+
+    const existing = purchaseItems.find((item) => item.variantId === variantId);
+
+    let nextItems: PurchaseItem[];
+
+    if (existing) {
+      nextItems = purchaseItems.map((item) =>
+        item.variantId === variantId
+          ? {
+              ...item,
+
+              quantity: item.quantity + 1,
+            }
+          : item,
+      );
+    } else {
+      nextItems = [
+        ...purchaseItems,
+
+        {
+          id: selected.variantId,
+
+          templateId: selected.templateId,
+
+          variantId: selected.variantId,
+
+          productName: selected.productName,
+
+          sku: selected.sku ?? undefined,
+
+          barcode: selected.barcode ?? undefined,
+
+          variantAttributes: selected.attributesStr,
+
+          unitCost: selected.price,
+
+          quantity: 1,
+        },
+      ];
+    }
+
+    syncPurchaseItems(nextItems);
+
+    setSearchQuery("");
+
+    setIsDropdownOpen(false);
+  };
+
+  /* =======================================================
+     SUBMIT
+  ======================================================= */
+
+  const onSubmit = async (data: CreatePurchaseOrderInput) => {
+    if (purchaseItems.length === 0) {
+      toast.error("أضف Variant واحدًا على الأقل إلى الطلب");
+
+      return;
+    }
+
+    const payload: CreatePurchaseOrderInput = {
+      ...data,
+
+      items: mapItemsToPayload(purchaseItems),
+
+      supplierId: data.supplierId || null,
+
+      expectedDate: data.expectedDate || null,
+
+      notes: data.notes || null,
+
+      deliveryCost: Number(data.deliveryCost || 0),
+
+      discountAmount: Number(data.discountAmount || 0),
+    };
+
+    const validation = createPurchaseOrderSchema.safeParse(payload);
+
+    if (!validation.success) {
+      toast.error("تحقق من بيانات الطلب قبل الحفظ");
+
+      return;
+    }
+
+    try {
+      /* ================================================
+         CREATE ORDER
+      ================================================= */
+
+      const response = await createPurchaseOrder(validation.data);
+
+      const createdOrder = response.data;
+
+      /* ================================================
+         INITIAL PAYMENT
+
+         Only DIRECT purchase may be paid now.
+      ================================================= */
+
+      if (
+        createdOrder &&
+        createdOrder.status !== "DRAFT" &&
+        currentPaymentAmount > 0
+      ) {
+        const paymentPayload = {
+          amount: Number(currentPaymentAmount.toFixed(2)),
+
+          paymentDate: data.orderDate,
+
+          paymentMethod: paymentMethod,
+
+          notes: data.notes || null,
+        };
+
+        try {
+          await createPurchaseOrderPayment(createdOrder.id, paymentPayload);
+        } catch (paymentError) {
+          console.error("Initial payment error:", paymentError);
+
+          toast.error(
+            "تم إنشاء طلب الشراء، لكن تعذر تسجيل الدفعة. يمكنك تسجيلها من تفاصيل الطلب.",
+          );
+
+          router.push(`/dashboard/orders/${createdOrder.id}`);
+
+          router.refresh();
+
+          return;
+        }
+      }
+
+      /* ================================================
+         SUCCESS
+      ================================================= */
+
+      toast.success(
+        purchaseType === "DIRECT"
+          ? "تم تسجيل الشراء المباشر وزيادة المخزون بنجاح"
+          : "تم حفظ طلب الشراء كمسودة",
+      );
+
+      router.push("/dashboard/orders");
+
+      router.refresh();
+    } catch (error: unknown) {
+      console.error("Create purchase order error:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "حدث خطأ أثناء إنشاء طلب الشراء",
+      );
+    }
+  };
+
+  /* =======================================================
+     VALIDATION ERRORS
+  ======================================================= */
+
+  const onError = (formErrors: FieldErrors<CreatePurchaseOrderFormInput>) => {
+    if (formErrors.items) {
+      toast.error("أضف Variant واحدًا على الأقل إلى الطلب");
+
+      return;
+    }
+
+    toast.error("يرجى التأكد من صحة البيانات المدخلة");
+  };
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
+  return (
+    <form
+      onSubmit={handleSubmit(onSubmit, onError)}
+      className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6"
+    >
+      <div className="grid gap-8 lg:grid-cols-12">
+        {/* =================================================
+            LEFT
+        ================================================= */}
+
+        <div className="space-y-5 lg:col-span-5">
+          {/* Purchase type */}
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              نوع الشراء
+            </label>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label
+                className={`cursor-pointer rounded-2xl border p-4 transition ${
+                  purchaseType === "DIRECT"
+                    ? "border-(--primary-red) bg-red-50/40"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="DIRECT"
+                  {...register("purchaseType")}
+                  className="sr-only"
+                />
+
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`rounded-xl p-2 ${
+                      purchaseType === "DIRECT"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    <LuTruck className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">
+                      شراء مباشر
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-5 text-gray-500">
+                      يتم استلام الكمية وزيادة المخزون فورًا.
+                    </p>
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={`cursor-pointer rounded-2xl border p-4 transition ${
+                  purchaseType === "WORKFLOW"
+                    ? "border-(--primary-red) bg-red-50/40"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value="WORKFLOW"
+                  {...register("purchaseType")}
+                  className="sr-only"
+                />
+
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`rounded-xl p-2 ${
+                      purchaseType === "WORKFLOW"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    <LuCalendarDays className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">
+                      طلب بالمراحل
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-5 text-gray-500">
+                      مسودة ثم اعتماد ثم استلام وزيادة المخزون.
+                    </p>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+          {/* Product / Variant search */}
+
+          <div className="relative" ref={dropdownRef}>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+              إضافة Variant
+            </label>
+
+            <div className="relative">
+              <LuSearch className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+
+              <input
+                type="search"
+                value={searchQuery}
+                onFocus={() => setIsDropdownOpen(true)}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+
+                  setIsDropdownOpen(true);
+                }}
+                disabled={isSubmitting}
+                placeholder="ابحث باسم المنتج أو SKU أو الباركود..."
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-9 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+
+            {isDropdownOpen && (
+              <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
+                {filteredVariants.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-gray-400">
+                    لا توجد نتائج مطابقة
+                  </div>
+                ) : (
+                  filteredVariants.map((item) => (
+                    <button
+                      key={item.variantId}
+                      type="button"
+                      onClick={() => addVariantToOrder(item.variantId)}
+                      className="flex w-full flex-col gap-1 rounded-lg border-b border-gray-50 px-3 py-2.5 text-right transition last:border-none hover:bg-red-50"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-gray-900">
+                          {item.productName}
+                        </span>
+
+                        <span className="shrink-0 text-xs font-bold text-emerald-600">
+                          {item.price} $ /{item.purchaseUnit}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
+                        <span className="font-medium">
+                          1 {item.purchaseUnit} = {item.conversionFactor}{" "}
+                          {item.sellingUnit}
+                        </span>
+
+                        {item.attributesStr && (
+                          <span>{item.attributesStr}</span>
+                        )}
+
+                        {item.sku && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono">
+                            SKU: {item.sku}
+                          </span>
+                        )}
+
+                        {item.barcode && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono">
+                            Barcode: {item.barcode}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+          {/* Supplier */}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+              المورد
+            </label>
+
+            <select
+              {...register("supplierId")}
+              disabled={isSubmitting}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+            >
+              <option value="">بدون مورد</option>
+
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Dates */}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                تاريخ الطلب
+              </label>
+
+              <input
+                type="date"
+                disabled={isSubmitting}
+                {...register("orderDate")}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                الاستلام المتوقع
+              </label>
+
+              <input
+                type="date"
+                disabled={isSubmitting}
+                {...register("expectedDate")}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Delivery + Discount */}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                تكلفة الشحن ($)
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                disabled={isSubmitting}
+                {...register("deliveryCost", {
+                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                الخصم
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                disabled={isSubmitting}
+                {...register("discountAmount", {
+                  setValueAs: (value) => (value === "" ? 0 : Number(value)),
+                })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Payment */}
+
+          <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4">
+            <div className="flex items-center gap-2">
+              <LuWalletCards className="h-5 w-5 text-gray-500" />
+
+              <div>
+                <h3 className="text-sm font-bold text-gray-800">الدفع</h3>
+
+                <p className="text-[10px] text-gray-400">
+                  {isDirectPurchase
+                    ? "يمكن تسجيل دفعة كاملة أو جزئية."
+                    : "الدفع متاح بعد اعتماد طلب الشراء."}
+                </p>
+              </div>
+            </div>
+
+            {isDirectPurchase ? (
+              <>
+                {/* Payment method */}
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-gray-600">
+                    طريقة الدفع
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => setPaymentMethod("CASH")}
+                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        paymentMethod === "CASH"
+                          ? "border-(--primary-red) bg-white text-(--primary-red)"
+                          : "border-gray-200 bg-white text-gray-600"
+                      }`}
+                    >
+                      <LuBanknote className="h-4 w-4" />
+                      كاش
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => setPaymentMethod("BANK")}
+                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        paymentMethod === "BANK"
+                          ? "border-(--primary-red) bg-white text-(--primary-red)"
+                          : "border-gray-200 bg-white text-gray-600"
+                      }`}
+                    >
+                      <LuBanknote className="h-4 w-4" />
+                      بنك / تحويل
+                    </button>
+                  </div>
+                </div>
+
+                {/* Payment mode */}
+
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-gray-600">
+                    قيمة الدفعة
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isSubmitting || totalAmount <= 0}
+                      onClick={() => setPaymentMode("FULL")}
+                      className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        paymentMode === "FULL"
+                          ? "border-(--primary-red) bg-white text-(--primary-red)"
+                          : "border-gray-200 bg-white text-gray-600"
+                      }`}
+                    >
+                      كامل
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSubmitting || totalAmount <= 0}
+                      onClick={() => setPaymentMode("PARTIAL")}
+                      className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        paymentMode === "PARTIAL"
+                          ? "border-(--primary-red) bg-white text-(--primary-red)"
+                          : "border-gray-200 bg-white text-gray-600"
+                      }`}
+                    >
+                      جزئي
+                    </button>
+                  </div>
+                </div>
+
+                {paymentMode === "PARTIAL" && (
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                      مبلغ الدفعة
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      max={totalAmount}
+                      step="0.01"
+                      value={partialPaymentAmount}
+                      onChange={(event) =>
+                        setPartialPaymentAmount(Number(event.target.value || 0))
+                      }
+                      disabled={isSubmitting}
+                      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-700">
+                لا يتم تسجيل أي دفعة على الطلب قبل اعتماده.
+              </div>
+            )}
+
+            {/* Payment summary */}
+
+            <div className="space-y-1.5 rounded-xl bg-white p-3 text-xs">
+              <div className="flex justify-between text-gray-500">
+                <span>إجمالي الطلب</span>
+
+                <span className="font-semibold text-gray-800">
+                  {totalAmount.toFixed(2)} $
+                </span>
+              </div>
+
+              <div className="flex justify-between text-gray-500">
+                <span>الدفعة الحالية</span>
+
+                <span className="font-semibold text-emerald-600">
+                  {currentPaymentAmount.toFixed(2)} $
+                </span>
+              </div>
+
+              <div className="flex justify-between border-t border-gray-100 pt-1.5 font-bold text-gray-800">
+                <span>المتبقي</span>
+
+                <span>{remainingAfterPayment.toFixed(2)} $</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+              ملاحظات
+            </label>
+
+            <textarea
+              rows={3}
+              disabled={isSubmitting}
+              {...register("notes")}
+              className="h-24 w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none focus:border-(--primary-red) focus:bg-white"
+            />
+          </div>
+        </div>
+
+        {/* =================================================
+            RIGHT / CART
+        ================================================= */}
+
+        <div className="border-t border-gray-100 pt-6 lg:col-span-7 lg:border-r lg:border-t-0 lg:pr-6">
+          <PurchaseCart
+            purchaseItems={purchaseItems}
+            setPurchaseItems={setPurchaseItems}
+            onItemsChange={syncPurchaseItems}
+            deliveryCost={deliveryCost}
+            discountAmount={discountAmount}
+          />
+        </div>
+      </div>
+
+      {/* ===================================================
+          FOOTER
+      =================================================== */}
+
+      <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={() => router.back()}
+          className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:opacity-50"
+        >
+          إلغاء
+        </button>
+
+        <button
+          type="submit"
+          disabled={isSubmitting || purchaseItems.length === 0}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting ? (
+            <>
+              <LuLoader className="h-4 w-4 animate-spin" />
+              جاري التنفيذ...
+            </>
+          ) : (
+            <>
+              <LuCheck className="h-4 w-4" />
+
+              {purchaseType === "DIRECT"
+                ? "تنفيذ الشراء المباشر"
+                : "حفظ طلب الشراء"}
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  );
+}

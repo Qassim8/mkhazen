@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #171717;
+  --primary-red: #d6b370;
+  --primary-red-hover: #d5af54;
+  /* --primary-red: #dc2626; */
+  /* --primary-red-hover: #b91c1c; */
+  --primary-pink: #f02c76;
+  --border-soft: #e5e7eb;
+  --surface-soft: #f9fafb;
+  --color: #3bcb3b;
+  --font-roboto: Roboto;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-roboto: var(--font-roboto);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button {
+  cursor: pointer !important;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary-red) 20%, white);
+  color: #111827;
+}
+
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+.frame {
+  @apply rounded-xl bg-white border border-slate-200 p-3 md:p-6 transition-transform duration-300;
+}
+.custom-shadow {
+  @apply shadow-[0_4px_8px_rgba(0,0,0,0.05)]!;
+}
+
+/* =========================
+   Barcode printing
+========================= */
+@media print {
+  body.barcode-printing * {
+    visibility: hidden;
+  }
+
+  body.barcode-printing .print-area,
+  body.barcode-printing .print-area * {
+    visibility: visible;
+  }
+
+  body.barcode-printing .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+/* =========================
+   Purchase order printing
+========================= */
+@media print {
+  body.purchase-order-printing * {
+    visibility: hidden;
+  }
+
+  body.purchase-order-printing #printable-purchase-order,
+  body.purchase-order-printing #printable-purchase-order * {
+    visibility: visible;
+  }
+
+  body.purchase-order-printing #printable-purchase-order {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}
+
+/* export xslx sheet */
+@media print {
+  body {
+    background-color: white !important;
+  }
+  /* إخفاء السايدبار والهيدر العام والتحكمات غير المرغوبة أثناء الطباعة */
+  aside,
+  nav,
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+  /* توسيع محتوى الصفحة ليملأ ورقة الطباعة بالكامل */
+  main,
+  .print\:w-full {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
