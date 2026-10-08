@@ -245,18 +245,50 @@ export interface CancelSalesOrderResponse {
 export async function getPosProducts(
   params?: PosProductSearchInput,
 ): Promise<PosProductsResponse> {
-  return serverFetch<PosProductsResponse>(`${API_BASE_URL}/products`, {
-    method: "GET",
-    params: {
-      search: params?.search,
-      categoryId: params?.categoryId,
-      page: params?.page ?? 1,
-      limit: params?.limit ?? 30,
-    },
-    next: {
-      tags: ["pos-products"],
-    },
-  });
+  const safePage = Math.max(1, Number(params?.page) || 1);
+  const safeLimit = Math.max(1, Number(params?.limit) || 30);
+
+  try {
+    const res = await serverFetch<PosProductsResponse>(
+      `${API_BASE_URL}/products`,
+      {
+        method: "GET",
+        params: {
+          search: params?.search?.trim() || undefined,
+          categoryId: params?.categoryId || undefined,
+          page: safePage,
+          limit: safeLimit,
+        },
+        next: {
+          tags: ["pos-products"],
+        },
+      },
+    );
+
+    return (
+      res || {
+        data: [],
+        pagination: {
+          total: 0,
+          page: safePage,
+          limit: safeLimit,
+          totalPages: 1,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error in getPosProducts:", error);
+    // إرجاع بنية فارغة آمنة تمنع كسر الـ Server Component في Production
+    return {
+      data: [],
+      pagination: {
+        total: 0,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: 1,
+      },
+    };
+  }
 }
 
 // =========================================================
@@ -266,31 +298,64 @@ export async function getPosProducts(
 export async function getSalesOrders(
   params?: GetSalesParams,
 ): Promise<SalesOrdersResponse> {
-  return serverFetch<SalesOrdersResponse>(`${API_BASE_URL}/orders`, {
-    method: "GET",
-    params: {
-      search: params?.search,
-      status:
-        params?.status && params.status !== "ALL" ? params.status : undefined,
-      paymentStatus:
-        params?.paymentStatus && params.paymentStatus !== "ALL"
-          ? params.paymentStatus
-          : undefined,
-      paymentMethod:
-        params?.paymentMethod && params.paymentMethod !== "ALL"
-          ? params.paymentMethod
-          : undefined,
-      orderType: params?.orderType,
-      fromDate: params?.fromDate,
-      toDate: params?.toDate,
-      sort: params?.sort,
-      page: params?.page ?? 1,
-      limit: params?.limit ?? 10,
-    },
-    next: {
-      tags: ["sales-orders-list"],
-    },
-  });
+  const safePage = Math.max(1, Number(params?.page) || 1);
+  const safeLimit = Math.max(1, Number(params?.limit) || 10);
+
+  try {
+    const res = await serverFetch<SalesOrdersResponse>(
+      `${API_BASE_URL}/orders`,
+      {
+        method: "GET",
+        params: {
+          search: params?.search?.trim() || undefined,
+          status:
+            params?.status && params.status !== "ALL"
+              ? params.status
+              : undefined,
+          paymentStatus:
+            params?.paymentStatus && params.paymentStatus !== "ALL"
+              ? params.paymentStatus
+              : undefined,
+          paymentMethod:
+            params?.paymentMethod && params.paymentMethod !== "ALL"
+              ? params.paymentMethod
+              : undefined,
+          orderType: params?.orderType,
+          fromDate: params?.fromDate,
+          toDate: params?.toDate,
+          sort: params?.sort,
+          page: safePage,
+          limit: safeLimit,
+        },
+        next: {
+          tags: ["sales-orders-list"],
+        },
+      },
+    );
+
+    return (
+      res || {
+        data: [],
+        pagination: {
+          total: 0,
+          page: safePage,
+          limit: safeLimit,
+          totalPages: 1,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error in getSalesOrders:", error);
+    return {
+      data: [],
+      pagination: {
+        total: 0,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: 1,
+      },
+    };
+  }
 }
 
 // =========================================================
