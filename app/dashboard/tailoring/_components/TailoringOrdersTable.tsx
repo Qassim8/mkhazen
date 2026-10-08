@@ -47,9 +47,9 @@ function money(value: number) {
   return `${value.toFixed(2)} ج.س`;
 }
 function todayInSudan() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Khartoum" }).format(
-    new Date(),
-  );
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Khartoum",
+  }).format(new Date());
 }
 function formatDate(value: string) {
   if (!value) return "-";
@@ -86,7 +86,10 @@ export default function TailoringOrdersTable({
       header: "الطلب",
       cell: ({ row }) => (
         <div className="whitespace-nowrap">
-          <p className="font-black text-gray-900">{row.original.orderNumber}</p>
+          <p className="font-bold text-gray-900">
+            {row.original.tailoringItemName}
+          </p>
+          <p className="font-black text-gray-600">{row.original.orderNumber}</p>
           <p className="mt-1 text-[11px] text-gray-400">
             {formatDate(row.original.intakeDate)}
           </p>
@@ -193,15 +196,15 @@ export default function TailoringOrdersTable({
     ...(!isTailor
       ? [
           columnHelper.display({
-      id: "amount",
-      header: "القيمة",
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap font-bold text-gray-800">
-          {row.original.tailoringPurpose === "PRODUCTION"
-            ? `${row.original.totalCost.toFixed(2)} $` // تصنيع: تكلفة بالدولار
-            : money(row.original.totalAmount)}
-        </span>
-      ),
+            id: "amount",
+            header: "القيمة",
+            cell: ({ row }) => (
+              <span className="whitespace-nowrap font-bold text-gray-800">
+                {row.original.tailoringPurpose === "PRODUCTION"
+                  ? `${row.original.totalCost.toFixed(2)} $` // تصنيع: تكلفة بالدولار
+                  : money(row.original.totalAmount)}
+              </span>
+            ),
           }),
         ]
       : []),
@@ -247,17 +250,19 @@ export default function TailoringOrdersTable({
               بحث
             </button>
           </form>
-          {canManageAll && <select
-            value={searchParams.get("purpose") ?? ""}
-            onChange={(event) =>
-              updateParams({ purpose: event.target.value || null })
-            }
-            className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
-          >
-            <option value="">كل أنواع الطلبات</option>
-            <option value="CUSTOMER">تفصيل عميل</option>
-            <option value="PRODUCTION">تصنيع للمخزون</option>
-          </select>}
+          {canManageAll && (
+            <select
+              value={searchParams.get("purpose") ?? ""}
+              onChange={(event) =>
+                updateParams({ purpose: event.target.value || null })
+              }
+              className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
+            >
+              <option value="">كل أنواع الطلبات</option>
+              <option value="CUSTOMER">تفصيل عميل</option>
+              <option value="PRODUCTION">تصنيع للمخزون</option>
+            </select>
+          )}
           <select
             value={searchParams.get("status") ?? ""}
             onChange={(event) =>
@@ -299,18 +304,20 @@ export default function TailoringOrdersTable({
               <option value="true">المتأخرة فقط</option>
             </select>
           )}
-          {canManageAll && <select
-            value={searchParams.get("paymentStatus") ?? ""}
-            onChange={(event) =>
-              updateParams({ paymentStatus: event.target.value || null })
-            }
-            className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
-          >
-            <option value="">كل حالات الدفع</option>
-            <option value="PARTIAL">عربون 50%</option>
-            <option value="PAID">مسدد بالكامل</option>
-            <option value="UNPAID">غير مدفوع</option>
-          </select>}
+          {canManageAll && (
+            <select
+              value={searchParams.get("paymentStatus") ?? ""}
+              onChange={(event) =>
+                updateParams({ paymentStatus: event.target.value || null })
+              }
+              className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
+            >
+              <option value="">كل حالات الدفع</option>
+              <option value="PARTIAL">عربون 50%</option>
+              <option value="PAID">مسدد بالكامل</option>
+              <option value="UNPAID">غير مدفوع</option>
+            </select>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <input
