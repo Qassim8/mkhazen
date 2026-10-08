@@ -17,6 +17,7 @@ import PageName from "../shared/PageName";
 import NotificationDropdown from "./NotificationsDropdown";
 import { useUIStore } from "@/store/useUIStore";
 import { errorMessage } from "@/lib/errors";
+import ExchangeRateBadge from "../shared/ExchangeRateBadge";
 
 interface UserProfile {
   name: string;
@@ -93,9 +94,9 @@ export default function Navbar() {
 
           <Searchbar />
 
-          {["owner", "admin", "cashier", "tailor"].includes(user?.role ?? "") && (
-            <NotificationDropdown />
-          )}
+          {["owner", "admin", "cashier", "tailor"].includes(
+            user?.role ?? "",
+          ) && <NotificationDropdown />}
 
           <div className="relative" ref={dropdownRef}>
             <button
@@ -145,6 +146,8 @@ export default function Navbar() {
                     <LuUser className="h-4 w-4" />
                     <span>الملف الشخصي</span>
                   </Link>
+
+                  <ExchangeRateBadge />
 
                   <div className="pt-1 mt-1 border-t border-gray-100">
                     <button

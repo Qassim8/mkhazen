@@ -96,7 +96,7 @@ export default function AccountingOverviewClient({ initialData }: Props) {
   const { cards, monthly, expenseBreakdown } = data;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 py-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">نظرة عامة على المحاسبة</h1>
@@ -143,7 +143,7 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OverviewCard
           title="الإيرادات"
           value={formatMoney(cards.revenue)}
@@ -165,12 +165,14 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           icon={<LuDollarSign className="h-5 w-5" />}
           variant={cards.netProfit >= 0 ? "success" : "danger"}
         />
-      </div>
 
-      <p className="text-xs text-gray-500">
-        كل أرقام الأداء والالتزامات بالدولار. الخزينة والبنك معروضين بعملتين لأنهم
-        فلوس فعلية مختلفة في الدرج.
-      </p>
+        <OverviewCard
+          title="إجمالي السيولة بالدولار (بسعر اليوم)"
+          value={formatMoney(cards.totalLiquidityUsd)}
+          icon={<LuDollarSign className="h-5 w-5" />}
+          variant="purple"
+        />
+      </div>
 
       {/* المجموعة الثانية: السيولة (كل عملة لوحدها) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -204,14 +206,7 @@ export default function AccountingOverviewClient({ initialData }: Props) {
       </div>
 
       {/* المجموعة الثالثة: أثر سعر الصرف ورأس المال */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <OverviewCard
-          title="إجمالي السيولة بالدولار (بسعر اليوم)"
-          value={formatMoney(cards.totalLiquidityUsd)}
-          icon={<LuDollarSign className="h-5 w-5" />}
-          variant="purple"
-        />
-
+      {/* <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OverviewCard
           title="أثر تغيّر سعر الجنيه (غير محقق)"
           value={formatMoney(cards.unrealizedFxUsd)}
@@ -234,7 +229,7 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           icon={<LuBuilding2 className="h-5 w-5" />}
           variant="purple"
         />
-      </div>
+      </div> */}
 
       {/* المجموعة الرابعة: الالتزامات والأصول (دولار) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -258,7 +253,9 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           icon={<LuHandCoins className="h-5 w-5" />}
           variant="amber"
         />
+      </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OverviewCard
           title="المخزون"
           value={formatMoney(cards.inventory)}
@@ -267,7 +264,7 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         />
 
         <OverviewCard
-          title="إنتاج تحت التشغيل"
+          title="إنتاج تحت التصنيع"
           value={formatMoney(cards.workInProgress)}
           icon={<LuLayers className="h-5 w-5" />}
           variant="warning"

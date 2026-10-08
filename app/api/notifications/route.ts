@@ -55,6 +55,40 @@ function ownActionFilter(userId: string) {
   return JSON.stringify({ actor_id: userId });
 }
 
+function getStockNotificationVariantId(
+  metadata: unknown,
+  link: string | null,
+): string | null {
+  if (metadata && typeof metadata === "object") {
+    const record = metadata as Record<string, unknown>;
+    const variantId = record.variant_id ?? record.variantId;
+    if (typeof variantId === "string" && variantId.trim()) {
+      return variantId.trim();
+    }
+  }
+
+  if (link) {
+    const queryString = link.split("?")[1]?.split("#")[0] ?? "";
+    const variantId = new URLSearchParams(queryString).get("variantId");
+    if (variantId) return variantId;
+  }
+
+  return null;
+}
+
+function getNotificationLink(
+  type: string,
+  link: string | null,
+  metadata: unknown,
+): string | null {
+  if (type !== "LOW_STOCK" && type !== "OUT_OF_STOCK") return link;
+
+  const variantId = getStockNotificationVariantId(metadata, link);
+  return variantId
+    ? `/dashboard/orders/new?variantId=${encodeURIComponent(variantId)}`
+    : link;
+}
+
 async function runMaintenanceIfDue() {
   if (!MAIN_BRANCH_ID || Date.now() - lastMaintenanceAt < MAINTENANCE_INTERVAL_MS) {
     return;
@@ -118,7 +152,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from("notifications")
-      .select("id, title, message, type, link, isRead, created_at")
+      .select("id, title, message, type, link, isRead, created_at, metadata")
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(offset, offset + limit);
@@ -148,6 +182,7 @@ export async function GET(request: NextRequest) {
       link: string | null;
       isRead: boolean;
       created_at: string;
+      metadata: unknown;
     }[];
     // بنجيب limit + 1 عشان نعرف لو فيه صفحة تانية
     const hasMore = rows.length > limit;
@@ -158,7 +193,7 @@ export async function GET(request: NextRequest) {
         title: n.title,
         message: n.message,
         type: n.type,
-        link: n.link,
+        link: getNotificationLink(n.type, n.link, n.metadata),
         isRead: n.isRead,
         createdAt: n.created_at,
       })),

@@ -365,7 +365,7 @@ export function Sidebar() {
           bg-white p-5
           transition-transform duration-300 ease-in-out
           md:sticky md:h-screen
-          ${sidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"}
+          ${sidebarOpen ? "translate-x-5" : "translate-x-65 md:translate-x-0"}
         `}
       >
         {/* =================================================

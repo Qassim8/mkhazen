@@ -33,11 +33,11 @@ import { createSalesOrder } from "../services/pos.services";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
 import { usdToSdg } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
-import ExchangeRateBadge from "@/components/shared/ExchangeRateBadge";
 
 interface POSClientProps {
   initialProducts: Product[];
   initialPagination: ProductsPagination;
+  initialHasNextPage: boolean;
   categories: Category[];
 }
 
@@ -63,11 +63,13 @@ function roundMoney(value: number) {
 export default function POSClient({
   initialProducts,
   initialPagination,
+  initialHasNextPage,
   categories,
 }: POSClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [pagination, setPagination] =
     useState<ProductsPagination>(initialPagination);
+  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
   const [activeSearch, setActiveSearch] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,7 +95,8 @@ export default function POSClient({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
 
   // أسعار المنتجات مخزّنة بالدولار، والزبون بيدفع بالجنيه بسعر الصرف الحالي
-  const { rate: exchangeRate, refresh: refreshExchangeRate } = useExchangeRate();
+  const { rate: exchangeRate, refresh: refreshExchangeRate } =
+    useExchangeRate();
 
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplit[]>([]);
 
@@ -241,9 +244,21 @@ export default function POSClient({
           categoryId: categoryId !== "all" ? categoryId : undefined,
           page,
           limit: 18,
+          sortBy: "createdAt-desc",
         });
+        const nextPageResult =
+          result.meta.totalPages > page
+            ? await getProducts({
+                search: normalizedSearch || undefined,
+                categoryId: categoryId !== "all" ? categoryId : undefined,
+                page: page + 1,
+                limit: 18,
+                sortBy: "createdAt-desc",
+              })
+            : null;
         setProducts(result.data);
         setPagination(result.meta);
+        setHasNextPage((nextPageResult?.data.length ?? 0) > 0);
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "حدث خطأ أثناء جلب المنتجات",
@@ -339,6 +354,16 @@ export default function POSClient({
     const search = searchQuery.trim();
     setActiveSearch(search);
     await fetchProducts(search, categoryId, 1);
+  };
+
+  const handleClearSearchAndFilters = async () => {
+    setSearchQuery("");
+    setActiveSearch("");
+    setSelectedCategory("all");
+    await fetchProducts("", "all", 1);
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
   };
 
   const handleProductPageChange = async (page: number) => {
@@ -511,7 +536,9 @@ export default function POSClient({
     (item: POSCartItem) =>
       item.isGift
         ? 0
-        : roundMoney(usdToSdg(item.variant.sellingPrice, exchangeRate) * item.qty),
+        : roundMoney(
+            usdToSdg(item.variant.sellingPrice, exchangeRate) * item.qty,
+          ),
     [exchangeRate],
   );
 
@@ -705,8 +732,11 @@ export default function POSClient({
       dir="rtl"
     >
       <div className="flex-1 flex flex-col min-h-0 pl-2 space-y-4">
-        <form onSubmit={handleSearchSubmit} className="w-full">
-          <div className="relative rounded-2xl bg-white border border-gray-200 overflow-hidden">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="flex w-full flex-col gap-2 sm:flex-row"
+        >
+          <div className="relative flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white">
             <input
               ref={searchInputRef}
               type="text"
@@ -725,11 +755,15 @@ export default function POSClient({
               {isSearching ? "..." : "بحث"}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => void handleClearSearchAndFilters()}
+            disabled={isSearching}
+            className="shrink-0 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            مسح البحث والفلاتر
+          </button>
         </form>
-
-        <div className="flex justify-end">
-          <ExchangeRateBadge showRefresh />
-        </div>
 
         <button
           type="button"
@@ -801,7 +835,7 @@ export default function POSClient({
           )}
         </div>
 
-        {pagination.totalPages > 1 && (
+        {products.length > 0 && (pagination.page > 1 || hasNextPage) && (
           <nav
             className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2"
             aria-label="صفحات المنتجات"
@@ -823,7 +857,7 @@ export default function POSClient({
             <button
               type="button"
               onClick={() => void handleProductPageChange(pagination.page + 1)}
-              disabled={isSearching || pagination.page >= pagination.totalPages}
+              disabled={isSearching || !hasNextPage}
               className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               التالي

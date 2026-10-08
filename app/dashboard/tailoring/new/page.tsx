@@ -41,6 +41,10 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
   let advanceSource = null;
   let initialCustomer = null;
 
+  if (customerId && !transferFrom) {
+    initialCustomer = await getCustomerById(customerId);
+  }
+
   if (transferFrom) {
     try {
       const { data: source } = await getTailoringOrderById(transferFrom);
@@ -54,10 +58,6 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
 
       if (!sourceCanTransferAdvance || !source.customer) {
         redirect("/dashboard/tailoring");
-      }
-
-      if (customerId && !transferFrom) {
-        initialCustomer = await getCustomerById(customerId);
       }
 
       advanceSource = {
