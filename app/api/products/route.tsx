@@ -159,7 +159,9 @@ export async function GET(request: Request) {
           supabaseAdmin
             .from("product_variants")
             .select('id, "templateId"')
-            .or(`sku.ilike.${pattern},barcode.ilike.${pattern},packBarcode.ilike.${pattern}`)
+            .or(
+              `sku.ilike.${pattern},barcode.ilike.${pattern},packBarcode.ilike.${pattern}`,
+            )
             .order("id")
             .range(rangeFrom, rangeTo),
         ),
@@ -182,18 +184,26 @@ export async function GET(request: Request) {
       }>((rangeFrom, rangeTo) =>
         supabaseAdmin
           .from("product_variants")
-          .select('id, "templateId", "stockQuantity", "minStockLevel", "isActive"')
+          .select(
+            'id, "templateId", "stockQuantity", "minStockLevel", "isActive"',
+          )
           .order("id")
           .range(rangeFrom, rangeTo),
       );
 
-      const grouped = new Map<string, { totalStock: number; totalMinStock: number }>();
+      const grouped = new Map<
+        string,
+        { totalStock: number; totalMinStock: number }
+      >();
 
       for (const row of stockRows) {
         // المنتجات غير النشطة لا تدخل في حساب حالة المخزون
         if (!row.isActive) continue;
 
-        const current = grouped.get(row.templateId) ?? { totalStock: 0, totalMinStock: 0 };
+        const current = grouped.get(row.templateId) ?? {
+          totalStock: 0,
+          totalMinStock: 0,
+        };
         current.totalStock += Number(row.stockQuantity ?? 0);
         current.totalMinStock += Number(row.minStockLevel ?? 0);
         grouped.set(row.templateId, current);
@@ -203,7 +213,8 @@ export async function GET(request: Request) {
 
       for (const [templateId, info] of grouped) {
         const isOutOfStock = info.totalStock <= 0;
-        const isLowStock = info.totalStock > 0 && info.totalStock <= info.totalMinStock;
+        const isLowStock =
+          info.totalStock > 0 && info.totalStock <= info.totalMinStock;
         const isInStock = info.totalStock > info.totalMinStock;
 
         if (
@@ -231,14 +242,18 @@ export async function GET(request: Request) {
         limit,
         orderedIds: (rangeFrom, rangeTo) => {
           let idsQuery = supabaseAdmin.from("product_templates").select("id");
-          for (const [column, value] of eqFilters) idsQuery = idsQuery.eq(column, value);
+          for (const [column, value] of eqFilters)
+            idsQuery = idsQuery.eq(column, value);
           return idsQuery
             .order(sort.column, { ascending: sort.ascending })
             .order("id")
             .range(rangeFrom, rangeTo);
         },
         fetchRows: (ids) =>
-          supabaseAdmin.from("product_templates").select(productListSelect).in("id", ids),
+          supabaseAdmin
+            .from("product_templates")
+            .select(productListSelect)
+            .in("id", ids),
       });
 
       data = result.rows;
@@ -247,26 +262,54 @@ export async function GET(request: Request) {
       const from = (page - 1) * limit;
       const to = from + limit - 1;
 
-      let query = supabaseAdmin
+      // احسب العدد أولًا قبل استخدام range().
+      // PostgREST يعيد PGRST103 عندما يكون offset خارج عدد النتائج.
+      let countQuery = supabaseAdmin
         .from("product_templates")
-        .select(productListSelect, { count: "exact" });
-      for (const [column, value] of eqFilters) query = query.eq(column, value);
+        .select("id", { count: "exact", head: true });
+      for (const [column, value] of eqFilters)
+        countQuery = countQuery.eq(column, value);
 
-      const result = await query
-        .order(sort.column, { ascending: sort.ascending })
-        .order("id")
-        .range(from, to);
+      const { count: exactCount, error: countError } = await countQuery;
 
-      if (result.error) {
-        console.error("Products GET error:", result.error);
+      if (countError) {
+        console.error("Products count error:", countError);
         return NextResponse.json(
-          { message: "حدث خطأ أثناء جلب المنتجات." },
+          { message: "حدث خطأ أثناء جلب عدد المنتجات." },
           { status: 500 },
         );
       }
 
-      data = result.data ?? [];
-      total = result.count ?? 0;
+      total = exactCount ?? 0;
+
+      // قد يحتفظ الكاش/الواجهة بصفحة قديمة بعد حذف منتجات أو تغيير الفلاتر.
+      // إذا كانت الصفحة خارج العدد الحالي، أعد مصفوفة فارغة بدل إرسال offset غير صالح.
+      if (total === 0 || from >= total) {
+        data = [];
+      } else {
+        const safeTo = Math.min(to, total - 1);
+
+        let query = supabaseAdmin
+          .from("product_templates")
+          .select(productListSelect);
+        for (const [column, value] of eqFilters)
+          query = query.eq(column, value);
+
+        const result = await query
+          .order(sort.column, { ascending: sort.ascending })
+          .order("id")
+          .range(from, safeTo);
+
+        if (result.error) {
+          console.error("Products GET error:", result.error);
+          return NextResponse.json(
+            { message: "حدث خطأ أثناء جلب المنتجات." },
+            { status: 500 },
+          );
+        }
+
+        data = result.data ?? [];
+      }
     }
 
     return NextResponse.json(
