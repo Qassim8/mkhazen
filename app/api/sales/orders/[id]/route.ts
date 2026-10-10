@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -32,11 +32,13 @@ export async function GET(
       );
     }
 
-    const session = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const session = guard.session;
 
     if (!session || !can(session.role, "sales.view")) {
       return NextResponse.json(
-        { error: "عذراً، صفحة المبيعات غير متاحة لصلاحياتك" },
+        { error: "عذراً، صفحة المبيعات غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }

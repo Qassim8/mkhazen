@@ -1156,24 +1156,6 @@ export default function EditProductForm({
                     />
                   </div>
 
-                  {/* Minimum selling price */}
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-gray-600">
-                      أدنى سعر بيع ($)
-                    </label>
-
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      disabled={isDisabled}
-                      {...register(`variants.${index}.minSellingPrice`, {
-                        setValueAs: isNumberOrUndefined,
-                      })}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-(--primary-red)"
-                    />
-                  </div>
-
                   {/* Minimum stock */}
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-gray-600">

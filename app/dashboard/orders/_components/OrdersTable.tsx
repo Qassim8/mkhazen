@@ -440,7 +440,7 @@ function ReceivePurchaseModal({
                     />
 
                     <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-center text-sm font-semibold text-gray-600 transition peer-checked:border-(--primary-red) peer-checked:bg-red-50 peer-checked:text-(--primary-red)">
-                      نقداً
+                      نقداً / الخزينة
                     </div>
                   </label>
 
@@ -454,7 +454,7 @@ function ReceivePurchaseModal({
                     />
 
                     <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-center text-sm font-semibold text-gray-600 transition peer-checked:border-(--primary-red) peer-checked:bg-red-50 peer-checked:text-(--primary-red)">
-                      بنك / تحويل
+                      حوالة / البنك
                     </div>
                   </label>
                 </div>
@@ -791,7 +791,8 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
 
         const orderId = order.id;
 
-        const isDirect = order.purchaseType === "DIRECT";
+        // الشراء المباشر والدين الافتتاحي مستلمين أصلًا → مفيش تغيير حالة
+        const isDirect = order.purchaseType === "DIRECT" || order.purchaseType === "OPENING";
 
         const availableStatuses = statusOptions[status] || [
           {
@@ -830,7 +831,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
           return (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              شراء مباشر
+              {order.purchaseType === "OPENING" ? "دين افتتاحي" : "شراء مباشر"}
             </span>
           );
         }

@@ -3,6 +3,8 @@ import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import GlobalModalContainer from "@/components/ui/GlobalModalContainer";
+// يسجّل serverFetch الخاص بالسيرفر (استدعاء الـ route handlers داخل نفس العملية)
+import "@/lib/api-transport.server";
 
 const ibm = IBM_Plex_Sans_Arabic({
   variable: "--font-ibm-plex-sans-arabic",

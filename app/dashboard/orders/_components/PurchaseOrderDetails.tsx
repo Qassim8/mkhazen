@@ -274,7 +274,9 @@ export default function PurchaseOrderDetailView({ order }: Props) {
                   <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700 print:py-0.5 print:text-[10px]">
                     {order.purchaseType === "DIRECT"
                       ? "شراء مباشر"
-                      : "طلب شراء"}
+                      : order.purchaseType === "OPENING"
+                        ? "دين افتتاحي"
+                        : "طلب شراء"}
                   </span>
 
                   <span
@@ -599,9 +601,9 @@ export default function PurchaseOrderDetailView({ order }: Props) {
 
                         <td className="px-4 py-3 text-gray-700 print:py-1 print:text-xs">
                           {payment.paymentMethod === "CASH"
-                            ? "نقدًا"
+                            ? "نقداً / الخزينة"
                             : payment.paymentMethod === "BANK"
-                              ? "تحويل بنكي"
+                              ? "حوالة / البنك"
                               : payment.paymentMethod || "-"}
                         </td>
 

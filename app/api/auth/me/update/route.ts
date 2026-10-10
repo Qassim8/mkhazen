@@ -1,43 +1,46 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { revalidateTag } from "next/cache";
+
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireLogin } from "@/lib/permissions-server";
+import { apiError, readJson } from "@/lib/api-response";
+import { updateProfileSchema } from "@/lib/validations/auth.schemas";
 
 export async function PUT(req: Request) {
   try {
-    const session = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
 
-    if (!session || !session.userId) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+    const validation = updateProfileSchema.safeParse(await readJson(req));
+    if (!validation.success) {
+      return apiError(422, "VALIDATION_ERROR", validation.error.issues[0].message);
     }
 
-    const { name, email, phone } = await req.json();
-
-    if (!name || name.trim() === "") {
-      return NextResponse.json({ message: "الاسم مطلوب" }, { status: 400 });
-    }
+    const { name, email, phone } = validation.data;
 
     const { data: updatedUser, error } = await supabaseAdmin
       .from("users")
-      .update({ name: name.trim(), email: email.trim(), phone: phone })
-      .eq("id", session.userId)
+      .update({ name: name.trim(), email: email.trim(), phone: phone.trim() })
+      .eq("id", guard.session.userId)
       .select("id, name, email, phone")
       .single();
 
     if (error) {
-      return NextResponse.json(
-        { message: "فشل تحديث الملف الشخصي" },
-        { status: 400 },
-      );
+      if (error.code === "23505") {
+        return apiError(409, "CONFLICT", "البريد الإلكتروني مستخدم بالفعل");
+      }
+      console.error("Profile update:", error);
+      return apiError(500, "INTERNAL_ERROR", "فشل تحديث الملف الشخصي");
     }
+
+    revalidateTag("employee-info", "default");
 
     return NextResponse.json({
       message: "تم تحديث البيانات بنجاح",
       user: updatedUser,
     });
-  } catch {
-    return NextResponse.json(
-      { message: "حدث خطأ في السيرفر" },
-      { status: 500 },
-    );
+  } catch (error) {
+    console.error("Profile update:", error);
+    return apiError(500, "INTERNAL_ERROR", "حدث خطأ في السيرفر");
   }
 }

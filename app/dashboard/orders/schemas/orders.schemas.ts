@@ -8,6 +8,14 @@ export const PurchaseOrderTypeEnum = z.enum(["DIRECT", "WORKFLOW"]);
 
 export type PurchaseOrderType = z.infer<typeof PurchaseOrderTypeEnum>;
 
+/**
+ * أنواع العرض والفلترة: + OPENING (دين افتتاحي لمورد من صفحة الأرصدة الافتتاحية).
+ * لا يُستخدم في إنشاء طلب شراء — الإنشاء يقبل DIRECT/WORKFLOW فقط.
+ */
+export const PurchaseOrderListTypeEnum = z.enum(["DIRECT", "WORKFLOW", "OPENING"]);
+
+export type PurchaseOrderListType = z.infer<typeof PurchaseOrderListTypeEnum>;
+
 export const PurchaseOrderStatusEnum = z.enum([
   "DRAFT",
   "APPROVED",
@@ -277,7 +285,7 @@ export const purchaseQuerySchema = z.object({
 
   status: PurchaseOrderStatusEnum.or(z.literal("ALL")).optional(),
 
-  purchaseType: PurchaseOrderTypeEnum.or(z.literal("ALL")).optional(),
+  purchaseType: PurchaseOrderListTypeEnum.or(z.literal("ALL")).optional(),
 
   paymentStatus: PaymentStatusEnum.or(z.literal("ALL")).optional(),
 
@@ -354,7 +362,7 @@ export interface PurchaseOrder {
   supplierId: string | null;
   supplierName?: string;
   status: PurchaseOrderStatus;
-  purchaseType: PurchaseOrderType;
+  purchaseType: PurchaseOrderListType;
   orderDate: string;
   expectedDate: string | null;
   subtotal: number;

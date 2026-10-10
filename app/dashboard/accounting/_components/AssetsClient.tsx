@@ -46,6 +46,7 @@ const CATEGORY_OPTIONS = [
 const PAYMENT_LABELS = {
   CASH: "الخزينة",
   BANK: "البنك",
+  OPENING: "رصيد افتتاحي",
 };
 
 function formatNumber(value: number) {

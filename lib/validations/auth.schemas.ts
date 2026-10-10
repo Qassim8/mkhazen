@@ -23,7 +23,8 @@ export const updatePasswordSchema = z
       .min(1, { message: "كلمة المرور الحالية مطلوبة" }),
     newPassword: z
       .string()
-      .min(6, { message: "كلمة المرور الجديدة يجب أن لا تقل عن 6 أحرف" }),
+      .min(8, { message: "كلمة المرور الجديدة يجب أن لا تقل عن 8 أحرف" })
+      .max(200, { message: "كلمة المرور الجديدة طويلة جدًا" }),
     confirmPassword: z
       .string()
       .min(1, { message: "يرجى تأكيد كلمة المرور الجديدة" }),
@@ -47,7 +48,8 @@ export const adminResetPasswordSchema = z
   .object({
     password: z
       .string()
-      .min(6, { message: "كلمة المرور يجب أن لا تقل عن 6 أحرف" }),
+      .min(8, { message: "كلمة المرور يجب أن لا تقل عن 8 أحرف" })
+      .max(200, { message: "كلمة المرور طويلة جدًا" }),
     confirmPassword: z
       .string()
       .min(1, { message: "يرجى تأكيد كلمة المرور الجديدة" }),

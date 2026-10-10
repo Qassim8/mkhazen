@@ -15,25 +15,23 @@ export interface NotificationsResponse {
   nextOffset: number;
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...init,
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-  });
-  const result = (await response.json().catch(() => null)) as
-    | (T & { message?: string })
-    | null;
+import { apiFetch, type FetchOptions } from "@/lib/api-client";
 
-  if (!response.ok) {
-    throw new Error(result?.message || `فشل طلب الإشعارات (${response.status})`);
-  }
-  if (!result) throw new Error("تعذر قراءة استجابة الإشعارات.");
-  return result;
+/**
+ * الإشعارات بتتسحب كل شوية في الخلفية → الهيدر ده بيقول للـ proxy إن الطلب
+ * مش نشاط من المستخدم، فما يجددش الجلسة (عشان مهلة الخمول تفضل حقيقية).
+ * لو الجلسة انتهت، apiFetch بيحوّل لصفحة "انتهت جلستك" تلقائيًا.
+ */
+function request<T>(
+  params: Record<string, string> | undefined,
+  init: Omit<FetchOptions, "params"> = {},
+  background = false,
+): Promise<T> {
+  return apiFetch<T>("/api/notifications", {
+    ...init,
+    params,
+    headers: background ? { "x-mkhazen-background": "1" } : undefined,
+  });
 }
 
 export async function getNotifications(params: {
@@ -46,25 +44,23 @@ export async function getNotifications(params: {
     offset: String(params.offset),
     filter: params.filter,
   });
-  return request<NotificationsResponse>(`/api/notifications?${query}`);
+  return request<NotificationsResponse>(Object.fromEntries(query), {}, true);
 }
 
 export async function getUnreadNotificationCount(): Promise<number> {
-  const result = await request<{ unreadCount: number }>(
-    "/api/notifications?countOnly=true",
-  );
+  const result = await request<{ unreadCount: number }>({ countOnly: "true" }, {}, true);
   return result.unreadCount;
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {
-  await request("/api/notifications", {
+  await request(undefined, {
     method: "PATCH",
     body: JSON.stringify({ id }),
   });
 }
 
 export async function markAllNotificationsAsRead(): Promise<void> {
-  await request("/api/notifications", {
+  await request(undefined, {
     method: "PATCH",
     body: JSON.stringify({ markAll: true }),
   });
@@ -72,9 +68,9 @@ export async function markAllNotificationsAsRead(): Promise<void> {
 
 export async function deleteNotification(id: string): Promise<void> {
   const query = new URLSearchParams({ id });
-  await request(`/api/notifications?${query}`, { method: "DELETE" });
+  await request(Object.fromEntries(query), { method: "DELETE" });
 }
 
 export async function deleteReadNotifications(): Promise<void> {
-  await request("/api/notifications?scope=read", { method: "DELETE" });
+  await request({ scope: "read" }, { method: "DELETE" });
 }

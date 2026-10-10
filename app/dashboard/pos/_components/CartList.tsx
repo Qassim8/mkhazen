@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import {
   LuBanknote,
-  LuCreditCard,
   LuGift,
   LuShoppingCart,
   LuTrash2,
@@ -63,17 +62,12 @@ const PAYMENT_OPTIONS: {
 }[] = [
   {
     value: "CASH",
-    label: "نقدي",
+    label: "نقداً / الخزينة",
     icon: <LuWalletCards className="h-3.5 w-3.5" />,
   },
   {
-    value: "CARD",
-    label: "بطاقة",
-    icon: <LuCreditCard className="h-3.5 w-3.5" />,
-  },
-  {
     value: "BANK_TRANSFER",
-    label: "تحويل",
+    label: "حوالة / البنك",
     icon: <LuBanknote className="h-3.5 w-3.5" />,
   },
   {
@@ -84,18 +78,17 @@ const PAYMENT_OPTIONS: {
 ];
 
 const SPLIT_METHODS: {
-  value: "CASH" | "CARD" | "BANK_TRANSFER";
+  value: "CASH" | "BANK_TRANSFER";
   label: string;
 }[] = [
-  { value: "CASH", label: "نقدي" },
-  { value: "CARD", label: "بطاقة" },
-  { value: "BANK_TRANSFER", label: "تحويل" },
+  { value: "CASH", label: "نقداً / الخزينة" },
+  { value: "BANK_TRANSFER", label: "حوالة / البنك" },
 ];
 
 function getOtherMethod(
   current: "CASH" | "CARD" | "BANK_TRANSFER",
-): "CASH" | "CARD" | "BANK_TRANSFER" {
-  return current === "CASH" ? "CARD" : "CASH";
+): "CASH" | "BANK_TRANSFER" {
+  return current === "CASH" ? "BANK_TRANSFER" : "CASH";
 }
 
 export default function CartList({
@@ -382,7 +375,7 @@ export default function CartList({
               <span>{subtotal.toFixed(2)} ج.س</span>
             </div>
             {discountAmount > 0 && (
-              <div className="flex items-center justify-between text-xs font-semibold text-emerald-600">
+              <div className="flex items-center justify-between text-xs font-semibold text-red-600">
                 <span>
                   الخصم (
                   {subtotal > 0

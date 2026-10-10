@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
 import {
@@ -16,7 +16,9 @@ import {
   processPurchaseReceipt,
   recordPurchasePayment,
   notifyPurchaseDecision,
+  PurchaseRpcError,
 } from "../../_lib/purchase-order";
+import { apiError, dbErrorResponse } from "@/lib/api-response";
 
 export async function PATCH(
   request: Request,
@@ -29,12 +31,15 @@ export async function PATCH(
   },
 ) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );
@@ -92,7 +97,7 @@ export async function PATCH(
 
     if (newStatus === "APPROVED" && !can(user.role, "purchases.approve")) {
       return NextResponse.json(
-        { message: "اعتماد طلبات الشراء متاح للمالك فقط." },
+        { message: "اعتماد طلبات الشراء متاح للمالك فقط.", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -139,104 +144,50 @@ export async function PATCH(
     }
 
     /* =====================================================
-       DRAFT
-       CANCELLED -> DRAFT
+       DRAFT / APPROVED / CANCELLED
+       التحديث مشروط بالحالة اللي اتقرت فوق: لو حد تاني غيّرها في نفس
+       اللحظة (المالك اعتمد والمدير ألغى) التحديث ما بيلمسش أي صف → 409.
     ===================================================== */
 
-    if (newStatus === "DRAFT") {
-      const { error } = await supabaseAdmin
+    if (newStatus === "DRAFT" || newStatus === "APPROVED" || newStatus === "CANCELLED") {
+      const { data: updated, error } = await supabaseAdmin
         .from("purchase_orders")
         .update({
-          status: "DRAFT",
+          status: newStatus,
 
           updated_at: new Date().toISOString(),
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("status", currentStatus)
+        .select("id")
+        .maybeSingle();
 
       if (error) {
-        return NextResponse.json(
-          {
-            message: error.message,
-          },
-          { status: 400 },
+        return dbErrorResponse(error, "PATCH purchase status", "تعذر تغيير حالة الطلب.");
+      }
+
+      if (!updated) {
+        return apiError(
+          409,
+          "CONFLICT",
+          "تغيّرت حالة الطلب بواسطة مستخدم آخر. حدّث الصفحة وراجع الطلب.",
         );
       }
     }
 
     /* =====================================================
-       APPROVED
-    ===================================================== */
-
-    if (newStatus === "APPROVED") {
-      const { error } = await supabaseAdmin
-        .from("purchase_orders")
-        .update({
-          status: "APPROVED",
-
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (error) {
-        return NextResponse.json(
-          {
-            message: error.message,
-          },
-          { status: 400 },
-        );
-      }
-    }
-
-    /* =====================================================
-       CANCELLED
-    ===================================================== */
-
-    if (newStatus === "CANCELLED") {
-      const { error } = await supabaseAdmin
-        .from("purchase_orders")
-        .update({
-          status: "CANCELLED",
-
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (error) {
-        return NextResponse.json(
-          {
-            message: error.message,
-          },
-          { status: 400 },
-        );
-      }
-    }
-
-    /* =====================================================
-       RECEIVED
+       RECEIVED — عملية ذرّية في قاعدة البيانات (receive_purchase_order)
+       المخزون + التكلفة + الحركات + قيد الشراء + الحالة: كله أو ولا حاجة.
     ===================================================== */
 
     if (newStatus === "RECEIVED") {
-      await processPurchaseReceipt(id, user.userId);
-
-      const { error: receiveError } = await supabaseAdmin
-        .from("purchase_orders")
-        .update({
-          status: "RECEIVED",
-
-          received_by: user.userId,
-
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (receiveError) {
-        return NextResponse.json(
-          {
-            message:
-              "تم تحديث المخزون لكن تعذر تحديث حالة الطلب. لا تحاول الاستلام مرة أخرى قبل معالجة هذه الحالة.",
-          },
-          { status: 500 },
-        );
+      try {
+        await processPurchaseReceipt(id, user.userId);
+      } catch (receiptError) {
+        if (receiptError instanceof PurchaseRpcError) {
+          return dbErrorResponse(receiptError.dbError, "receive_purchase_order", "تعذر استلام طلب الشراء.");
+        }
+        throw receiptError;
       }
 
       /* ===================================================
@@ -258,7 +209,7 @@ export async function PATCH(
 
             notes: payment.notes,
 
-            createdBy: user.userId ?? null,
+            createdBy: user.userId,
           });
         } catch (paymentError) {
           console.error("Receive payment error:", paymentError);
@@ -347,13 +298,6 @@ export async function PATCH(
       data,
     });
   } catch (error: unknown) {
-    console.error("Purchase status PATCH:", error);
-
-    return NextResponse.json(
-      {
-        message: error instanceof Error ? error.message : "خطأ في السيرفر",
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse(error, "Purchase status PATCH", "تعذر تغيير حالة الطلب.");
   }
 }

@@ -1,39 +1,62 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getSession, createSession, invalidateAccountCache } from "@/lib/auth"; // تأكد من استيراد دالة إنشاء الكوكي
+import { z } from "zod";
+
+import { createSession } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireLogin } from "@/lib/permissions-server";
+import { apiError, readJson } from "@/lib/api-response";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "كلمة المرور الحالية مطلوبة").max(200),
+    newPassword: z
+      .string()
+      .min(8, "كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف")
+      .max(200, "كلمة المرور الجديدة طويلة جدًا"),
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "كلمة المرور الجديدة يجب أن تكون مختلفة عن الحالية",
+    path: ["newPassword"],
+  });
 
 export async function PUT(req: Request) {
   try {
-    const session = await getSession();
-    if (!session || !session.userId) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const session = guard.session;
+
+    const validation = changePasswordSchema.safeParse(await readJson(req));
+    if (!validation.success) {
+      return apiError(422, "VALIDATION_ERROR", validation.error.issues[0].message);
     }
 
-    const { currentPassword, newPassword } = await req.json();
+    const limit = checkRateLimit(`change-password:${session.userId}`, 10, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      return apiError(429, "RATE_LIMITED", "محاولات كثيرة جدًا. انتظر قليلًا ثم حاول مرة أخرى.");
+    }
 
-    const { data: user } = await supabaseAdmin
+    const { currentPassword, newPassword } = validation.data;
+
+    const { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, password, role, position, email, name")
+      .select("id, password")
       .eq("id", session.userId)
-      .single();
+      .maybeSingle();
+
+    if (userError) {
+      console.error("change-password lookup:", userError);
+      return apiError(503, "SERVICE_UNAVAILABLE", "تعذر الوصول لقاعدة البيانات، حاول مرة أخرى.");
+    }
 
     if (!user) {
-      return NextResponse.json(
-        { message: "المستخدم غير موجود" },
-        { status: 404 },
-      );
+      return apiError(404, "NOT_FOUND", "المستخدم غير موجود");
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      currentPassword,
-      user.password,
-    );
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isPasswordValid) {
-      return NextResponse.json(
-        { message: "كلمة المرور الحالية غير صحيحة" },
-        { status: 400 },
-      );
+      return apiError(400, "VALIDATION_ERROR", "كلمة المرور الحالية غير صحيحة");
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -42,35 +65,30 @@ export async function PUT(req: Request) {
       .from("users")
       .update({ password: hashedPassword, isPasswordChanged: true })
       .eq("id", session.userId)
-      .select("id, role, position, email, name, isPasswordChanged")
+      .select("id, role, email, name")
       .single();
 
     if (error || !updatedUser) {
-      return NextResponse.json(
-        { message: "فشل التحديث في قاعدة البيانات" },
-        { status: 400 },
-      );
+      console.error("change-password update:", error);
+      return apiError(500, "INTERNAL_ERROR", "فشل التحديث في قاعدة البيانات");
     }
 
-    invalidateAccountCache(updatedUser.id);
-
-    // ⭐️ إنشاء Session جديدة وتحديث الـ Cookie بقيمة true
+    // جلسة جديدة ببصمة كلمة السر الجديدة → أي جلسة قديمة على جهاز تاني بتبطل
     await createSession({
       userId: updatedUser.id,
       email: updatedUser.email,
       name: updatedUser.name,
       role: updatedUser.role,
       isPasswordChanged: true,
+      passwordHash: hashedPassword,
     });
 
     return NextResponse.json({
       message: "تم تغيير كلمة المرور بنجاح",
       role: updatedUser.role,
     });
-  } catch {
-    return NextResponse.json(
-      { message: "حدث خطأ في السيرفر" },
-      { status: 500 },
-    );
+  } catch (error) {
+    console.error("change-password:", error);
+    return apiError(500, "INTERNAL_ERROR", "حدث خطأ في السيرفر");
   }
 }

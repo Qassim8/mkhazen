@@ -25,9 +25,9 @@ const paymentStatusLabels = {
 } as const;
 
 const paymentMethodLabels = {
-  CASH: "الخزينة",
+  CASH: "نقداً / الخزينة",
   CARD: "بطاقة",
-  BANK_TRANSFER: "تحويل بنكي",
+  BANK_TRANSFER: "حوالة / البنك",
   MIXED: "مختلط",
 } as const;
 

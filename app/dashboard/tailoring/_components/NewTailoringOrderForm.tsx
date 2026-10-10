@@ -16,6 +16,7 @@ import {
   type TailoringOrderFormValues,
 } from "../schemas/tailoring.schemas";
 import { createTailoringOrder } from "../services/tailoring.services";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import ExchangeRateBadge from "@/components/shared/ExchangeRateBadge";
@@ -91,6 +92,8 @@ export default function NewTailoringOrderForm({
   canManageAll,
 }: Props) {
   const router = useRouter();
+  // نفس الطلب (بنفس العربون) ما يتسجلش مرتين لو المستخدم ضغط تاني بعد انقطاع
+  const idempotency = useIdempotencyKey();
   const [selectedFabric, setSelectedFabric] = useState<SelectedFabric | null>(
     null,
   );
@@ -367,7 +370,10 @@ export default function NewTailoringOrderForm({
       };
 
       try {
-        const response = await createTailoringOrder(payload);
+        const response = await createTailoringOrder(payload, {
+          idempotencyKey: idempotency.keyFor(payload),
+        });
+        idempotency.reset();
         toast.success(`تم إنشاء الطلب ${response.data.order_number} بنجاح.`);
         router.push(`/dashboard/tailoring/${response.data.id}`);
         router.refresh();
@@ -879,8 +885,8 @@ export default function NewTailoringOrderForm({
                       disabled={isSubmitting}
                       className={inputClass(Boolean(errors.paymentMethod))}
                     >
-                      <option value="CASH">الخزينة</option>
-                      <option value="BANK_TRANSFER">البنك / تحويل</option>
+                      <option value="CASH">نقداً / الخزينة</option>
+                      <option value="BANK_TRANSFER">حوالة / البنك</option>
                     </select>
                     <InlineError message={errors.paymentMethod?.message} />
                   </label>

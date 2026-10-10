@@ -1,109 +1,77 @@
-import { NextResponse } from "next/server";
-
-import { getSession } from "@/lib/auth";
-import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { can } from "@/lib/permissions";
+import { requirePermission } from "@/lib/permissions-server";
+import { apiError, dbErrorResponse, invalidJsonResponse, isUuid, readJson } from "@/lib/api-response";
+import { runIdempotentRpc } from "@/lib/idempotency";
 import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { completeTailoringPickupSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
+/**
+ * POST /api/tailoring/orders/:id/pickup — استلام العميل لطلبه وتحصيل الباقي
+ * (ذرّي في complete_tailoring_pickup + منع التكرار بـ Idempotency-Key)
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    if (!MAIN_BRANCH_ID) {
-      return NextResponse.json(
-        { message: "معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام." },
-        { status: 500 },
-      );
-    }
+  const guard = await requirePermission(
+    "tailoring.operate",
+    "استلام طلب العميل وتحصيل الباقي متاح للكاشير أو الإدارة فقط.",
+  );
+  if (!guard.ok) return guard.response;
+  const user = guard.session;
+  const role = String(user.role).toLowerCase();
 
-    const user = await getSession();
+  const { id } = await params;
+  if (!isUuid(id)) return apiError(404, "NOT_FOUND", "طلب تفصيل العميل غير موجود.");
 
-    if (!user) {
-      return NextResponse.json(
-        { message: "يرجى تسجيل الدخول أولاً." },
-        { status: 401 },
-      );
-    }
+  const body = await readJson(request);
+  if (body === null) return invalidJsonResponse();
 
-    const role = String(user.role).toLowerCase();
+  const validation = completeTailoringPickupSchema.safeParse(body);
+  if (!validation.success) {
+    return apiError(422, "VALIDATION_ERROR", "بيانات الاستلام غير صالحة.", {
+      errors: validation.error.flatten().fieldErrors,
+    });
+  }
 
-    if (!can(role, "tailoring.operate")) {
-      return NextResponse.json(
-        { message: "استلام طلب العميل وتحصيل الباقي متاح للكاشير أو الإدارة فقط." },
-        { status: 403 },
-      );
-    }
+  const { data: order, error: orderError } = await supabaseAdmin
+    .from("sales_orders")
+    .select("id")
+    .eq("id", id)
+    .eq("branch_id", MAIN_BRANCH_ID)
+    .eq("order_type", "TAILORING")
+    .eq("tailoring_purpose", "CUSTOMER")
+    .maybeSingle();
 
-    const body = await request.json();
-    const validation = completeTailoringPickupSchema.safeParse(body);
+  if (orderError) return dbErrorResponse(orderError, "pickup lookup", "تعذر تحميل الطلب.");
+  if (!order) return apiError(404, "NOT_FOUND", "طلب تفصيل العميل غير موجود.");
 
-    if (!validation.success) {
-      return NextResponse.json(
-        {
-          message: "بيانات الاستلام غير صالحة.",
-          errors: validation.error.flatten().fieldErrors,
-        },
-        { status: 422 },
-      );
-    }
-
-    const { id } = await params;
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from("sales_orders")
-      .select("id")
-      .eq("id", id)
-      .eq("branch_id", MAIN_BRANCH_ID)
-      .eq("order_type", "TAILORING")
-      .eq("tailoring_purpose", "CUSTOMER")
-      .maybeSingle();
-
-    if (orderError) throw new Error(orderError.message);
-    if (!order) {
-      return NextResponse.json(
-        { message: "طلب تفصيل العميل غير موجود." },
-        { status: 404 },
-      );
-    }
-
-    const { data, error } = await supabaseAdmin.rpc(
-      "complete_tailoring_pickup",
-      {
+  return runIdempotentRpc<{ order_number: string } & Record<string, unknown>>({
+    request,
+    scope: "tailoring.pickup",
+    userId: user.userId,
+    payload: { id, ...validation.data },
+    context: "complete_tailoring_pickup",
+    fallbackMessage: "تعذر إتمام استلام الطلب.",
+    rpc: () =>
+      supabaseAdmin.rpc("complete_tailoring_pickup", {
         p_order_id: id,
         p_branch_id: MAIN_BRANCH_ID,
         p_user_id: user.userId,
         p_payment_method: validation.data.paymentMethod,
-      },
-    );
-
-    if (error) {
-      console.error("complete_tailoring_pickup RPC:", error);
-      return NextResponse.json(
-        { message: error.message || "تعذر إتمام استلام الطلب." },
-        { status: 400 },
-      );
-    }
-
-    await notifyTailoringUpdate({ orderId: id, event: "RECEIVED", actor: user });
-
-    return NextResponse.json({
-      message: `تم استلام الطلب ${data.order_number} وتحصيل المبلغ المتبقي بنجاح.`,
-      data: can(role, "tailoring.manage")
-        ? data
-        : { id, order_number: data.order_number, tailoring_status: "RECEIVED" },
-    });
-  } catch (error: unknown) {
-    console.error("POST /api/tailoring/orders/[id]/pickup:", error);
-    return NextResponse.json(
-      {
-        message:
-          error instanceof Error
-            ? error.message
-            : "حدث خطأ غير متوقع أثناء استلام الطلب.",
-      },
-      { status: 500 },
-    );
-  }
+      }),
+    onSuccess: async (data) => {
+      await notifyTailoringUpdate({ orderId: id, event: "RECEIVED", actor: user });
+      return {
+        body: {
+          message: `تم استلام الطلب ${data.order_number} وتحصيل المبلغ المتبقي بنجاح.`,
+          data: can(role, "tailoring.manage")
+            ? data
+            : { id, order_number: data.order_number, tailoring_status: "RECEIVED" },
+        },
+      };
+    },
+  });
 }

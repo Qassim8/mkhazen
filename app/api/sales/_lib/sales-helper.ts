@@ -1,5 +1,15 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
+/** خطأ راجع من دالة قاعدة البيانات (المعاملة اترجعت بالكامل) — بيحتفظ بالكود */
+export class CheckoutRpcError extends Error {
+  readonly dbError: { code?: string; message?: string };
+  constructor(dbError: { code?: string; message?: string }) {
+    super(dbError.message || "تعذر إتمام عملية البيع");
+    this.name = "CheckoutRpcError";
+    this.dbError = dbError;
+  }
+}
+
 export interface CheckoutItemInput {
   variantId: string;
   quantity: number;
@@ -86,7 +96,7 @@ export async function completeSalesCheckout(
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw new CheckoutRpcError(error);
   }
 
   if (!data || typeof data !== "object") {

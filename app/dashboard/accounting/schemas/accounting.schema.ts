@@ -365,7 +365,8 @@ export interface Asset {
   exchangeRateUsed: number | null;
   purchaseDate: string;
 
-  paymentMethod: "CASH" | "BANK";
+  /** OPENING = أصل مسجّل في الأرصدة الافتتاحية (لم يُدفع من الخزينة/البنك) */
+  paymentMethod: "CASH" | "BANK" | "OPENING";
 
   reference: string | null;
   notes: string | null;

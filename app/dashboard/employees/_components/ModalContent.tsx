@@ -10,10 +10,12 @@ import {
 } from "@/app/dashboard/employees/schemas/employee.schemas";
 import { creatEmployee } from "../services/employees.services";
 import { useModalStore } from "@/store/useModalStore";
+import TemporaryPasswordNotice from "./TemporaryPasswordNotice";
 
 export default function ModalContent() {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
+  const openModal = useModalStore((state) => state.openModal);
 
   const {
     register,
@@ -37,11 +39,26 @@ export default function ModalContent() {
 
   const onSubmit: SubmitHandler<CreateEmployeeInput> = async (data) => {
     try {
-      await creatEmployee(data);
+      const result = await creatEmployee(data);
       toast.success("تم إضافة الموظف بنجاح");
       reset();
       router.refresh();
-      closeModal();
+
+      if (result.temporaryPassword) {
+        // كلمة السر المؤقتة بتظهر مرة واحدة للمدير عشان يسلّمها للموظف
+        openModal("CREATE", {
+          title: "كلمة السر المؤقتة للموظف",
+          content: (
+            <TemporaryPasswordNotice
+              name={result.data?.name ?? data.name}
+              email={result.data?.email ?? data.email}
+              temporaryPassword={result.temporaryPassword}
+            />
+          ),
+        });
+      } else {
+        closeModal();
+      }
     } catch (error: unknown) {
       console.error("فشل في حفظ بيانات الموظف:", error);
 

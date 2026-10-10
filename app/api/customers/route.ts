@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
 import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAll } from "@/lib/supabase-fetch-all";
 
@@ -35,16 +36,15 @@ export async function GET(request: Request) {
       );
     }
 
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "tailoring.operate")) {
-      return NextResponse.json({ message: "غير مصرح." }, { status: 403 });
+      return NextResponse.json({ message: "غير مصرح.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
-    const search = (searchParams.get("search") ?? "")
-      .trim()
-      .slice(0, 100)
-      .replace(/[,%()_]/g, " ");
+    const search = sanitizeSearchTerm(searchParams.get("search")).replace(/_/g, " ").trim();
     const pageValue = Number(searchParams.get("page") ?? 1);
     const limitValue = Number(searchParams.get("limit") ?? 12);
     const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;

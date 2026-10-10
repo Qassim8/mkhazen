@@ -68,6 +68,7 @@ export default function OrdersPageClient({ orders, meta }: Props) {
                 { label: "كل الأنواع", value: "ALL" },
                 { label: "شراء مباشر", value: "DIRECT" },
                 { label: "طلب شراء", value: "WORKFLOW" },
+                { label: "دين افتتاحي", value: "OPENING" },
               ]}
             />
 

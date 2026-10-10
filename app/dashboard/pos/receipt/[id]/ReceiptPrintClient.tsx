@@ -65,11 +65,11 @@ function formatDateTime(value: string) {
 function getPaymentMethodLabel(method: string) {
   switch (method) {
     case "CASH":
-      return "نقدي";
+      return "نقداً / الخزينة";
     case "CARD":
       return "بطاقة";
     case "BANK_TRANSFER":
-      return "تحويل بنكي";
+      return "حوالة / البنك";
     case "MIXED":
       return "دفع مختلط";
     default:

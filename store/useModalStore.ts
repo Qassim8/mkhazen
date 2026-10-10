@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { create } from "zustand";
 
 export type ModalType =
@@ -9,15 +10,16 @@ export type ModalType =
   | "FORGOT_PASSWORD";
 
 type RowId = string | number;
-type ActionFunction<T = any> = (id: T) => void | Promise<any>;
 
 interface ModalData {
   rowId?: RowId;
   itemName?: string;
-  selectedRow?: any;
-  actionFunction?: ActionFunction<any>;
+  selectedRow?: unknown;
+  // صيغة method عشان تقبل دوال بتاخد string بس (المعرفات في النظام UUID)
+  actionFunction?(id: RowId): void | Promise<unknown>;
   title?: string;
-  [key: string]: any;
+  content?: ReactNode;
+  [key: string]: unknown;
 }
 
 interface ModalState {

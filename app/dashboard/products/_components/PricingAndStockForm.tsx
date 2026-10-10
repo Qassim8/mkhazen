@@ -71,18 +71,6 @@ export default function PricingAndStockForm({
       <div className="grid gap-4 sm:grid-cols-2 border-t border-gray-50 pt-4">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            أقل سعر للبيع (الحد الأدنى) — $
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            {...register("variants.0.minSellingPrice", { valueAsNumber: true })}
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-(--primary-red) focus:bg-white focus:outline-hidden transition font-medium"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
             حد إعادة الطلب (أقل كمية بالمخزن)
           </label>
           <input

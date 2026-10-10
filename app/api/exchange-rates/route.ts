@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -12,11 +12,13 @@ import {
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "exchangeRate.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -110,11 +112,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "exchangeRate.manage")) {
       return NextResponse.json(
-        { message: "عذراً، تعديل سعر الصرف مقتصر على المدير فقط" },
+        { message: "عذراً، تعديل سعر الصرف مقتصر على المدير فقط", code: "FORBIDDEN" },
         { status: 403 },
       );
     }

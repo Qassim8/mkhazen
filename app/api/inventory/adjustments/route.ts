@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
+import { runIdempotentRpc } from "@/lib/idempotency";
 
 import { inventoryAdjustmentSchema } from "@/app/dashboard/inventory/schema/inventory.schemas";
 
@@ -14,12 +15,15 @@ export async function POST(request: Request) {
        AUTH
     ===================================================== */
 
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );
@@ -52,87 +56,61 @@ export async function POST(request: Request) {
       notes,
     } = validation.data;
 
-    const entryNumber = `ADJ-${Date.now()}`;
+    const entryNumber = `ADJ-${Date.now()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
 
     /* =====================================================
        PROCESS ATOMIC TRANSACTION
     ===================================================== */
 
-    const { data: result, error: rpcError } = await supabaseAdmin.rpc(
-      "process_inventory_adjustment",
-      {
-        p_variant_id: variantId,
-        p_user_id: user.userId ?? null,
-        p_adjustment_type: adjustmentType,
-
-        p_quantity: Math.abs(quantity),
-
-        p_notes: notes ?? null,
-
-        p_entry_number: entryNumber,
-
-        /*
-            IN:
-              negative amount = customer refund
-
-            OUT:
-              positive amount = supplier refund
+    return await runIdempotentRpc<unknown>({
+      request,
+      scope: "inventory.adjustment",
+      userId: user.userId,
+      payload: validation.data,
+      context: "process_inventory_adjustment",
+      fallbackMessage: "تعذر إجراء التسوية المخزنية",
+      rpc: () =>
+        supabaseAdmin.rpc("process_inventory_adjustment", {
+          p_variant_id: variantId,
+          p_user_id: user.userId ?? null,
+          p_adjustment_type: adjustmentType,
+          p_quantity: Math.abs(quantity),
+          p_notes: notes ?? null,
+          p_entry_number: entryNumber,
+          /*
+            IN:  negative amount = customer refund
+            OUT: positive amount = supplier refund
           */
-        p_amount: Number(amount.toFixed(2)),
+          p_amount: Number(amount.toFixed(2)),
+          p_payment_method: paymentMethod ?? null,
+          p_branch_id: MAIN_BRANCH_ID,
+        }),
+      onSuccess: (result) => {
+        revalidateTag("products-list", "default");
+        revalidateTag("purchases-list", "default");
+        revalidateTag("inventory-list", "default");
+        revalidateTag("inventory-movements", "default");
+        revalidateTag("accounting-entries", "default");
+        revalidateTag("accounting-summary", "default");
+        revalidatePath("/dashboard/inventory");
+        revalidatePath("/dashboard/products");
+        revalidatePath("/dashboard/accounting");
 
-        p_payment_method: paymentMethod ?? null,
-
-        p_branch_id: MAIN_BRANCH_ID,
+        return {
+          body: {
+            message:
+              adjustmentType === "IN"
+                ? amount < 0
+                  ? "تم تسجيل مرتجع العميل وإعادة الكمية للمخزون بنجاح"
+                  : "تمت زيادة المخزون وتسجيل التسوية بنجاح"
+                : amount > 0
+                  ? "تم تسجيل مرتجع المورد وخصم الكمية من المخزون بنجاح"
+                  : "تم خصم الكمية وتسجيل التسوية بنجاح",
+            data: result,
+          },
+        };
       },
-    );
-
-    if (rpcError) {
-      console.error("Inventory adjustment RPC:", rpcError);
-
-      return NextResponse.json(
-        {
-          message: rpcError.message || "تعذر إجراء التسوية المخزنية",
-        },
-        { status: 400 },
-      );
-    }
-
-    /* =====================================================
-       CACHE
-    ===================================================== */
-
-    revalidateTag("products-list", "default");
-    revalidateTag("purchases-list", "default");
-
-    revalidateTag("inventory-list", "default");
-    revalidateTag("inventory-movements", "default");
-
-    revalidateTag("accounting-entries", "default");
-    revalidateTag("accounting-summary", "default");
-
-    revalidatePath("/dashboard/inventory");
-    revalidatePath("/dashboard/products");
-    revalidatePath("/dashboard/accounting");
-
-    /* =====================================================
-       RESPONSE
-    ===================================================== */
-
-    return NextResponse.json(
-      {
-        message:
-          adjustmentType === "IN"
-            ? amount < 0
-              ? "تم تسجيل مرتجع العميل وإعادة الكمية للمخزون بنجاح"
-              : "تمت زيادة المخزون وتسجيل التسوية بنجاح"
-            : amount > 0
-              ? "تم تسجيل مرتجع المورد وخصم الكمية من المخزون بنجاح"
-              : "تم خصم الكمية وتسجيل التسوية بنجاح",
-
-        data: result,
-      },
-      { status: 200 },
-    );
+    });
   } catch (error: unknown) {
     console.error("Inventory adjustment unexpected:", error);
 

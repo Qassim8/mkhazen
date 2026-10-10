@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-hot-toast";
@@ -19,6 +20,7 @@ interface NewAssetModalProps {
 
 export default function NewAssetModal({ onClose }: NewAssetModalProps) {
   const router = useRouter();
+  const idempotency = useIdempotencyKey();
 
   // تمرين نوع المدخلات ونوع المخرجات لمنع تعارض TypeScript
   const {
@@ -42,7 +44,8 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
 
   const onSubmit = async (data: AssetInput) => {
     try {
-      await createAsset(data);
+      await createAsset(data, { idempotencyKey: idempotency.keyFor(data) });
+      idempotency.reset();
       toast.success("تم تسجيل الأصل بنجاح");
       onClose();
       router.refresh();
@@ -175,8 +178,8 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
                 {...register("paymentMethod")}
                 className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
               >
-                <option value="CASH">الخزينة</option>
-                <option value="BANK">البنك</option>
+                <option value="CASH">نقداً / الخزينة</option>
+                <option value="BANK">حوالة / البنك</option>
               </select>
               {errors.paymentMethod && (
                 <p className="mt-1 text-xs text-red-600">

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAllResult } from "@/lib/supabase-fetch-all";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
 interface Props {
@@ -13,12 +13,15 @@ interface Props {
 
 export async function GET(request: Request, { params }: Props) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );

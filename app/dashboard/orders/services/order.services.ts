@@ -58,7 +58,7 @@ export interface GetPurchasesParams {
 
   status?: PurchaseOrderStatus | "ALL";
 
-  purchaseType?: "DIRECT" | "WORKFLOW" | "ALL";
+  purchaseType?: "DIRECT" | "WORKFLOW" | "OPENING" | "ALL";
 
   paymentStatus?: PaymentStatus | "ALL";
 
@@ -225,6 +225,7 @@ export async function getPurchaseOrderPayments(
 export async function createPurchaseOrderPayment(
   id: string,
   payload: Omit<CreatePurchasePaymentInput, "purchaseOrderId">,
+  options: { idempotencyKey?: string } = {},
 ): Promise<PurchasePaymentResponse> {
   return serverFetch<PurchasePaymentResponse>(
     `${API_BASE_URL}/${id}/payments`,
@@ -232,6 +233,8 @@ export async function createPurchaseOrderPayment(
       method: "POST",
 
       body: JSON.stringify(payload),
+
+      headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
     },
   );
 }

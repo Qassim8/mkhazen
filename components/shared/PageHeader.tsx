@@ -15,7 +15,7 @@ const PageHeader = ({
   redirect,
 }: HeaderProps) => {
   return (
-    <header className="pt-3 pb-7 flex justify-between items-center">
+    <header className="pt-3 pb-5 flex justify-between items-center">
       <div>
         <h1 className="text-xl md:text-3xl font-bold">{title}</h1>
         <p className="text-xs md:text-sm text-gray-500">{subtitle}</p>
