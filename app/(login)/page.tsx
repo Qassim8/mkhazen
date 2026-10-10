@@ -1,6 +1,7 @@
 "use client";
 
 import { errorMessage } from "@/lib/errors";
+import { safeReturnPath } from "@/lib/api-codes";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,7 +44,9 @@ export default function LoginPage() {
         duration: 3000,
       });
 
-      window.location.assign("/dashboard");
+      // الرجوع للصفحة اللي كان شغال عليها قبل انتهاء الجلسة (مسار داخلي بس)
+      const next = safeReturnPath(new URLSearchParams(window.location.search).get("next"));
+      window.location.assign(next ?? "/dashboard");
     } catch (error: unknown) {
       toast.error(
         errorMessage(error, "فشل تسجيل الدخول، يرجى التأكد من البيانات"),

@@ -248,38 +248,25 @@ export async function getPosProducts(
   const safePage = Math.max(1, Number(params?.page) || 1);
   const safeLimit = Math.max(1, Number(params?.limit) || 30);
 
-  try {
-    const res = await serverFetch<PosProductsResponse>(
-      `${API_BASE_URL}/products`,
-      {
-        method: "GET",
-        params: {
-          search: params?.search?.trim() || undefined,
-          categoryId: params?.categoryId || undefined,
-          page: safePage,
-          limit: safeLimit,
-        },
-        next: {
-          tags: ["pos-products"],
-        },
+  // الأخطاء بتطلع للي نادى (مش قائمة فاضية): "مفيش نتائج" غير "فشل التحميل/الجلسة انتهت"
+  const res = await serverFetch<PosProductsResponse>(
+    `${API_BASE_URL}/products`,
+    {
+      method: "GET",
+      params: {
+        search: params?.search?.trim() || undefined,
+        categoryId: params?.categoryId || undefined,
+        page: safePage,
+        limit: safeLimit,
       },
-    );
+      next: {
+        tags: ["pos-products"],
+      },
+    },
+  );
 
-    return (
-      res || {
-        data: [],
-        pagination: {
-          total: 0,
-          page: safePage,
-          limit: safeLimit,
-          totalPages: 1,
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Error in getPosProducts:", error);
-    // إرجاع بنية فارغة آمنة تمنع كسر الـ Server Component في Production
-    return {
+  return (
+    res || {
       data: [],
       pagination: {
         total: 0,
@@ -287,8 +274,8 @@ export async function getPosProducts(
         limit: safeLimit,
         totalPages: 1,
       },
-    };
-  }
+    }
+  );
 }
 
 // =========================================================
@@ -301,52 +288,40 @@ export async function getSalesOrders(
   const safePage = Math.max(1, Number(params?.page) || 1);
   const safeLimit = Math.max(1, Number(params?.limit) || 10);
 
-  try {
-    const res = await serverFetch<SalesOrdersResponse>(
-      `${API_BASE_URL}/orders`,
-      {
-        method: "GET",
-        params: {
-          search: params?.search?.trim() || undefined,
-          status:
-            params?.status && params.status !== "ALL"
-              ? params.status
-              : undefined,
-          paymentStatus:
-            params?.paymentStatus && params.paymentStatus !== "ALL"
-              ? params.paymentStatus
-              : undefined,
-          paymentMethod:
-            params?.paymentMethod && params.paymentMethod !== "ALL"
-              ? params.paymentMethod
-              : undefined,
-          orderType: params?.orderType,
-          fromDate: params?.fromDate,
-          toDate: params?.toDate,
-          sort: params?.sort,
-          page: safePage,
-          limit: safeLimit,
-        },
-        next: {
-          tags: ["sales-orders-list"],
-        },
+  // الأخطاء بتطلع للي نادى (مش قائمة فاضية): "مفيش نتائج" غير "فشل التحميل/الجلسة انتهت"
+  const res = await serverFetch<SalesOrdersResponse>(
+    `${API_BASE_URL}/orders`,
+    {
+      method: "GET",
+      params: {
+        search: params?.search?.trim() || undefined,
+        status:
+          params?.status && params.status !== "ALL"
+            ? params.status
+            : undefined,
+        paymentStatus:
+          params?.paymentStatus && params.paymentStatus !== "ALL"
+            ? params.paymentStatus
+            : undefined,
+        paymentMethod:
+          params?.paymentMethod && params.paymentMethod !== "ALL"
+            ? params.paymentMethod
+            : undefined,
+        orderType: params?.orderType,
+        fromDate: params?.fromDate,
+        toDate: params?.toDate,
+        sort: params?.sort,
+        page: safePage,
+        limit: safeLimit,
       },
-    );
+      next: {
+        tags: ["sales-orders-list"],
+      },
+    },
+  );
 
-    return (
-      res || {
-        data: [],
-        pagination: {
-          total: 0,
-          page: safePage,
-          limit: safeLimit,
-          totalPages: 1,
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Error in getSalesOrders:", error);
-    return {
+  return (
+    res || {
       data: [],
       pagination: {
         total: 0,
@@ -354,8 +329,8 @@ export async function getSalesOrders(
         limit: safeLimit,
         totalPages: 1,
       },
-    };
-  }
+    }
+  );
 }
 
 // =========================================================
@@ -364,13 +339,12 @@ export async function getSalesOrders(
 
 export async function createSalesOrder(
   payload: CreateSalesOrderInput,
-): Promise<SalesCheckoutResponse> {
-  return serverFetch<SalesCheckoutResponse>(`${API_BASE_URL}/checkout`, {
+  options: { idempotencyKey?: string } = {},
+): Promise<SalesCheckoutResponse & { replayed?: boolean }> {
+  return serverFetch<SalesCheckoutResponse & { replayed?: boolean }>(`${API_BASE_URL}/checkout`, {
     method: "POST",
     body: JSON.stringify(payload),
-    next: {
-      tags: ["sales-orders-list"],
-    },
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }
 

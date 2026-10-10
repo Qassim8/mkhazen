@@ -40,8 +40,8 @@ const ResetPasswordModalContent = ({ employeeId, employeeName }: Props) => {
         setSuccessPassword(values.password);
         router.refresh();
       }
-    } catch (err: any) {
-      setServerError(err?.message || "حدث خطأ أثناء تعيين كلمة المرور");
+    } catch (err: unknown) {
+      setServerError(err instanceof Error && err.message ? err.message : "حدث خطأ أثناء تعيين كلمة المرور");
     }
   };
 

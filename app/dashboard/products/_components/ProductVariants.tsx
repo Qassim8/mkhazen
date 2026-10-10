@@ -15,7 +15,6 @@ import {
   LuPalette,
   LuRuler,
   LuTag,
-  LuDollarSign,
   LuImage,
   LuLock,
   LuUpload,
@@ -354,26 +353,6 @@ export default function ProductVariantsSection({
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-amber-700 mb-1.5 truncate flex items-center gap-1">
-                    <LuDollarSign className="h-3.5 w-3.5" />
-                    أقل سعر بيع (الخصم) — $
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    {...register(`variants.${index}.minSellingPrice`, {
-                      setValueAs: toNumberOrUndefined,
-                    })}
-                    placeholder="حد الخصم"
-                    className="w-full rounded-xl border border-amber-200 bg-amber-50/30 px-3 py-2 text-xs font-bold focus:border-amber-500 outline-hidden"
-                  />
-                  {variantErrors?.minSellingPrice && (
-                    <p className="text-[11px] text-red-500 mt-1">
-                      {variantErrors.minSellingPrice.message}
-                    </p>
-                  )}
-                </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 border-t border-gray-200/60 pt-4">

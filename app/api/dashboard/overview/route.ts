@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -331,10 +331,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "dashboard.view")) {
       return NextResponse.json(
-        { message: "عذراً، لوحة التحكم متاحة للمدير فقط." },
+        { message: "عذراً، لوحة التحكم متاحة للمدير فقط.", code: "FORBIDDEN" },
         { status: 403 },
       );
     }

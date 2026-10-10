@@ -37,9 +37,9 @@ function formatDate(value: string | null) {
 }
 
 function paymentMethodLabel(value: string) {
-  if (value === "CASH") return "الخزينة";
+  if (value === "CASH") return "نقداً / الخزينة";
   if (value === "CARD") return "بطاقة";
-  if (value === "BANK_TRANSFER") return "تحويل بنكي";
+  if (value === "BANK_TRANSFER") return "حوالة / البنك";
   if (value === "MIXED") return "دفع مختلط";
   return value;
 }

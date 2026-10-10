@@ -17,11 +17,13 @@ interface SupplierModalContentProps {
   initialData?: Supplier | null;
   /** بعد الإضافة: الصفحة اللي فتحت المودال تضيف المورد لقائمتها فورًا */
   onSaved?: (supplier: Supplier) => void;
+  refreshOnSave?: boolean;
 }
 
 export default function SupplierModalContent({
   initialData,
   onSaved,
+  refreshOnSave = true,
 }: SupplierModalContentProps) {
   const router = useRouter();
   const closeModal = useModalStore((state) => state.closeModal);
@@ -58,7 +60,7 @@ export default function SupplierModalContent({
 
       reset();
       closeModal();
-      router.refresh();
+      if (refreshOnSave) router.refresh();
     } catch (error: unknown) {
       const message =
         error instanceof Error

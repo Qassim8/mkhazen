@@ -1,28 +1,29 @@
 // app/api/auth/me/route.ts
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { updateProfileSchema } from "@/lib/validations/auth.schemas";
+
 import { supabaseAdmin } from "@/lib/supabase";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { requireLogin } from "@/lib/permissions-server";
+import { apiError } from "@/lib/api-response";
+
+export { PUT } from "./update/route";
 
 export async function GET() {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
-  }
+  const guard = await requireLogin();
+  if (!guard.ok) return guard.response;
 
   const { data: user, error } = await supabaseAdmin
     .from("users")
     .select("id, name, email, phone, role, shift, isPasswordChanged")
-    .eq("id", session.userId)
-    .single();
+    .eq("id", guard.session.userId)
+    .maybeSingle();
 
-  if (error || !user) {
-    return NextResponse.json(
-      { message: "المستخدم غير موجود" },
-      { status: 404 },
-    );
+  if (error) {
+    console.error("GET /api/auth/me:", error);
+    return apiError(503, "SERVICE_UNAVAILABLE", "تعذر تحميل بيانات الحساب، حاول مرة أخرى.");
+  }
+
+  if (!user) {
+    return apiError(404, "NOT_FOUND", "المستخدم غير موجود");
   }
 
   return NextResponse.json(user, {
@@ -30,54 +31,4 @@ export async function GET() {
       "Cache-Control": "no-store, max-age=0", // لمنع المتصفح من كاش الكول في الـ Client
     },
   });
-}
-
-export async function PUT(req: Request) {
-  const session = await getSession();
-
-  if (!session) {
-    return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
-  }
-
-  try {
-    const body = await req.json();
-    const validation = updateProfileSchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { message: validation.error.issues[0].message },
-        { status: 400 },
-      );
-    }
-
-    const { name, email, phone } = validation.data;
-    const updateData = { name, email, phone };
-
-    const { error: updateError } = await supabaseAdmin
-      .from("users")
-      .update(updateData)
-      .eq("id", session.userId);
-
-    if (updateError) {
-      if (updateError.message.includes("duplicate key")) {
-        return NextResponse.json(
-          { message: "البريد الإلكتروني مستخدم بالفعل" },
-          { status: 400 },
-        );
-      }
-      throw updateError;
-    }
-
-    // إجبار Next.js على إلغاء كاش البيانات وإعادة تنشيط الصفحات
-    revalidateTag("employee-info", "default");
-    revalidatePath("/dashboard", "layout");
-
-    return NextResponse.json({ message: "تم تحديث بيانات الحساب بنجاح" });
-  } catch (err: unknown) {
-    console.error("Profile Update Error:", err);
-    return NextResponse.json(
-      { message: "فشل في تحديث بيانات الحساب" },
-      { status: 500 },
-    );
-  }
 }

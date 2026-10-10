@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Verification (production readiness)
+
+```bash
+npm run verify      # typecheck → lint → unit → db (PGlite) → build → e2e (next start + mock Supabase)
+npm run test:unit   # tests/unit
+npm run test:db     # database/tests (isolated in-process Postgres, never touches a real database)
+npm run test:e2e    # tests/e2e (requires `npm run build` first)
+```
+
+Before deploying, read `docs/release-plan.md` (database hardening order, verify, staging checks, rollback rules), `docs/live-database-audit.md` and `database/README.md`. The app needs only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `JWT_SECRET`; the anon/publishable key is not used.

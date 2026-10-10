@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -17,9 +17,11 @@ export async function GET(
       );
     }
 
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "tailoring.operate")) {
-      return NextResponse.json({ message: "غير مصرح." }, { status: 403 });
+      return NextResponse.json({ message: "غير مصرح.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const { id } = await params;

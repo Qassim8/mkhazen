@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { LuBanknote, LuCalendarDays, LuLoader, LuX } from "react-icons/lu";
 
 import { useRouter } from "next/navigation";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 
 import toast from "react-hot-toast";
 
@@ -45,6 +46,7 @@ export default function PaymentModal({
   onClose,
 }: PaymentModalProps) {
   const router = useRouter();
+  const idempotency = useIdempotencyKey();
 
   const [isPending, setIsPending] = useState(false);
 
@@ -115,7 +117,7 @@ export default function PaymentModal({
     try {
       setIsPending(true);
 
-      const response = await createPurchaseOrderPayment(orderId, {
+      const paymentPayload = {
         amount: Number(paymentAmount.toFixed(2)),
 
         paymentDate: data.paymentDate,
@@ -125,7 +127,13 @@ export default function PaymentModal({
         reference: data.reference || null,
 
         notes: data.notes || null,
+      };
+
+      // نفس الدفعة لو اتبعتت تاني بعد انقطاع الشبكة ما تتسجلش مرتين
+      const response = await createPurchaseOrderPayment(orderId, paymentPayload, {
+        idempotencyKey: idempotency.keyFor({ orderId, ...paymentPayload }),
       });
+      idempotency.reset();
 
       toast.success(response.message ?? "تم تسجيل الدفعة بنجاح");
 
@@ -222,7 +230,7 @@ export default function PaymentModal({
 
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 transition peer-checked:border-(--primary-red) peer-checked:bg-red-50 peer-checked:text-(--primary-red)">
                   <LuBanknote className="h-4 w-4" />
-                  نقداً
+                  نقداً / الخزينة
                 </div>
               </label>
 
@@ -237,7 +245,7 @@ export default function PaymentModal({
 
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 transition peer-checked:border-(--primary-red) peer-checked:bg-red-50 peer-checked:text-(--primary-red)">
                   <LuBanknote className="h-4 w-4" />
-                  بنك / تحويل
+                  حوالة / البنك
                 </div>
               </label>
             </div>

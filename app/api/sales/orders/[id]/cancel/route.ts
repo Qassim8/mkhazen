@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { z } from "zod";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -33,18 +33,20 @@ export async function POST(
       );
     }
 
-    const session = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const session = guard.session;
 
     if (!session) {
       return NextResponse.json(
-        { error: "يرجى تسجيل الدخول أولاً" },
+        { error: "يرجى تسجيل الدخول أولاً", code: "UNAUTHENTICATED" },
         { status: 401 },
       );
     }
 
     if (!can(session.role, "sales.pos")) {
       return NextResponse.json(
-        { error: "ليس لديك صلاحية إلغاء الفواتير" },
+        { error: "ليس لديك صلاحية إلغاء الفواتير", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -53,7 +55,7 @@ export async function POST(
 
     if (!userId) {
       return NextResponse.json(
-        { error: "تعذر تحديد المستخدم الحالي" },
+        { error: "تعذر تحديد المستخدم الحالي", code: "UNAUTHENTICATED" },
         { status: 401 },
       );
     }

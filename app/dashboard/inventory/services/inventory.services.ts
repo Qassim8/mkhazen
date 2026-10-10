@@ -1,5 +1,4 @@
-"use server";
-
+// (كان "use server": الدوال كانت Server Actions عامة ورسائل أخطائها بتختفي في الإنتاج)
 import { serverFetch } from "@/lib/api-client";
 
 import { InventoryAdjustmentInput } from "../schema/inventory.schemas";
@@ -343,6 +342,7 @@ export async function getInventoryMovements(
 
 export async function createInventoryAdjustment(
   payload: InventoryAdjustmentInput,
+  options: { idempotencyKey?: string } = {},
 ): Promise<InventoryAdjustmentResponse> {
   return serverFetch<InventoryAdjustmentResponse>(
     `${API_BASE_URL}/adjustments`,
@@ -351,9 +351,7 @@ export async function createInventoryAdjustment(
 
       body: JSON.stringify(payload),
 
-      next: {
-        revalidate: 0,
-      },
+      headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
     },
   );
 }

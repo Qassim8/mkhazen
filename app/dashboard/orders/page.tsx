@@ -2,7 +2,7 @@ import OrdersPageClient from "./_components/OrdersPageClient";
 import { getPurchaseOrders } from "./services/order.services";
 import {
   PurchaseOrderStatus,
-  PurchaseOrderType,
+  PurchaseOrderListType,
 } from "./schemas/orders.schemas";
 
 interface Props {
@@ -24,7 +24,7 @@ const validStatuses: PurchaseOrderStatus[] = [
   "CANCELLED",
 ];
 
-const validPurchaseTypes: PurchaseOrderType[] = ["DIRECT", "WORKFLOW"];
+const validPurchaseTypes: PurchaseOrderListType[] = ["DIRECT", "WORKFLOW", "OPENING"];
 
 const validSorts = [
   "date_desc",
@@ -49,9 +49,9 @@ export default async function PurchaseOrdersPage({ searchParams }: Props) {
     : undefined;
 
   const purchaseType = validPurchaseTypes.includes(
-    query.purchaseType as PurchaseOrderType,
+    query.purchaseType as PurchaseOrderListType,
   )
-    ? (query.purchaseType as PurchaseOrderType)
+    ? (query.purchaseType as PurchaseOrderListType)
     : undefined;
 
   const sort = validSorts.includes(query.sort as (typeof validSorts)[number])

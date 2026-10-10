@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requirePermission } from "@/lib/permissions-server";
 import { posProductSearchSchema } from "@/app/dashboard/pos/schemas/pos.schemas";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
+import { dbErrorResponse } from "@/lib/api-response";
 
 
 export async function GET(req: NextRequest) {
@@ -68,8 +70,9 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. البحث النصي الموحد (Barcode / PackBarcode / SKU / Name)
-    if (search) {
-      const term = search.trim();
+    // النص بيدخل فلتر .or() كنص → لازم يتنظف (فاصلة أو قوس في البحث كانت بتوقع الاستعلام)
+    const term = sanitizeSearchTerm(search);
+    if (term) {
       query = query.or(
         `barcode.eq.${term},packBarcode.eq.${term},sku.eq.${term},template.name.ilike.%${term}%`,
       );
@@ -82,8 +85,16 @@ export async function GET(req: NextRequest) {
 
     const { data, count, error } = await query;
 
+    // صفحة بعد آخر النتائج (البحث اتغير أو منتجات اتعطلت) → قائمة فاضية مش خطأ
+    if (error?.code === "PGRST103") {
+      return NextResponse.json({
+        data: [],
+        pagination: { total: 0, page, limit, totalPages: 0 },
+      });
+    }
+
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return dbErrorResponse(error, "GET /api/sales/products", "تعذر تحميل المنتجات.");
     }
 
     return NextResponse.json({
@@ -96,10 +107,6 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    const message = err;
-    return NextResponse.json(
-      { error: message || "خطأ غير متوقع" },
-      { status: 500 },
-    );
+    return dbErrorResponse(err, "GET /api/sales/products", "تعذر تحميل المنتجات.");
   }
 }

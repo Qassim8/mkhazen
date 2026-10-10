@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
 const MAX_LIMIT = 100;
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );

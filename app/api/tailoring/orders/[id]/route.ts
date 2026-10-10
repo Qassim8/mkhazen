@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
+import { isUuid } from "@/lib/api-response";
 import { supabaseAdmin } from "@/lib/supabase";
 
 function calculateMeasurementMeters(value: unknown) {
@@ -27,16 +28,19 @@ export async function GET(
   try {
     if (!MAIN_BRANCH_ID) return NextResponse.json({ message: "معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام." }, { status: 500 });
 
-    const user = await getSession();
-    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
+    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
     if (!can(role, "tailoring.view")) {
-      return NextResponse.json({ message: "ليس لديك صلاحية عرض طلبات التفصيل." }, { status: 403 });
+      return NextResponse.json({ message: "ليس لديك صلاحية عرض طلبات التفصيل.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const { id } = await params;
-    if (!id) return NextResponse.json({ message: "معرف طلب التفصيل مطلوب." }, { status: 400 });
+    // المعرف بيدخل فلتر .or() تحت → لازم يكون UUID صحيح
+    if (!isUuid(id)) return NextResponse.json({ message: "طلب التفصيل غير موجود.", code: "NOT_FOUND" }, { status: 404 });
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("sales_orders")
@@ -98,7 +102,7 @@ export async function GET(
     if (orderError || !order) return NextResponse.json({ message: "طلب التفصيل غير موجود." }, { status: 404 });
 
     if (role === "tailor" && order.tailor_id !== user.userId) {
-      return NextResponse.json({ message: "لا يمكنك عرض طلب مسند إلى ترزي آخر." }, { status: 403 });
+      return NextResponse.json({ message: "لا يمكنك عرض طلب مسند إلى ترزي آخر.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     if (role === "tailor") {

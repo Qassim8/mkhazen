@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { updateSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier.schemas";
@@ -11,10 +11,12 @@ interface RouteParams {
 
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -46,10 +48,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -133,10 +137,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }

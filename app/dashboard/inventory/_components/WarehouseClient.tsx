@@ -10,10 +10,10 @@ import {
   LuArrowUpFromLine,
   LuPackage,
   LuPackagePlus,
+  LuRefreshCcw,
   LuSlidersHorizontal,
 } from "react-icons/lu";
 
-import PageHeader from "@/components/shared/PageHeader";
 import Pagination from "@/components/shared/Pagination";
 import TableFilter from "@/components/shared/TableFilter";
 import { ResetFilters } from "@/components/shared/ResetFilters";
@@ -79,23 +79,33 @@ export default function WarehouseClient({
 
   return (
     <main dir="rtl">
-      <PageHeader
-        title="المخزون"
-        subtitle="متابعة حركة المخزون والتعديلات"
-        buttonTitle="تسوية مخزنية"
-        redirect={() => setIsAdjustmentOpen(true)}
-      />
+      <header className="pt-3 pb-5 flex justify-between items-center">
+        <div>
+          <h1 className="text-xl md:text-3xl font-bold">المخزون</h1>
+          <p className="text-xs md:text-sm text-gray-500">
+            متابعة حركة المخزون والتعديلات
+          </p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <button
+            className="flex items-center justify-center gap-2 py-2 px-4 text-white bg-(--primary-red) hover:bg-(--primary-red-hover) rounded-lg transition-colors duration-300 cursor-pointer"
+            onClick={() => setIsAdjustmentOpen(true)}
+          >
+            <span className="text-xs md:text-sm">تسوية مخزنية</span>
+            <LuRefreshCcw />
+          </button>
+          <Link
+            href="/dashboard/inventory/opening-stock"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+          >
+            <LuPackagePlus className="h-4 w-4" />
+            المخزون الافتتاحي
+          </Link>
+        </div>
+      </header>
 
       {/* البضاعة اللي كانت موجودة قبل النظام تتسجل من هنا، مش بتسوية */}
-      <div className="mb-6 flex justify-end">
-        <Link
-          href="/dashboard/inventory/opening-stock"
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-        >
-          <LuPackagePlus className="h-4 w-4" />
-          المخزون الافتتاحي
-        </Link>
-      </div>
+      <div className="mb-6 flex justify-end"></div>
 
       {/* =====================================================
           SUMMARY

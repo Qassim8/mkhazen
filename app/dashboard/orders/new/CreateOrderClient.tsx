@@ -540,7 +540,10 @@ export default function CreateOrderClient({
         };
 
         try {
-          await createPurchaseOrderPayment(createdOrder.id, paymentPayload);
+          // مفتاح ثابت لدفعة الطلب الجديد ده: أي إعادة إرسال ما تكررش الدفعة
+          await createPurchaseOrderPayment(createdOrder.id, paymentPayload, {
+            idempotencyKey: `po-initial-${createdOrder.id}`,
+          });
         } catch (paymentError) {
           console.error("Initial payment error:", paymentError);
 
@@ -896,7 +899,7 @@ export default function CreateOrderClient({
                       }`}
                     >
                       <LuBanknote className="h-4 w-4" />
-                      كاش
+                      نقداً / الخزينة
                     </button>
 
                     <button
@@ -910,7 +913,7 @@ export default function CreateOrderClient({
                       }`}
                     >
                       <LuBanknote className="h-4 w-4" />
-                      بنك / تحويل
+                      حوالة / البنك
                     </button>
                   </div>
                 </div>

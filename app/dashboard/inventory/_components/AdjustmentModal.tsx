@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import toast from "react-hot-toast";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 
 import { useForm } from "react-hook-form";
 
@@ -44,6 +46,7 @@ export default function AdjustmentModal({
   onSuccess,
 }: AdjustmentModalProps) {
   const [isPending, startTransition] = useTransition();
+  const idempotency = useIdempotencyKey();
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -221,7 +224,12 @@ export default function AdjustmentModal({
 
     startTransition(async () => {
       try {
-        await createInventoryAdjustment(payload);
+        await createInventoryAdjustment(payload, {
+          idempotencyKey: idempotency.keyFor(payload),
+        });
+        idempotency.reset();
+
+        toast.success("تم تسجيل التسوية المخزنية بنجاح");
 
         reset();
 
@@ -232,6 +240,8 @@ export default function AdjustmentModal({
         onSuccess?.();
       } catch (error) {
         console.error("فشل إجراء التسوية المخزنية:", error);
+        // كان الفشل صامت: المستخدم ما كانش بيعرف إن التسوية ما اتسجلتش
+        toast.error(error instanceof Error ? error.message : "تعذر إجراء التسوية المخزنية");
       }
     });
   };

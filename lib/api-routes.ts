@@ -2,7 +2,8 @@ import "server-only";
 
 /**
  * جدول مسارات الـ API للاستدعاء الداخلي من serverFetch (بدون HTTP).
- * أي route جديد تحت app/api لازم يتضاف هنا، وإلا serverFetch هيرجع لطلب HTTP عادي.
+ * أي route جديد تحت app/api لازم يتضاف هنا، وإلا serverFetch من الـ Server Components
+ * هيرمي خطأ (الاختبار tests/unit/domain.test.ts بيتأكد إن الجدول كامل).
  */
 
 type RouteModule = Record<string, unknown>;
@@ -24,11 +25,15 @@ export const API_ROUTES: { pattern: string; load: () => Promise<RouteModule> }[]
   { pattern: "/api/auth/request-reset", load: () => import("@/app/api/auth/request-reset/route") },
   { pattern: "/api/categories/[id]", load: () => import("@/app/api/categories/[id]/route") },
   { pattern: "/api/categories", load: () => import("@/app/api/categories/route") },
+  { pattern: "/api/customers/[id]", load: () => import("@/app/api/customers/[id]/route") },
+  { pattern: "/api/customers", load: () => import("@/app/api/customers/route") },
   { pattern: "/api/dashboard/overview", load: () => import("@/app/api/dashboard/overview/route") },
   { pattern: "/api/exchange-rates/current", load: () => import("@/app/api/exchange-rates/current/route") },
   { pattern: "/api/exchange-rates", load: () => import("@/app/api/exchange-rates/route") },
   { pattern: "/api/inventory/adjustments", load: () => import("@/app/api/inventory/adjustments/route") },
   { pattern: "/api/inventory/movements", load: () => import("@/app/api/inventory/movements/route") },
+  { pattern: "/api/inventory/opening-stock", load: () => import("@/app/api/inventory/opening-stock/route") },
+  { pattern: "/api/accounting/opening-balances", load: () => import("@/app/api/accounting/opening-balances/route") },
   { pattern: "/api/inventory/products/[id]/movements", load: () => import("@/app/api/inventory/products/[id]/movements/route") },
   { pattern: "/api/inventory", load: () => import("@/app/api/inventory/route") },
   { pattern: "/api/notifications/check-overdue-tailoring", load: () => import("@/app/api/notifications/check-overdue-tailoring/route") },

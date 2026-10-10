@@ -19,6 +19,7 @@ import {
   LuLayers,
   LuPackageCheck,
   LuPackageOpen,
+  LuScale,
   LuSettings,
   LuShoppingCart,
   LuStore,
@@ -151,7 +152,7 @@ const menuItems: MenuItem[] = [
       },
       {
         href: "/dashboard/suppliers",
-        label: "الموردون",
+        label: "الموردين",
         icon: LuUsers,
         roles: ["admin"],
         exact: true,
@@ -165,7 +166,7 @@ const menuItems: MenuItem[] = [
 
   {
     href: "/dashboard/employees",
-    label: "الموظفون",
+    label: "الموظفين",
     icon: LuUsers,
     roles: ["admin"],
     exact: true,
@@ -198,6 +199,13 @@ const menuItems: MenuItem[] = [
         href: "/dashboard/accounting/assets",
         label: "الأصول",
         icon: LuPackageCheck,
+        roles: ["admin"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/accounting/opening-balances",
+        label: "الأرصدة الافتتاحية",
+        icon: LuScale,
         roles: ["admin"],
         exact: true,
       },

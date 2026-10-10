@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user) {
       return NextResponse.json(
-        { message: "يرجى تسجيل الدخول أولاً." },
+        { message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" },
         { status: 401 },
       );
     }

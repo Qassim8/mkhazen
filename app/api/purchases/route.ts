@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAll, pageByAllowedIds } from "@/lib/supabase-fetch-all";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
 import {
@@ -17,8 +17,10 @@ import {
   normalizeConversionFactor,
   notifyOwnerForDraft,
   processPurchaseReceipt,
+  PurchaseRpcError,
   PURCHASE_ORDER_SELECT,
 } from "./_lib/purchase-order";
+import { apiError, dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
 
 /* =========================================================
    HELPERS
@@ -104,12 +106,15 @@ async function getPurchaseItemMeta(
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         {
           status: 403,
@@ -324,12 +329,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         {
           status: 403,
@@ -376,7 +384,9 @@ export async function POST(request: Request) {
 
     const isDirect = purchaseType === "DIRECT";
 
-    const finalStatus = isDirect ? "RECEIVED" : "DRAFT";
+    // الشراء المباشر بيتسجل "معتمد" وبعدين بيتستلم ذرّيًا في قاعدة البيانات
+    // (receive_purchase_order بيحوله RECEIVED مع المخزون والقيد في معاملة واحدة)
+    const finalStatus = isDirect ? "APPROVED" : "DRAFT";
 
     /* =====================================================
        SUPPLIER
@@ -572,56 +582,32 @@ export async function POST(request: Request) {
 
     if (isDirect) {
       try {
-        const { error: approveError } = await supabaseAdmin
-          .from("purchase_orders")
-          .update({
-            status: "APPROVED",
-          })
-          .eq("id", newOrder.id);
-
-        if (approveError) {
-          throw new Error(approveError.message);
-        }
-
         await processPurchaseReceipt(newOrder.id, user.userId);
-
-        const { error: receiveError } = await supabaseAdmin
-          .from("purchase_orders")
-          .update({
-            status: "RECEIVED",
-
-            received_by: user.userId,
-
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", newOrder.id);
-
-        if (receiveError) {
-          throw new Error("تم تحديث المخزون لكن تعذر تحديث حالة طلب الشراء");
-        }
       } catch (receiptError) {
         console.error("Direct purchase receipt error:", receiptError);
 
-        await supabaseAdmin
-          .from("purchase_order_items")
-          .delete()
-          .eq("purchase_order_id", newOrder.id);
+        // لو الدالة رجّعت خطأ من قاعدة البيانات فالمعاملة اترجعت بالكامل
+        // (مفيش مخزون ولا قيد) → حذف الطلب المؤقت آمن.
+        // لو الخطأ مش معروف (انقطاع اتصال) ممكن الاستلام يكون تم → ما نحذفش.
+        if (receiptError instanceof PurchaseRpcError && isDefiniteDbRejection(receiptError.dbError)) {
+          await supabaseAdmin
+            .from("purchase_order_items")
+            .delete()
+            .eq("purchase_order_id", newOrder.id);
 
-        await supabaseAdmin
-          .from("purchase_orders")
-          .delete()
-          .eq("id", newOrder.id);
+          await supabaseAdmin
+            .from("purchase_orders")
+            .delete()
+            .eq("id", newOrder.id)
+            .eq("status", "APPROVED");
 
-        return NextResponse.json(
-          {
-            message:
-              receiptError instanceof Error
-                ? receiptError.message
-                : "تعذر استلام الشراء المباشر",
-          },
-          {
-            status: 400,
-          },
+          return dbErrorResponse(receiptError.dbError, "direct purchase receive", "تعذر استلام الشراء المباشر.");
+        }
+
+        return apiError(
+          503,
+          "SERVICE_UNAVAILABLE",
+          `تعذر التأكد من إتمام الشراء المباشر ${finalOrderNumber}. راجع قائمة المشتريات قبل إعادة المحاولة.`,
         );
       }
     }

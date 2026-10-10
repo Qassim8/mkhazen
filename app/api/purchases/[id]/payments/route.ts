@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
 import { createPurchasePaymentSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
@@ -9,7 +9,10 @@ import { createPurchasePaymentSchema } from "@/app/dashboard/orders/schemas/orde
 import {
   fetchPurchaseOrderById,
   recordPurchasePayment,
+  PurchaseRpcError,
 } from "../../_lib/purchase-order";
+import { dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
+import { beginIdempotentOperation, readIdempotencyKey } from "@/lib/idempotency";
 
 export async function GET(
   _request: Request,
@@ -22,12 +25,15 @@ export async function GET(
   },
 ) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );
@@ -80,12 +86,15 @@ export async function POST(
   },
 ) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );
@@ -154,21 +163,38 @@ export async function POST(
     const { amount, paymentDate, paymentMethod, reference, notes } =
       validation.data;
 
-    const payment = await recordPurchasePayment({
-      purchaseOrderId: id,
-
-      amount,
-
-      paymentDate,
-
-      paymentMethod,
-
-      reference,
-
-      notes,
-
-      createdBy: user.userId ?? null,
+    // منع تسجيل نفس الدفعة مرتين (نقرتين / إعادة إرسال بعد انقطاع)
+    const idempotency = await beginIdempotentOperation({
+      scope: "purchases.payment",
+      userId: user.userId,
+      clientKey: readIdempotencyKey(request),
+      payload: validation.data,
     });
+    if (idempotency.kind === "response") return idempotency.response;
+
+    let payment;
+    try {
+      payment = await recordPurchasePayment({
+        purchaseOrderId: id,
+
+        amount,
+
+        paymentDate,
+
+        paymentMethod,
+
+        reference,
+
+        notes,
+
+        createdBy: user.userId,
+      });
+    } catch (paymentError) {
+      if (paymentError instanceof PurchaseRpcError && isDefiniteDbRejection(paymentError.dbError)) {
+        await idempotency.abandon();
+      }
+      throw paymentError;
+    }
 
     revalidateTag("purchases-list", "default");
 
@@ -184,24 +210,22 @@ export async function POST(
 
     const { data: updatedOrder } = await fetchPurchaseOrderById(id);
 
-    return NextResponse.json(
-      {
-        message: "تم تسجيل الدفعة والقيد المحاسبي بنجاح",
+    const responseBody = {
+      message: "تم تسجيل الدفعة والقيد المحاسبي بنجاح",
 
-        payment,
+      payment,
 
-        data: updatedOrder,
-      },
-      { status: 201 },
-    );
+      data: updatedOrder,
+    };
+
+    await idempotency.finish(201, responseBody);
+
+    return NextResponse.json(responseBody, { status: 201 });
   } catch (error: unknown) {
-    console.error("Purchase payment POST:", error);
+    if (error instanceof PurchaseRpcError) {
+      return dbErrorResponse(error.dbError, "record_purchase_payment", "تعذر تسجيل الدفعة.");
+    }
 
-    return NextResponse.json(
-      {
-        message: error instanceof Error ? error.message : "خطأ في السيرفر",
-      },
-      { status: 500 },
-    );
+    return dbErrorResponse(error, "Purchase payment POST", "تعذر تسجيل الدفعة.");
   }
 }

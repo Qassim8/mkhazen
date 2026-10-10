@@ -143,6 +143,16 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         </div>
       </div>
 
+      {/* رأس المال العام */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewCard
+          title="رأس المال العام"
+          value={formatMoney(cards.capital)}
+          icon={<LuBuilding2 className="h-5 w-5" />}
+          variant="purple"
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <OverviewCard
           title="الإيرادات"
@@ -204,32 +214,6 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           variant="info"
         />
       </div>
-
-      {/* المجموعة الثالثة: أثر سعر الصرف ورأس المال */}
-      {/* <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <OverviewCard
-          title="أثر تغيّر سعر الجنيه (غير محقق)"
-          value={formatMoney(cards.unrealizedFxUsd)}
-          valueClass={getAmountClass(cards.unrealizedFxUsd)}
-          icon={<LuTrendingDown className="h-5 w-5" />}
-          variant={cards.unrealizedFxUsd >= 0 ? "success" : "danger"}
-        />
-
-        <OverviewCard
-          title="فروق صرف محققة (ضمن صافي الربح)"
-          value={formatMoney(cards.realizedFx)}
-          valueClass={getAmountClass(cards.realizedFx)}
-          icon={<LuArrowLeftRight className="h-5 w-5" />}
-          variant={cards.realizedFx >= 0 ? "success" : "danger"}
-        />
-
-        <OverviewCard
-          title="رأس المال العام"
-          value={formatMoney(cards.capital)}
-          icon={<LuBuilding2 className="h-5 w-5" />}
-          variant="purple"
-        />
-      </div> */}
 
       {/* المجموعة الرابعة: الالتزامات والأصول (دولار) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
