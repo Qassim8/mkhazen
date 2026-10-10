@@ -1,9 +1,10 @@
 import bcrypt from "bcryptjs";
+import { requireLogin } from "@/lib/permissions-server";
 import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession, invalidateAccountCache, type TokenPayload } from "@/lib/auth";
+import { invalidateAccountCache, type TokenPayload } from "@/lib/auth";
 import { can, normalizeRole } from "@/lib/permissions";
 import { updateEmployeeSchema } from "@/app/dashboard/employees/schemas/employee.schemas";
 
@@ -22,7 +23,9 @@ const SAFE_COLUMNS =
   'id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"';
 
 function forbidden(message: string) {
-  return NextResponse.json({ message }, { status: 403 });
+  return NextResponse.json({ message,
+  code: "FORBIDDEN",
+}, { status: 403 });
 }
 
 /**
@@ -68,12 +71,20 @@ async function loadTarget(id: string) {
 // GET: جلب موظف محدد (لنفسه أو للإدارة) — بدون كلمة السر
 export async function GET(request: Request, { params }: Params) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ message: "غير مصرح", code: "UNAUTHENTICATED" }, { status: 401 });
     }
 
     const { id } = await params;
+
+    // authorize before looking the target up (no "exists / does not exist" oracle)
+    if (id !== user.userId && !can(user.role, "users.manageStaff")) {
+      return forbidden("ليس لديك صلاحية عرض بيانات هذا الموظف.");
+    }
+
     const target = await loadTarget(id);
 
     if (
@@ -82,10 +93,6 @@ export async function GET(request: Request, { params }: Params) {
         normalizeRole(user.role) !== "owner")
     ) {
       return NextResponse.json({ message: "الموظف غير موجود" }, { status: 404 });
-    }
-
-    if (id !== user.userId && !can(user.role, "users.manageStaff")) {
-      return forbidden("ليس لديك صلاحية عرض بيانات هذا الموظف.");
     }
 
     const { data, error } = await supabaseAdmin
@@ -110,12 +117,25 @@ export async function GET(request: Request, { params }: Params) {
 // PUT: تعديل بيانات موظف أو إعادة تعيين كلمة السر
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ message: "غير مصرح", code: "UNAUTHENTICATED" }, { status: 401 });
     }
 
     const { id } = await params;
+
+    // authorize before looking the target up (no "exists / does not exist" oracle);
+    // the detailed per-target rules below still apply
+    if (
+      id !== user.userId &&
+      !can(user.role, "users.manageStaff") &&
+      !can(user.role, "users.resetPasswords")
+    ) {
+      return forbidden("ليس لديك صلاحية إدارة الموظفين.");
+    }
+
     const target = await loadTarget(id);
 
     if (!target) {
@@ -147,9 +167,9 @@ export async function PUT(request: Request, { params }: Params) {
     if (body.password) {
       const password = String(body.password);
 
-      if (password.length < 6) {
+      if (password.length < 8 || password.length > 200) {
         return NextResponse.json(
-          { message: "كلمة السر يجب ألا تقل عن 6 أحرف" },
+          { message: "كلمة السر يجب ألا تقل عن 8 أحرف", code: "VALIDATION_ERROR" },
           { status: 422 },
         );
       }
@@ -238,15 +258,21 @@ export async function PUT(request: Request, { params }: Params) {
 // DELETE: حذف موظف
 export async function DELETE(request: Request, { params }: Params) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ message: "غير مصرح", code: "UNAUTHENTICATED" }, { status: 401 });
     }
 
     const { id } = await params;
 
     if (id === user.userId) {
       return forbidden("لا يمكنك حذف حسابك.");
+    }
+
+    if (!can(user.role, "users.manageStaff")) {
+      return forbidden("ليس لديك صلاحية إدارة الموظفين.");
     }
 
     const target = await loadTarget(id);

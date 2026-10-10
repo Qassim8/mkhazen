@@ -3,9 +3,9 @@ import { z } from "zod";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { getSession } from "@/lib/auth";
 import { requireLogin } from "@/lib/permissions-server";
 import { fetchAll, pageByAllowedIds } from "@/lib/supabase-fetch-all";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
 import { can } from "@/lib/permissions";
 import { createProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
 
@@ -28,18 +28,20 @@ const querySchema = z.object({
 });
 
 async function requireAdmin() {
-  const session = await getSession();
+  const guard = await requireLogin();
+  if (!guard.ok) return guard.response;
+  const session = guard.session;
 
   if (!session) {
     return NextResponse.json(
-      { message: "يرجى تسجيل الدخول أولاً." },
+      { message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" },
       { status: 401 },
     );
   }
 
   if (!can(session.role, "catalog.manage")) {
     return NextResponse.json(
-      { message: "هذه العملية مقتصرة على المدير." },
+      { message: "هذه العملية مقتصرة على المدير.", code: "FORBIDDEN" },
       { status: 403 },
     );
   }
@@ -48,7 +50,7 @@ async function requireAdmin() {
 }
 
 function sanitizeSearch(value: string) {
-  return value.replace(/[(),]/g, " ").trim().slice(0, 100);
+  return sanitizeSearchTerm(value);
 }
 
 const productListSelect = `

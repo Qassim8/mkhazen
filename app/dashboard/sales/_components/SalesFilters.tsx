@@ -71,9 +71,9 @@ export default function SalesFilters() {
             className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none"
           >
             <option value="">كل طرق الدفع</option>
-            <option value="CASH">الخزينة</option>
+            <option value="CASH">نقداً / الخزينة</option>
             <option value="CARD">بطاقة</option>
-            <option value="BANK_TRANSFER">تحويل بنكي</option>
+            <option value="BANK_TRANSFER">حوالة / البنك</option>
             <option value="MIXED">دفع مختلط</option>
           </select>
 

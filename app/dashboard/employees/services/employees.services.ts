@@ -27,7 +27,7 @@ export const getEmployees = async (params: EmployeeQueryParams) => {
 };
 
 export const creatEmployee = async (data: CreateEmployeeInput) => {
-  return serverFetch<{ message: string; data: Employee }>("/api/users", {
+  return serverFetch<{ message: string; data: Employee; temporaryPassword?: string }>("/api/users", {
     method: "POST",
     body: JSON.stringify(data),
   });

@@ -158,7 +158,10 @@ export async function createJournalEntry({
   if (error || !data) {
     console.error("Create journal entry:", error);
 
-    throw new Error(error?.message || "تعذر إنشاء القيد المحاسبي");
+    // نحتفظ بخطأ قاعدة البيانات الأصلي (الكود) عشان نفرّق بين رفض مؤكد ونتيجة غير معروفة
+    throw Object.assign(new Error(error?.message || "تعذر إنشاء القيد المحاسبي"), {
+      dbError: error ?? null,
+    });
   }
 
   return data;

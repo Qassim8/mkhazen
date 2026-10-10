@@ -2,19 +2,11 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 import {
   PaymentMethod,
-  PaymentStatus,
   PurchaseOrder,
   PurchaseOrderItem,
   PurchaseOrderPayment,
   PurchaseOrderStatus,
 } from "@/app/dashboard/orders/schemas/orders.schemas";
-
-import type { AccountingAccount } from "@/app/dashboard/accounting/schemas/accounting.schema";
-
-import {
-  createJournalEntry,
-  getAccountBalance,
-} from "@/app/api/accounting/_lib/accounting";
 
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
@@ -47,201 +39,13 @@ export function canDeletePurchaseOrder(status: PurchaseOrderStatus) {
   return status === "DRAFT";
 }
 
-/* =========================================================
-   PAYMENT STATUS
-========================================================= */
-
-export function getPurchasePaymentStatus(
-  totalAmount: number,
-  paidAmount: number,
-): PaymentStatus {
-  if (paidAmount <= 0) {
-    return "UNPAID";
-  }
-
-  if (paidAmount >= totalAmount) {
-    return "PAID";
-  }
-
-  return "PARTIAL";
-}
-
-/* =========================================================
-   NORMALIZE CONVERSION FACTOR
-========================================================= */
-
-export function normalizeConversionFactor(value: unknown) {
-  const factor = Number(value ?? 1);
-
-  if (!Number.isFinite(factor) || factor <= 0) {
-    return 1;
-  }
-
-  return factor;
-}
-
-/* =========================================================
-   CALCULATE PURCHASE TOTAL
-=========================================================
-
-   quantity:
-   purchase-unit quantity
-
-   unitCost:
-   purchase-unit cost
-
-   Example:
-   1 carton × 600 = 600
-
-   Delivery and discount are order-level amounts.
-========================================================= */
-
-export function calculatePurchaseTotal(
-  items: {
-    quantity: number;
-    unitCost: number;
-  }[],
-  deliveryCost = 0,
-  discountAmount = 0,
-) {
-  const itemsSubtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.unitCost,
-    0,
-  );
-
-  const total =
-    itemsSubtotal + Number(deliveryCost || 0) - Number(discountAmount || 0);
-
-  return Number(Math.max(0, total).toFixed(2));
-}
-
-/* =========================================================
-   ALLOCATE PURCHASE COSTS
-=========================================================
-
-   IMPORTANT UNIT DESIGN:
-
-   quantity:
-   purchase units
-
-   unitCost:
-   price per purchase unit
-
-   conversionFactor:
-   how many selling units exist inside one purchase unit
-
-   Example:
-
-   1 carton
-   carton = 10 pieces
-   carton cost = 600
-
-   => selling quantity = 10 pieces
-   => base piece cost = 600 / 10 = 60
-
-   Delivery:
-   50 / 10 = 5 per piece
-
-   Effective piece cost:
-   60 + 5 = 65
-
-   effectiveUnitCost is therefore ALWAYS:
-   COST PER SELLING UNIT
-========================================================= */
-
-export function allocateDeliveryCost(
-  deliveryCost: number,
-  items: {
-    quantity: number;
-    unitCost: number;
-    conversionFactor?: number;
-  }[],
-  discountAmount = 0,
-) {
-  if (items.length === 0) {
-    return [];
-  }
-
-  const safeDelivery = Math.max(0, Number(deliveryCost || 0));
-
-  const safeDiscount = Math.max(0, Number(discountAmount || 0));
-
-  const totalPurchaseSubtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.unitCost,
-    0,
-  );
-
-  const totalSellingQuantity = items.reduce((sum, item) => {
-    const factor = normalizeConversionFactor(item.conversionFactor);
-
-    return sum + item.quantity * factor;
-  }, 0);
-
-  const deliveryPerSellingUnit =
-    totalSellingQuantity > 0 ? safeDelivery / totalSellingQuantity : 0;
-
-  return items.map((item) => {
-    const factor = normalizeConversionFactor(item.conversionFactor);
-
-    const purchaseQuantity = Number(item.quantity || 0);
-
-    const purchaseUnitCost = Number(item.unitCost || 0);
-
-    const purchaseLineSubtotal = purchaseQuantity * purchaseUnitCost;
-
-    const sellingQuantity = purchaseQuantity * factor;
-
-    /* -------------------------------------------------------
-       Base cost per selling unit
-
-       Example:
-       600 / 10 = 60
-    ------------------------------------------------------- */
-
-    const baseSellingUnitCost =
-      factor > 0 ? purchaseUnitCost / factor : purchaseUnitCost;
-
-    /* -------------------------------------------------------
-       Shipping allocated to this line
-
-       Example:
-       10 pieces × 5 = 50
-    ------------------------------------------------------- */
-
-    const allocatedDeliveryCost = deliveryPerSellingUnit * sellingQuantity;
-
-    /* -------------------------------------------------------
-       Discount allocated proportionally by purchase value
-    ------------------------------------------------------- */
-
-    const discountShare =
-      totalPurchaseSubtotal > 0
-        ? (purchaseLineSubtotal / totalPurchaseSubtotal) * safeDiscount
-        : 0;
-
-    const discountPerSellingUnit =
-      sellingQuantity > 0 ? discountShare / sellingQuantity : 0;
-
-    /* -------------------------------------------------------
-       Final cost per selling unit
-    ------------------------------------------------------- */
-
-    const effectiveUnitCost =
-      baseSellingUnitCost + deliveryPerSellingUnit - discountPerSellingUnit;
-
-    return {
-      ...item,
-
-      conversionFactor: factor,
-
-      sellingQuantity: Number(sellingQuantity.toFixed(2)),
-
-      allocatedDeliveryCost: Number(allocatedDeliveryCost.toFixed(2)),
-
-      effectiveUnitCost: Number(Math.max(0, effectiveUnitCost).toFixed(2)),
-    };
-  });
-}
+export {
+  getPurchasePaymentStatus,
+  normalizeConversionFactor,
+  calculatePurchaseTotal,
+  allocateDeliveryCost,
+} from "./purchase-costs";
+import { getPurchasePaymentStatus } from "./purchase-costs";
 
 /* =========================================================
    MAP ORDER
@@ -367,7 +171,7 @@ export function mapPurchaseOrder(rawOrder: RawPurchaseOrder): PurchaseOrder {
     status: (rawOrder.status as PurchaseOrderStatus) ?? "DRAFT",
 
     purchaseType:
-      (rawOrder.purchase_type as "DIRECT" | "WORKFLOW") ?? "WORKFLOW",
+      (rawOrder.purchase_type as "DIRECT" | "WORKFLOW" | "OPENING") ?? "WORKFLOW",
 
     orderDate: String(rawOrder.order_date ?? rawOrder.orderDate ?? ""),
 
@@ -481,7 +285,18 @@ export async function fetchPurchaseOrderById(id: string) {
 
 /* =========================================================
    RECORD PURCHASE PAYMENT
+   ذرّي في قاعدة البيانات (record_purchase_payment): قفل الطلب + فحص المتبقي
+   + فحص رصيد الخزينة/البنك بالدولار + الدفعة + القيد في معاملة واحدة.
 ========================================================= */
+
+export class PurchaseRpcError extends Error {
+  readonly dbError: unknown;
+  constructor(dbError: { message?: string } | null | undefined) {
+    super(dbError?.message || "تعذر تنفيذ العملية");
+    this.name = "PurchaseRpcError";
+    this.dbError = dbError;
+  }
+}
 
 export async function recordPurchasePayment(params: {
   purchaseOrderId: string;
@@ -490,125 +305,32 @@ export async function recordPurchasePayment(params: {
   paymentMethod: PaymentMethod;
   reference?: string | null;
   notes?: string | null;
-  createdBy: string | null;
+  createdBy: string;
 }) {
-  const {
-    purchaseOrderId,
-    amount,
-    paymentDate,
-    paymentMethod,
-    reference,
-    notes,
-    createdBy,
-  } = params;
-
-  const { data: order, error: orderError } =
-    await fetchPurchaseOrderById(purchaseOrderId);
-
-  if (orderError || !order) {
-    throw new Error("طلب الشراء غير موجود");
-  }
-
-  if (order.status !== "APPROVED" && order.status !== "RECEIVED") {
-    if (order.status === "DRAFT") {
-      throw new Error("لا يمكن تسجيل دفعة قبل اعتماد طلب الشراء");
-    }
-
-    throw new Error("لا يمكن تسجيل دفعة على طلب شراء ملغي");
-  }
-
-  const normalizedAmount = Number(amount.toFixed(2));
-
-  const paymentTimestamp = new Date(paymentDate);
+  const paymentTimestamp = new Date(params.paymentDate);
 
   if (Number.isNaN(paymentTimestamp.getTime())) {
     throw new Error("تاريخ الدفعة غير صالح");
   }
 
-  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
-    throw new Error("مبلغ الدفعة يجب أن يكون أكبر من صفر");
+  const { data, error } = await supabaseAdmin.rpc("record_purchase_payment", {
+    p_order_id: params.purchaseOrderId,
+    p_user_id: params.createdBy,
+    p_branch_id: MAIN_BRANCH_ID,
+    p_amount: Number(params.amount.toFixed(2)),
+    p_payment_date: paymentTimestamp.toISOString(),
+    p_payment_method: params.paymentMethod === "BANK" ? "BANK" : "CASH",
+    p_reference: params.reference || null,
+    p_notes: params.notes || null,
+  });
+
+  if (error) {
+    throw new PurchaseRpcError(error);
   }
 
-  const paidAmount = order.paidAmount ?? 0;
-
-  const remainingAmount = Math.max(0, order.totalAmount - paidAmount);
-
-  if (normalizedAmount > remainingAmount) {
-    throw new Error(
-      `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(2)} $)`,
-    );
-  }
-
-  const account = paymentMethod === "BANK" ? "BANK" : "CASH";
-
-  // المشتريات والموردين بالدولار دائمًا → نفحص رصيد الدولار فقط
-  const availableBalance = await getAccountBalance(account, "USD");
-
-  if (normalizedAmount > availableBalance) {
-    const accountLabel = account === "BANK" ? "البنك" : "الخزينة";
-
-    throw new Error(
-      `الرصيد غير كافٍ في ${accountLabel} (دولار). الرصيد الحالي ${availableBalance.toFixed(
-        2,
-      )} $ — يمكنك تحويل جنيه إلى دولار من صفحة المحاسبة`,
-    );
-  }
-
-  const { data: payment, error: paymentError } = await supabaseAdmin
-    .from("purchase_order_payments")
-    .insert({
-      purchase_order_id: purchaseOrderId,
-
-      amount: normalizedAmount,
-
-      payment_date: paymentTimestamp.toISOString(),
-
-      payment_method: paymentMethod,
-
-      reference: reference || null,
-
-      notes: notes || null,
-
-      created_by: createdBy,
-    })
-    .select()
-    .single();
-
-  if (paymentError || !payment) {
-    throw new Error(paymentError?.message ?? "تعذر تسجيل الدفعة");
-  }
-
-  try {
-    await createJournalEntry({
-      entryType: "PURCHASE_PAYMENT",
-
-      amount: normalizedAmount,
-
-      description: `دفعة للمورد عن طلب الشراء ${order.orderNumber}`,
-
-      reference: reference || null,
-
-      purchaseOrderId,
-
-      debitAccount: "SUPPLIERS" as AccountingAccount,
-
-      creditAccount: account,
-
-      createdBy,
-    });
-  } catch (journalError) {
-    await supabaseAdmin
-      .from("purchase_order_payments")
-      .delete()
-      .eq("id", payment.id);
-
-    throw journalError instanceof Error
-      ? journalError
-      : new Error("تعذر إنشاء القيد المحاسبي للدفعة");
-  }
-
-  return payment;
+  return data as Record<string, unknown>;
 }
+
 
 /* =========================================================
    NOTIFICATION
@@ -643,359 +365,36 @@ export async function notifyOwnerForDraft(
 
 /* =========================================================
    PROCESS RECEIPT
-=========================================================
+   ذرّي في قاعدة البيانات (receive_purchase_order): قفل الطلب، تحديث رصيد
+   ومتوسط تكلفة كل صنف، حركات المخزون، بيانات الاستلام، قيد الشراء
+   (مدين المخزون / دائن الموردين)، وتحويل الحالة لـ RECEIVED — كله أو ولا حاجة.
 
-   IMPORTANT:
-
-   purchase_order_items.quantity
-   = PURCHASE UNIT quantity
-
-   product_variants.stockQuantity
-   = SELLING UNIT quantity
-
-   Example:
-   quantity = 1 carton
-   conversionFactor = 10
-
-   received stock = 10 pieces
-
-   effective_unit_cost
-   = cost per piece
-
+   purchase_order_items.quantity = وحدات شراء
+   product_variants.stockQuantity = وحدات بيع (× conversionFactor)
+   effective_unit_cost = تكلفة وحدة البيع شاملة التوصيل وناقص الخصم
 ========================================================= */
 
 export async function processPurchaseReceipt(orderId: string, userId: string) {
-  const { data: order, error: orderError } = await supabaseAdmin
-    .from("purchase_orders")
-    .select(
-      `
-        id,
-        order_number,
-        status,
-        purchase_type,
-        subtotal,
-        delivery_cost,
-        discount_amount,
-        total_amount,
-        journal_entry_id
-      `,
-    )
-    .eq("id", orderId)
-    .single();
-
-  if (orderError || !order) {
-    throw new Error("طلب الشراء غير موجود");
-  }
-
-  if (order.status !== "APPROVED") {
-    throw new Error("لا يمكن استلام هذا الطلب في حالته الحالية");
-  }
-
-  const { data: items, error: itemsError } = await supabaseAdmin
-    .from("purchase_order_items")
-    .select(
-      `
-        *,
-        product_templates (
-          id,
-          purchaseUnit,
-          sellingUnit,
-          conversionFactor
-        )
-      `,
-    )
-    .eq("purchase_order_id", orderId);
-
-  if (itemsError || !items || items.length === 0) {
-    throw new Error("لم يتم العثور على بنود لطلب الشراء هذا");
-  }
-
-  const alreadyReceived = items.some(
-    (item) => Number(item.received_quantity ?? 0) > 0,
-  );
-
-  if (alreadyReceived) {
-    throw new Error("تم استلام بنود هذا الطلب مسبقًا");
-  }
-
-  const { count: existingMovementCount, error: movementCheckError } =
-    await supabaseAdmin
-      .from("inventory_movements")
-      .select("id", { count: "exact", head: true })
-      .eq("purchase_order_id", orderId)
-      .eq("movement_type", "PURCHASE");
-
-  if (movementCheckError) {
-    throw new Error(
-      `تعذر التحقق من حركات استلام الطلب: ${movementCheckError.message}`,
-    );
-  }
-
-  if ((existingMovementCount ?? 0) > 0) {
-    throw new Error("تم تسجيل حركة استلام لهذا الطلب مسبقًا");
-  }
-
-  /* =======================================================
-     ALLOCATE COSTS AGAIN AT RECEIPT TIME
-  ======================================================= */
-
-  const allocationItems = items.map((item) => {
-    const template = Array.isArray(item.product_templates)
-      ? item.product_templates[0]
-      : item.product_templates;
-
-    return {
-      id: item.id,
-
-      quantity: Number(item.quantity ?? 0),
-
-      unitCost: Number(item.unit_cost ?? 0),
-
-      conversionFactor: normalizeConversionFactor(template?.conversionFactor),
-    };
+  const { data, error } = await supabaseAdmin.rpc("receive_purchase_order", {
+    p_order_id: orderId,
+    p_user_id: userId,
+    p_branch_id: MAIN_BRANCH_ID,
   });
 
-  const allocated = allocateDeliveryCost(
-    Number(order.delivery_cost ?? 0),
-    allocationItems,
-    Number(order.discount_amount ?? 0),
-  );
-
-  /* =======================================================
-     UPDATE STOCK + MOVEMENTS
-  ======================================================= */
-
-  for (let index = 0; index < items.length; index++) {
-    const item = items[index];
-
-    const costData = allocated[index];
-
-    if (!costData) {
-      throw new Error("تعذر حساب تكلفة أحد بنود الاستلام");
-    }
-
-    const { data: variant, error: variantError } = await supabaseAdmin
-      .from("product_variants")
-      .select('id, "stockQuantity", "averageCost", "purchasePrice"')
-      .eq("id", item.variant_id)
-      .single();
-
-    if (variantError || !variant) {
-      throw new Error(`تعذر العثور على متغيّر المنتج (${item.variant_id})`);
-    }
-
-    const currentStock = Number(variant.stockQuantity ?? 0);
-
-    const receivedPurchaseQuantity = Number(item.quantity ?? 0);
-
-    const conversionFactor = normalizeConversionFactor(
-      costData.conversionFactor,
-    );
-
-    const receivedSellingQuantity = Number(
-      (receivedPurchaseQuantity * conversionFactor).toFixed(2),
-    );
-
-    if (receivedSellingQuantity <= 0) {
-      throw new Error("الكمية المحولة إلى وحدة البيع غير صالحة");
-    }
-
-    const effectiveUnitCost = Number(costData.effectiveUnitCost ?? 0);
-
-    /*
-     * averageCost is per SELLING UNIT.
-     */
-
-    const currentAverageCost =
-      currentStock > 0
-        ? Number(
-            variant.averageCost ??
-              Number(variant.purchasePrice ?? 0) / conversionFactor,
-          )
-        : 0;
-
-    const newStock = currentStock + receivedSellingQuantity;
-
-    const newAverageCost =
-      newStock > 0
-        ? Number(
-            (
-              (currentStock * currentAverageCost +
-                receivedSellingQuantity * effectiveUnitCost) /
-              newStock
-            ).toFixed(2),
-          )
-        : effectiveUnitCost;
-
-    /*
-     * purchasePrice stays in PURCHASE UNIT.
-     *
-     * Example:
-     * carton = 600
-     *
-     * purchasePrice remains 600
-     * averageCost becomes 65
-     */
-
-    const latestPurchasePrice = Number(
-      item.unit_cost ?? variant.purchasePrice ?? 0,
-    );
-
-    const { data: updatedVariant, error: updateError } = await supabaseAdmin
-      .from("product_variants")
-      .update({
-        stockQuantity: newStock,
-
-        averageCost: newAverageCost,
-
-        purchasePrice: latestPurchasePrice,
-
-        updatedAt: new Date().toISOString(),
-      })
-      .eq("id", item.variant_id)
-      .eq("stockQuantity", currentStock)
-      .select("id")
-      .maybeSingle();
-
-    if (updateError || !updatedVariant) {
-      throw new Error(
-        updateError?.message ??
-          "تعذر تحديث المخزون لأن الرصيد تغير بواسطة عملية أخرى",
-      );
-    }
-
-    /* =====================================================
-       INVENTORY MOVEMENT
-
-       quantity = SELLING UNITS
-       unit_cost = COST PER SELLING UNIT
-    ===================================================== */
-
-    const { error: movementError } = await supabaseAdmin
-      .from("inventory_movements")
-      .insert({
-        template_id: item.template_id,
-
-        variant_id: item.variant_id,
-
-        purchase_order_id: orderId,
-
-        movement_type: "PURCHASE",
-
-        quantity: receivedSellingQuantity,
-
-        unit_cost: effectiveUnitCost,
-
-        reference: `PO-${order.order_number}`,
-
-        created_by: userId,
-      });
-
-    if (movementError) {
-      throw new Error(`فشل تسجيل حركة المخزون: ${movementError.message}`);
-    }
-
-    /* =====================================================
-       UPDATE PURCHASE ITEM
-
-       received_quantity remains in PURCHASE UNIT.
-
-       effective_unit_cost becomes SELLING-UNIT cost.
-    ===================================================== */
-
-    const { error: receivedError } = await supabaseAdmin
-      .from("purchase_order_items")
-      .update({
-        received_quantity: receivedPurchaseQuantity,
-
-        allocated_delivery_cost: costData.allocatedDeliveryCost,
-
-        effective_unit_cost: effectiveUnitCost,
-      })
-      .eq("id", item.id);
-
-    if (receivedError) {
-      throw new Error(`فشل تحديث بيانات الاستلام: ${receivedError.message}`);
-    }
+  if (error) {
+    throw new PurchaseRpcError(error);
   }
 
-  /* =======================================================
-     PURCHASE JOURNAL
-
-     DR INVENTORY
-     CR SUPPLIERS
-
-     The journal amount remains
-     the ACTUAL supplier transaction total.
-
-     Example:
-     600 + 50 = 650
-
-     It must NOT become 65.
-  ======================================================= */
-
-  const totalAmount = Number(order.total_amount ?? 0);
-
-  if (totalAmount <= 0) {
-    throw new Error("لا يمكن إنشاء قيد شراء بمبلغ صفر");
-  }
-
-  let journalEntryId = order.journal_entry_id ?? null;
-
-  if (!journalEntryId) {
-    const { data: existingJournal, error: existingJournalError } =
-      await supabaseAdmin
-        .from("journal_entries")
-        .select("id")
-        .eq("purchase_order_id", orderId)
-        .eq("entry_type", "PURCHASE")
-        .eq("branch_id", MAIN_BRANCH_ID)
-        .maybeSingle();
-
-    if (existingJournalError) {
-      throw new Error(
-        `تعذر التحقق من القيد المحاسبي: ${existingJournalError.message}`,
-      );
-    }
-
-    if (existingJournal) {
-      journalEntryId = existingJournal.id;
-    }
-  }
-
-  if (!journalEntryId) {
-    const journalEntry = await createJournalEntry({
-      entryType: "PURCHASE",
-
-      amount: Number(totalAmount.toFixed(2)),
-
-      description: `شراء ${order.order_number}`,
-
-      reference: `PO-${order.order_number}`,
-
-      purchaseOrderId: orderId,
-
-      debitAccount: "INVENTORY",
-
-      creditAccount: "SUPPLIERS" as AccountingAccount,
-
-      createdBy: userId,
-    });
-
-    journalEntryId = journalEntry.id;
-  }
-
-  const { error: linkError } = await supabaseAdmin
-    .from("purchase_orders")
-    .update({
-      journal_entry_id: journalEntryId,
-    })
-    .eq("id", orderId);
-
-  if (linkError) {
-    throw new Error(`تعذر ربط قيد الشراء بطلب الشراء: ${linkError.message}`);
-  }
+  return data as {
+    order_id: string;
+    order_number: string;
+    status: "RECEIVED";
+    items_count: number;
+    journal_entry_id: string;
+    total_amount: number | string;
+  };
 }
+
 
 /* =========================================================
    إشعارات قرار المالك (للمدير) + قفل إشعار طلب الاعتماد

@@ -1,5 +1,4 @@
-"use server";
-
+// (كان "use server": الدوال كانت Server Actions عامة ورسائل أخطائها بتختفي في الإنتاج)
 import { serverFetch } from "@/lib/api-client";
 
 import {

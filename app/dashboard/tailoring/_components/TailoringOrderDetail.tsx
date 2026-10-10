@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -147,6 +148,10 @@ export default function TailoringOrderDetail({
   categories,
 }: Props) {
   const router = useRouter();
+  // مفاتيح منع التكرار للعمليات المالية (تسليم/دفع خياط/استرداد)
+  const pickupIdempotency = useIdempotencyKey();
+  const tailorPaymentIdempotency = useIdempotencyKey();
+  const refundIdempotency = useIdempotencyKey();
   const { rate: exchangeRate } = useExchangeRate();
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -303,7 +308,10 @@ export default function TailoringOrderDetail({
     async (values) => {
       setActionLoading(true);
       try {
-        await completeTailoringPickup(order.id, values.paymentMethod);
+        await completeTailoringPickup(order.id, values.paymentMethod, {
+          idempotencyKey: pickupIdempotency.keyFor({ id: order.id, paymentMethod: values.paymentMethod }),
+        });
+        pickupIdempotency.reset();
         toast.success(
           order.remainingAmount > 0
             ? `تم تسليم الطلب وتحصيل ${money(order.remainingAmount)}.`
@@ -342,14 +350,18 @@ export default function TailoringOrderDetail({
       const amount = Number(values.amount);
       setActionLoading(true);
       try {
-        await payTailorPayment({
+        const tailorPayload = {
           tailorId: order.tailorId,
           salesOrderId: order.id,
           amount,
           paymentMethod: values.paymentMethod,
-          currency: "SDG",
+          currency: "SDG" as const,
           notes: values.notes?.trim() || null,
+        };
+        await payTailorPayment(tailorPayload, {
+          idempotencyKey: tailorPaymentIdempotency.keyFor(tailorPayload),
         });
+        tailorPaymentIdempotency.reset();
         const paid = formatSDG(amount);
         toast.success(
           order.tailoringCostRecognized
@@ -487,11 +499,15 @@ export default function TailoringOrderDetail({
     async (values) => {
       setActionLoading(true);
       try {
-        const result = await refundCustomerAdvance(order.id, {
+        const refundPayload = {
           amount: Number(values.amount),
           paymentMethod: values.paymentMethod,
           notes: values.notes?.trim() || null,
+        };
+        const result = await refundCustomerAdvance(order.id, refundPayload, {
+          idempotencyKey: refundIdempotency.keyFor({ id: order.id, ...refundPayload }),
         });
+        refundIdempotency.reset();
         toast.success(`تم استرداد ${money(result.data.amount)} للعميل.`);
         setRefundOpen(false);
         router.refresh();
@@ -1077,9 +1093,9 @@ export default function TailoringOrderDetail({
                       </td>
                       <td className="px-5 py-3 font-semibold">
                         {payment.paymentMethod === "CASH"
-                          ? "الخزينة"
+                          ? "نقداً / الخزينة"
                           : payment.paymentMethod === "BANK_TRANSFER"
-                            ? "البنك"
+                            ? "حوالة / البنك"
                             : "بطاقة"}
                       </td>
                       <td className="px-5 py-3 text-gray-500">
@@ -1145,7 +1161,9 @@ export default function TailoringOrderDetail({
                         )}
                       </td>
                       <td className="px-5 py-3 font-semibold">
-                        {payment.paymentMethod === "CASH" ? "الخزينة" : "البنك"}
+                        {payment.paymentMethod === "CASH"
+                          ? "نقداً / الخزينة"
+                          : "حوالة / البنك"}
                       </td>
                       <td className="px-5 py-3 text-gray-500">
                         {payment.notes ?? "-"}
@@ -1179,8 +1197,8 @@ export default function TailoringOrderDetail({
                 disabled={pickupSubmitting || actionLoading}
                 className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
               >
-                <option value="CASH">الخزينة</option>
-                <option value="BANK_TRANSFER">البنك / تحويل</option>
+                <option value="CASH">نقداً / الخزينة</option>
+                <option value="BANK_TRANSFER">حوالة / البنك</option>
               </select>
               <InlineError message={pickupErrors.paymentMethod?.message} />
             </label>
@@ -1271,8 +1289,8 @@ export default function TailoringOrderDetail({
                 disabled={tailorPaymentSubmitting || actionLoading}
                 className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
               >
-                <option value="CASH">الخزينة</option>
-                <option value="BANK">البنك</option>
+                <option value="CASH">نقداً / الخزينة</option>
+                <option value="BANK">حوالة / البنك</option>
               </select>
               <InlineError
                 message={tailorPaymentErrors.paymentMethod?.message}
@@ -1405,8 +1423,8 @@ export default function TailoringOrderDetail({
                 disabled={refundSubmitting || actionLoading}
                 className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
               >
-                <option value="CASH">الخزينة</option>
-                <option value="BANK_TRANSFER">البنك</option>
+                <option value="CASH">نقداً / الخزينة</option>
+                <option value="BANK_TRANSFER">حوالة / البنك</option>
               </select>
               <InlineError message={refundErrors.paymentMethod?.message} />
             </label>

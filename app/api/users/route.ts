@@ -1,4 +1,5 @@
 import { errorMessage } from "@/lib/errors";
+import { requireLogin } from "@/lib/permissions-server";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import {
@@ -8,15 +9,18 @@ import {
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { getSession } from "@/lib/auth";
 import { can, normalizeRole } from "@/lib/permissions";
+import { generateTemporaryPassword } from "@/lib/temporary-password";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "users.manageStaff")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -36,8 +40,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const { page, limit, search, position, shift, isActive, resetRequested } =
+    const { page, limit, position, shift, isActive, resetRequested } =
       parsedQuery.data;
+    const search = sanitizeSearchTerm(parsedQuery.data.search);
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -90,11 +95,13 @@ export async function GET(request: Request) {
 // POST: إضافة موظف
 export async function POST(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "users.manageStaff")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -115,7 +122,7 @@ export async function POST(request: Request) {
 
     if (position === "system_manager" && !can(user.role, "users.manageAdmins")) {
       return NextResponse.json(
-        { message: "إضافة مدير متاحة للمالك فقط." },
+        { message: "إضافة مدير متاحة للمالك فقط.", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -124,11 +131,15 @@ export async function POST(request: Request) {
     const finalSalary = isTailor ? 0 : salary || 0;
     const finalCommission = isTailor ? (commissionRate ?? 50) : 0;
 
-    const pass = `${validation.data.email}2026`;
-    const hashPassword = await bcrypt.hash(pass, 10);
+    // كلمة سر مؤقتة عشوائية (مش مشتقة من البريد) بتظهر مرة واحدة للي أنشأ الحساب،
+    // والموظف مطالب بتغييرها أول ما يدخل (isPasswordChanged = false)
+    const temporaryPassword = generateTemporaryPassword();
+    const hashPassword = await bcrypt.hash(temporaryPassword, 10);
 
     const newUserData = {
       ...validation.data,
+      isPasswordChanged: false,
+      resetRequested: false,
       salary: finalSalary,
       commissionRate: finalCommission,
       branchId: MAIN_BRANCH_ID,
@@ -151,7 +162,12 @@ export async function POST(request: Request) {
     revalidatePath("/dashboard/employees");
 
     return NextResponse.json(
-      { message: "تمت إضافة الموظف بنجاح", data },
+      {
+        message: "تمت إضافة الموظف بنجاح",
+        data,
+        // تظهر مرة واحدة فقط — مش متخزنة في أي مكان غير كهاش
+        temporaryPassword,
+      },
       { status: 201 },
     );
   } catch (err: unknown) {

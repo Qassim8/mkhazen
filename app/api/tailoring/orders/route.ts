@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { z } from "zod";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
 import { fetchAll } from "@/lib/supabase-fetch-all";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
+import { runIdempotentRpc } from "@/lib/idempotency";
 
 import { createTailoringOrderSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
@@ -51,15 +53,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام." }, { status: 500 });
     }
 
-    const user = await getSession();
-    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
+    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
     const canManageAll = can(role, "tailoring.manage");
     const isCashier = role === "cashier";
     const isTailor = role === "tailor";
     if (!canManageAll && !isTailor && !isCashier) {
-      return NextResponse.json({ message: "ليس لديك صلاحية عرض طلبات التفصيل." }, { status: 403 });
+      return NextResponse.json({ message: "ليس لديك صلاحية عرض طلبات التفصيل.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -86,11 +90,11 @@ export async function GET(request: Request) {
     }
 
     if (isTailor && params.tailorId && params.tailorId !== user.userId) {
-      return NextResponse.json({ message: "لا يمكنك عرض طلبات ترزي آخر." }, { status: 403 });
+      return NextResponse.json({ message: "لا يمكنك عرض طلبات ترزي آخر.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const requestedTailorId = isTailor ? user.userId : params.tailorId;
-    const safeSearch = params.search?.replace(/[,%()]/g, " ").trim();
+    const safeSearch = sanitizeSearchTerm(params.search);
     // كل العملاء المطابقين (من غير حد 100)
     const matchingCustomerIds = new Set<string>();
 
@@ -553,12 +557,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام." }, { status: 500 });
     }
 
-    const user = await getSession();
-    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
+    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
     if (!can(role, "tailoring.operate")) {
-      return NextResponse.json({ message: "إنشاء طلبات التفصيل متاح للكاشير أو الإدارة فقط." }, { status: 403 });
+      return NextResponse.json({ message: "إنشاء طلبات التفصيل متاح للكاشير أو الإدارة فقط.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -574,57 +580,62 @@ export async function POST(request: Request) {
         value.customerAdvanceSourceOrderId)
     ) {
       return NextResponse.json(
-        { message: "يمكن للكاشير إنشاء طلبات العملاء فقط دون نقل عربون سابق." },
+        { message: "يمكن للكاشير إنشاء طلبات العملاء فقط دون نقل عربون سابق.", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
 
-    const { data, error } = await supabaseAdmin.rpc("create_tailoring_order", {
-      p_branch_id: MAIN_BRANCH_ID,
-      p_user_id: user.userId,
-      p_tailoring_item_name: value.tailoringItemName,
-      p_tailoring_item_description: value.tailoringItemDescription,
-      p_customer_advance_source_order_id: value.customerAdvanceSourceOrderId,
-      p_tailor_id: value.tailorId,
-      p_tailoring_purpose: value.tailoringPurpose,
-      p_customer_name: value.customerName,
-      p_customer_whatsapp: value.customerWhatsapp,
-      p_measurements: value.measurements,
-      p_intake_date: value.intakeDate,
-      p_expected_delivery_date: value.expectedDeliveryDate,
-      p_fabric_variant_id: value.fabricVariantId,
-      p_fabric_quantity: value.fabricQuantity,
-      p_total_amount: value.totalAmount,
-      p_deposit_amount: value.depositAmount,
-      p_tailoring_cost: value.tailoringCost,
-      p_payment_method: value.paymentMethod,
-      p_notes: value.notes,
-    });
+    return await runIdempotentRpc<Record<string, unknown> & { id: string; order_number: string }>({
+      request,
+      scope: "tailoring.create",
+      userId: user.userId,
+      payload: value,
+      context: "create_tailoring_order",
+      fallbackMessage: "تعذر إنشاء طلب التفصيل.",
+      rpc: () => supabaseAdmin.rpc("create_tailoring_order", {
+        p_branch_id: MAIN_BRANCH_ID,
+        p_user_id: user.userId,
+        p_tailoring_item_name: value.tailoringItemName,
+        p_tailoring_item_description: value.tailoringItemDescription,
+        p_customer_advance_source_order_id: value.customerAdvanceSourceOrderId,
+        p_tailor_id: value.tailorId,
+        p_tailoring_purpose: value.tailoringPurpose,
+        p_customer_name: value.customerName,
+        p_customer_whatsapp: value.customerWhatsapp,
+        p_measurements: value.measurements,
+        p_intake_date: value.intakeDate,
+        p_expected_delivery_date: value.expectedDeliveryDate,
+        p_fabric_variant_id: value.fabricVariantId,
+        p_fabric_quantity: value.fabricQuantity,
+        p_total_amount: value.totalAmount,
+        p_deposit_amount: value.depositAmount,
+        p_tailoring_cost: value.tailoringCost,
+        p_payment_method: value.paymentMethod,
+        p_notes: value.notes,
+      }),
+      onSuccess: async (data) => {
+        await notifyTailoringUpdate({ orderId: data.id, event: "CREATED", actor: user });
 
-    if (error) {
-      console.error("create_tailoring_order RPC:", error);
-      return NextResponse.json({ message: error.message || "تعذر إنشاء طلب التفصيل." }, { status: 400 });
-    }
-
-    await notifyTailoringUpdate({ orderId: data.id, event: "CREATED", actor: user });
-
-    return NextResponse.json({
-      message: `تم إنشاء الطلب ${data.order_number} بنجاح.`,
-      data: {
-        ...(can(role, "tailoring.manage")
-          ? {
-              ...data,
-              total_amount: Number(data.total_amount ?? 0),
-              deposit_amount: Number(data.deposit_amount ?? 0),
-              remaining_amount: Number(data.remaining_amount ?? 0),
-              tailoring_cost: Number(data.tailoring_cost ?? 0),
-              tailoring_fabric_cost: Number(data.tailoring_fabric_cost ?? 0),
-              measurement_meters: Number(data.measurement_meters ?? 0),
-              max_fabric_quantity: Number(data.max_fabric_quantity ?? 0),
-            }
-          : { id: data.id, order_number: data.order_number }),
+        return {
+          status: 201,
+          body: {
+            message: `تم إنشاء الطلب ${data.order_number} بنجاح.`,
+            data: can(role, "tailoring.manage")
+              ? {
+                  ...data,
+                  total_amount: Number(data.total_amount ?? 0),
+                  deposit_amount: Number(data.deposit_amount ?? 0),
+                  remaining_amount: Number(data.remaining_amount ?? 0),
+                  tailoring_cost: Number(data.tailoring_cost ?? 0),
+                  tailoring_fabric_cost: Number(data.tailoring_fabric_cost ?? 0),
+                  measurement_meters: Number(data.measurement_meters ?? 0),
+                  max_fabric_quantity: Number(data.max_fabric_quantity ?? 0),
+                }
+              : { id: data.id, order_number: data.order_number },
+          },
+        };
       },
-    }, { status: 201 });
+    });
   } catch (error: unknown) {
     console.error("POST /api/tailoring/orders:", error);
     return NextResponse.json({ message: error instanceof Error ? error.message : "حدث خطأ غير متوقع في السيرفر." }, { status: 500 });

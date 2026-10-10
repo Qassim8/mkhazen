@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "bundle": "node scripts/bundle-feature.mjs",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run test:unit && npm run test:db",
+    "test:unit": "node --import tsx --test tests/unit/*.test.ts",
+    "test:db": "node --import tsx --test database/tests/*.test.ts",
+    "test:e2e": "node --import tsx --test --test-concurrency=1 tests/e2e/*.e2e.test.ts",
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -21,7 +27,7 @@
     "dotenv": "^17.4.2",
     "framer-motion": "^13.2.0",
     "jose": "^6.2.10",
-    "next": "16.2.10",
+    "next": "^16.3.8",
     "pg": "^8.23.0",
     "react": "19.2.4",
     "react-barcode": "^1.6.1",
@@ -35,13 +41,14 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "^16.3.8",
     "supabase": "^2.120.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",

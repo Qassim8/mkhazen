@@ -33,8 +33,8 @@ export default function ForgotPasswordModal() {
         duration: 4000,
       });
       closeModal();
-    } catch (error: any) {
-      toast.error(error.message || "حدث خطأ أثناء إرسال الطلب");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error && error.message ? error.message : "حدث خطأ أثناء إرسال الطلب");
     }
   };
 

@@ -121,10 +121,12 @@ export async function getAccountingSummary(): Promise<AccountingSummaryResponse>
 
 export async function createManualJournalEntry(
   payload: CreateManualJournalEntryInput,
+  options: { idempotencyKey?: string } = {},
 ): Promise<ManualJournalEntryResponse> {
   return serverFetch<ManualJournalEntryResponse>(`${API_BASE_URL}/manual`, {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }
 
@@ -141,8 +143,8 @@ function mapAsset(raw: Record<string, unknown>): Asset {
     exchangeRateUsed:
       raw.exchange_rate_used != null ? Number(raw.exchange_rate_used) : null,
     purchaseDate: String(raw.purchase_date ?? ""),
-    paymentMethod: (raw.payment_method === "BANK"
-      ? "BANK"
+    paymentMethod: (raw.payment_method === "BANK" || raw.payment_method === "OPENING"
+      ? raw.payment_method
       : "CASH") as Asset["paymentMethod"],
     reference: raw.reference != null ? String(raw.reference) : null,
     notes: raw.notes != null ? String(raw.notes) : null,
@@ -201,13 +203,17 @@ export async function getAssetById(id: string): Promise<AssetResponse> {
   };
 }
 
-export async function createAsset(payload: AssetInput): Promise<AssetResponse> {
+export async function createAsset(
+  payload: AssetInput,
+  options: { idempotencyKey?: string } = {},
+): Promise<AssetResponse> {
   const response = await serverFetch<{
     message?: string;
     data: Record<string, unknown>;
   }>(`${API_BASE_URL}/assets`, {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 
   return {
@@ -338,7 +344,10 @@ export async function getAccountingOverview(
    CURRENCY EXCHANGE (تحويل جنيه ⇄ دولار)
 ========================================================= */
 
-export async function createCurrencyExchange(payload: CurrencyExchangeInput) {
+export async function createCurrencyExchange(
+  payload: CurrencyExchangeInput,
+  options: { idempotencyKey?: string } = {},
+) {
   return serverFetch<{
     message: string;
     data: {
@@ -350,5 +359,6 @@ export async function createCurrencyExchange(payload: CurrencyExchangeInput) {
   }>(`${API_BASE_URL}/exchange`, {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }

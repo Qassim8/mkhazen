@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -32,11 +32,13 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user) {
       return NextResponse.json(
-        { message: "يرجى تسجيل الدخول أولاً." },
+        { message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" },
         { status: 401 },
       );
     }
@@ -47,6 +49,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json(
         {
           message: "تحويل طلب العميل إلى منتج متاح للمدير أو المالك فقط.",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { apiError, dbErrorResponse } from "@/lib/api-response";
 
 import { updatePurchaseOrderSchema } from "@/app/dashboard/orders/schemas/orders.schemas";
 
@@ -112,12 +113,15 @@ export async function GET(
   },
 ) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         {
           status: 403,
@@ -172,12 +176,15 @@ export async function PATCH(
   },
 ) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         {
           status: 403,
@@ -386,20 +393,22 @@ export async function PATCH(
        UPDATE MAIN ORDER
     ===================================================== */
 
-    const { error: orderUpdateError } = await supabaseAdmin
+    // مشروط بإن الطلب لسه مسودة: لو المالك اعتمده في نفس اللحظة، التعديل
+    // ما يغيّرش الطلب المعتمد (إجماليه وبنوده) من ورا ظهره
+    const { data: updatedOrder, error: orderUpdateError } = await supabaseAdmin
       .from("purchase_orders")
       .update(updateData)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("status", "DRAFT")
+      .select("id")
+      .maybeSingle();
 
     if (orderUpdateError) {
-      return NextResponse.json(
-        {
-          message: orderUpdateError.message,
-        },
-        {
-          status: 400,
-        },
-      );
+      return dbErrorResponse(orderUpdateError, "PATCH purchase order", "تعذر تحديث طلب الشراء.");
+    }
+
+    if (!updatedOrder) {
+      return apiError(409, "CONFLICT", "لم يعد الطلب مسودة (تم اعتماده أو إلغاؤه). حدّث الصفحة.");
     }
 
     /* =====================================================
@@ -555,12 +564,15 @@ export async function DELETE(
   },
 ) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "purchases.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         {
           status: 403,
@@ -598,20 +610,20 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabaseAdmin
+    const { data: deleted, error } = await supabaseAdmin
       .from("purchase_orders")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("status", "DRAFT")
+      .select("id")
+      .maybeSingle();
 
     if (error) {
-      return NextResponse.json(
-        {
-          message: error.message,
-        },
-        {
-          status: 400,
-        },
-      );
+      return dbErrorResponse(error, "DELETE purchase order", "تعذر حذف طلب الشراء.");
+    }
+
+    if (!deleted) {
+      return apiError(409, "CONFLICT", "لم يعد الطلب مسودة، لا يمكن حذفه.");
     }
 
     revalidateTag("purchases-list", "default");

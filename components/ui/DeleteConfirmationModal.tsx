@@ -20,9 +20,9 @@ export default function DeleteConfirmationModal() {
       toast.success(`تم حذف ${data.itemName} بنجاح`);
       closeModal();
       router.refresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("خطأ أثناء الحذف:", error);
-      toast.error(error.message || "حدث خطأ أثناء الحذف");
+      toast.error(error instanceof Error && error.message ? error.message : "حدث خطأ أثناء الحذف");
     } finally {
       setIsDeleting(false);
     }

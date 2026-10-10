@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAnyPermission } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { SaleItemRow, SalePaymentRow } from "../_lib/sale-rows";
@@ -46,11 +46,14 @@ export async function GET(
       );
     }
 
-    const session = await getSession();
+    // الفاتورة فيها مبالغ ودفعات → الكاشير والإدارة بس (مش الخياط)
+    const guard = await requireAnyPermission(["sales.pos", "sales.view"]);
+    if (!guard.ok) return guard.response;
+    const session = guard.session;
 
     if (!session) {
       return NextResponse.json(
-        { error: "يرجى تسجيل الدخول أولاً" },
+        { error: "يرجى تسجيل الدخول أولاً", code: "UNAUTHENTICATED" },
         { status: 401 },
       );
     }

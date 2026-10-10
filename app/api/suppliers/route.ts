@@ -1,22 +1,25 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { createSupplierSchema } from "@/app/dashboard/suppliers/schemas/supplier.schemas";
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
 
     const { searchParams } = new URL(request.url);
-    const search = (searchParams.get("search") || "").trim().slice(0, 100);
+    const search = sanitizeSearchTerm(searchParams.get("search"));
     const status = searchParams.get("status");
     const rawPage = Number(searchParams.get("page"));
     const rawLimit = Number(searchParams.get("limit"));
@@ -79,10 +82,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }

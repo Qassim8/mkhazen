@@ -33,6 +33,8 @@ export const PERMISSIONS = {
   "accounting.view": ["owner", "admin"],
   /** مصروفات، إيرادات أخرى، أصول، تحويل عملة */
   "accounting.manage": ["owner", "admin"],
+  /** الأرصدة الافتتاحية (نقدية، أصول قائمة، ديون موردين) — مرة واحدة عند بدء التشغيل */
+  "accounting.openingBalances": ["owner"],
   /** تسجيل سعر الصرف */
   "exchangeRate.manage": ["owner", "admin"],
 
@@ -107,6 +109,7 @@ export function homePageFor(role: unknown) {
 /** كل مسار وصلاحيته — الأطول يتطابق الأول */
 const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permission }[] = [
   { prefix: "/dashboard", exact: true, permission: "dashboard.view" },
+  { prefix: "/dashboard/accounting/opening-balances", permission: "accounting.openingBalances" },
   { prefix: "/dashboard/accounting", permission: "accounting.view" },
   { prefix: "/dashboard/reports", permission: "reports.view" },
   { prefix: "/dashboard/sales", permission: "sales.view" },

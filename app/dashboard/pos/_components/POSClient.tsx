@@ -30,6 +30,15 @@ import type { Category } from "../../categories/schemas/category.schemas";
 import type { PaymentMethod, PaymentSplit } from "../schemas/pos.schemas";
 
 import { createSalesOrder } from "../services/pos.services";
+import { ApiError } from "@/lib/api-client";
+import {
+  type CheckoutKey,
+  checkoutFingerprint,
+  clearPosDraft,
+  loadPosDraft,
+  newIdempotencyKey,
+  savePosDraft,
+} from "./pos-draft";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
 import { usdToSdg } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
@@ -102,6 +111,11 @@ export default function POSClient({
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  // منع النقر المزدوج (أسرع من تحديث الـ state) + مفتاح منع التكرار للسلة الحالية
+  const checkingOutRef = useRef(false);
+  const checkoutKeyRef = useRef<CheckoutKey | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
+
   const replaceCart = useCallback((nextCart: POSCartItem[]) => {
     cartRef.current = nextCart;
     setCart(nextCart);
@@ -128,6 +142,69 @@ export default function POSClient({
       window.removeEventListener("resize", syncCartPanel);
     };
   }, []);
+
+  // =====================================================
+  // Cart draft (يرجع بعد انتهاء الجلسة وتسجيل الدخول في نفس النافذة)
+  // =====================================================
+
+  useEffect(() => {
+    // الاستعادة بعد أول رسم (مش في الـ render) عشان السيرفر بيرسم سلة فاضية
+    // ولازم الـ hydration يطابق؛ وبعد كده نحدّث الحالة مرة واحدة.
+    const timer = window.setTimeout(() => {
+      const draft = loadPosDraft();
+
+      if (draft && draft.cart.length > 0) {
+        cartRef.current = draft.cart;
+        setCart(draft.cart);
+        setDiscountAmount(draft.discountAmount);
+        setDiscountInput(draft.discountInput);
+        setPaymentMethod(
+          draft.paymentMethod === "CARD" ? "BANK_TRANSFER" : draft.paymentMethod,
+        );
+        const restoredSplitMethods = new Set(
+          draft.paymentSplits
+            .filter((split) => split.method !== "CARD")
+            .map((split) => split.method),
+        );
+        setPaymentSplits(
+          draft.paymentSplits.map((split) => {
+            let method = split.method;
+            if (method === "CARD") {
+              method = restoredSplitMethods.has("BANK_TRANSFER")
+                ? "CASH"
+                : "BANK_TRANSFER";
+            }
+            restoredSplitMethods.add(method);
+            return { ...split, method };
+          }),
+        );
+        checkoutKeyRef.current = draft.checkoutKey;
+
+        toast(
+          draft.checkoutKey?.uncertain
+            ? "تمت استعادة السلة. آخر محاولة بيع لم تُؤكَّد — راجع آخر المبيعات قبل الإتمام."
+            : "تمت استعادة السلة المحفوظة. راجعها قبل إتمام البيع.",
+          { duration: 6000 },
+        );
+      }
+
+      setDraftReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    savePosDraft({
+      cart,
+      discountAmount,
+      discountInput,
+      paymentMethod,
+      paymentSplits,
+      checkoutKey: checkoutKeyRef.current,
+    });
+  }, [draftReady, cart, discountAmount, discountInput, paymentMethod, paymentSplits]);
 
   // =====================================================
   // Focus search
@@ -596,7 +673,7 @@ export default function POSClient({
         notes: null,
       },
       {
-        method: "CARD",
+        method: "BANK_TRANSFER",
         amount: roundMoney(totalAmount - firstAmount),
         reference: null,
         notes: null,
@@ -613,6 +690,8 @@ export default function POSClient({
   // =====================================================
 
   const handleCheckout = async () => {
+    if (checkingOutRef.current) return;
+
     if (cart.length === 0) {
       toast.error("السلة فارغة");
       return;
@@ -642,7 +721,23 @@ export default function POSClient({
       return;
     }
 
+    checkingOutRef.current = true;
     setIsCheckingOut(true);
+
+    // نفس السلة = نفس المفتاح؛ أي تعديل في السلة/الخصم/الدفع = عملية جديدة
+    const fingerprint = checkoutFingerprint({
+      cart,
+      discountAmount,
+      paymentMethod,
+      paymentSplits: paymentMethod === "MIXED" ? paymentSplits : [],
+      exchangeRate,
+    });
+
+    if (checkoutKeyRef.current?.fingerprint !== fingerprint) {
+      checkoutKeyRef.current = { fingerprint, key: newIdempotencyKey(), uncertain: false };
+    }
+
+    const idempotencyKey = checkoutKeyRef.current.key;
 
     try {
       const payload = {
@@ -687,9 +782,16 @@ export default function POSClient({
         })),
       };
 
-      const result = await createSalesOrder(payload);
+      const result = await createSalesOrder(payload, { idempotencyKey });
 
-      toast.success(`تمت المبيعة بنجاح - ${result.orderNumber}`);
+      checkoutKeyRef.current = null;
+      clearPosDraft();
+
+      toast.success(
+        result.replayed
+          ? `تم تأكيد عملية البيع السابقة (لم تتكرر) - ${result.orderNumber}`
+          : `تمت المبيعة بنجاح - ${result.orderNumber}`,
+      );
 
       const receiptUrl = `/dashboard/pos/receipt/${result.orderId}`;
 
@@ -715,13 +817,59 @@ export default function POSClient({
       const message =
         error instanceof Error ? error.message : "تعذر إتمام عملية البيع";
 
-      toast.error(message);
+      // نتيجة غير معروفة (انقطاع الشبكة/الخادم بعد الإرسال): السلة والمفتاح بيفضلوا
+      // زي ما هما → إعادة المحاولة بنفس السلة ما تعملش بيع مكرر
+      const uncertain =
+        error instanceof ApiError &&
+        (error.status === 0 ||
+          error.status >= 500 ||
+          error.code === "IDEMPOTENCY_IN_PROGRESS");
+
+      if (uncertain && checkoutKeyRef.current) {
+        checkoutKeyRef.current = { ...checkoutKeyRef.current, uncertain: true };
+        savePosDraft({
+          cart,
+          discountAmount,
+          discountInput,
+          paymentMethod,
+          paymentSplits,
+          checkoutKey: checkoutKeyRef.current,
+        });
+        toast.error(
+        `${message}
+لم يتم تأكيد البيع. راجع آخر المبيعات؛ إعادة المحاولة بنفس السلة لن تكرر البيع.`,
+          { duration: 10000 },
+        );
+      } else if (!(error instanceof ApiError && error.isAuthError)) {
+        toast.error(message);
+      }
+
+      // الأسعار اتغيرت في قاعدة البيانات → نحدّث أسعار السلة من رد السيرفر
+      const currentPrices =
+        error instanceof ApiError &&
+        error.details &&
+        typeof error.details === "object" &&
+        "currentPrices" in error.details
+          ? ((error.details as { currentPrices?: Record<string, number> }).currentPrices ?? null)
+          : null;
+
+      if (currentPrices) {
+        replaceCart(
+          cartRef.current.map((item) =>
+            currentPrices[item.variant.id] !== undefined
+              ? { ...item, variant: { ...item.variant, sellingPrice: Number(currentPrices[item.variant.id]) } }
+              : item,
+          ),
+        );
+        toast("تم تحديث أسعار السلة بالأسعار الحالية. راجع الإجمالي قبل الإتمام.", { duration: 6000 });
+      }
 
       // المدير غيّر سعر الصرف أثناء البيع → نحدّث الأسعار المعروضة فورًا
-      if (message.includes("سعر الصرف")) {
+      if (message.includes("سعر الصرف") || message.includes("تغيّرت أسعار")) {
         await refreshExchangeRate();
       }
     } finally {
+      checkingOutRef.current = false;
       setIsCheckingOut(false);
     }
   };

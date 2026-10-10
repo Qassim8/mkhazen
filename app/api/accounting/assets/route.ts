@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAllResult } from "@/lib/supabase-fetch-all";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
+import { sanitizeSearchTerm } from "@/lib/postgrest";
+import { runIdempotentRpc } from "@/lib/idempotency";
 
 import { createAssetSchema } from "@/app/dashboard/accounting/schemas/accounting.schema";
 
@@ -15,19 +17,22 @@ import { createAssetSchema } from "@/app/dashboard/accounting/schemas/accounting
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "accounting.view")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );
     }
 
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search")?.trim();
+    const search = sanitizeSearchTerm(searchParams.get("search"));
     const category = searchParams.get("category");
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const limit = Math.min(
@@ -130,11 +135,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "accounting.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -170,44 +177,43 @@ export async function POST(request: Request) {
         : String(purchaseDate).split("T")[0];
 
     // فحص الرصيد (بعملة الدفع) بقى جوه الدالة نفسها عشان يكون ذري
-    const entryNumber = `AST-${Date.now()}`;
+    const entryNumber = `AST-${Date.now()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
 
-    const { data: assetData, error: rpcError } = await supabaseAdmin.rpc(
-      "create_asset_with_journal_entry",
-      {
-        p_branch_id: MAIN_BRANCH_ID,
-        p_created_by: user.userId ?? null,
-        p_name: name,
-        p_category: category,
-        p_purchase_value: purchaseValue,
-        p_purchase_date: formattedDate, // تمرير التاريخ بصيغة YYYY-MM-DD
-        p_payment_method: paymentMethod,
-        p_reference: reference ?? null,
-        p_notes: notes ?? null,
-        p_entry_number: entryNumber,
-        p_currency: currency,
+    return await runIdempotentRpc<unknown>({
+      request,
+      scope: "accounting.asset",
+      userId: user.userId,
+      payload: { ...validation.data, purchaseDate: formattedDate },
+      context: "create_asset_with_journal_entry",
+      fallbackMessage: "تعذر تسجيل الأصل والقيد المحاسبي",
+      rpc: () =>
+        supabaseAdmin.rpc("create_asset_with_journal_entry", {
+          p_branch_id: MAIN_BRANCH_ID,
+          p_created_by: user.userId ?? null,
+          p_name: name,
+          p_category: category,
+          p_purchase_value: purchaseValue,
+          p_purchase_date: formattedDate, // تمرير التاريخ بصيغة YYYY-MM-DD
+          p_payment_method: paymentMethod,
+          p_reference: reference ?? null,
+          p_notes: notes ?? null,
+          p_entry_number: entryNumber,
+          p_currency: currency,
+        }),
+      onSuccess: (assetData) => {
+        revalidateTag("accounting-assets", "default");
+        revalidateTag("accounting-entries", "default");
+        revalidateTag("accounting-summary", "default");
+        revalidateTag("accounting-overview", "default");
+        revalidatePath("/dashboard/accounting");
+        revalidatePath("/dashboard/accounting/assets");
+
+        return {
+          status: 201,
+          body: { message: "تم تسجيل الأصل والقيد المحاسبي بنجاح", data: assetData },
+        };
       },
-    );
-
-    if (rpcError) {
-      throw new Error(rpcError.message || "تعذر تسجيل الأصل والقيد المحاسبي");
-    }
-
-    revalidateTag("accounting-assets", "default");
-    revalidateTag("accounting-entries", "default");
-    revalidateTag("accounting-summary", "default");
-    revalidateTag("accounting-overview", "default");
-
-    revalidatePath("/dashboard/accounting");
-    revalidatePath("/dashboard/accounting/assets");
-
-    return NextResponse.json(
-      {
-        message: "تم تسجيل الأصل والقيد المحاسبي بنجاح",
-        data: assetData,
-      },
-      { status: 201 },
-    );
+    });
   } catch (error: unknown) {
     console.error("Assets POST:", error);
 

@@ -4,7 +4,6 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAllResult } from "@/lib/supabase-fetch-all";
 import { categorySchema } from "@/app/dashboard/categories/schemas/category.schemas";
 import { revalidateTag } from "next/cache";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { requireLogin } from "@/lib/permissions-server";
 
@@ -93,10 +92,12 @@ export async function GET() {
 // 2️⃣ إضافة فئة جديدة
 export async function POST(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
     if (!user || !can(user.role, "catalog.manage")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }

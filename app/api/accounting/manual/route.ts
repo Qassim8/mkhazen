@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
 import { createManualJournalEntrySchema } from "@/app/dashboard/accounting/schemas/accounting.schema";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
+import { beginIdempotentOperation, readIdempotencyKey } from "@/lib/idempotency";
 
 import {
   createJournalEntry,
@@ -12,13 +14,20 @@ import {
 } from "../_lib/accounting";
 
 export async function POST(request: Request) {
+  // لو حصل خطأ قبل كتابة القيد نحرر مفتاح منع التكرار (مفيش أي أثر اتسجل)
+  let wroteEntry = false;
+  let releaseKey: (() => Promise<void>) | null = null;
+
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "accounting.manage")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
+          code: "FORBIDDEN",
         },
         { status: 403 },
       );
@@ -55,26 +64,49 @@ export async function POST(request: Request) {
        CR CAPITAL
     ===================================================== */
 
+    // منع تسجيل نفس القيد مرتين (نقرتين / إعادة إرسال بعد انقطاع)
+    const idempotency = await beginIdempotentOperation({
+      scope: "accounting.manual",
+      userId: user.userId,
+      clientKey: readIdempotencyKey(request),
+      payload: validation.data,
+    });
+    if (idempotency.kind === "response") return idempotency.response;
+
+    releaseKey = () => idempotency.abandon();
+
+    const respond = async (status: number, body: Record<string, unknown>) => {
+      if (status < 300) await idempotency.finish(status, body);
+      else await idempotency.abandon();
+      return NextResponse.json(body, { status });
+    };
+
+    const createEntry: typeof createJournalEntry = async (params) => {
+      wroteEntry = true;
+      try {
+        return await createJournalEntry(params);
+      } catch (entryError) {
+        if (isDefiniteDbRejection((entryError as { dbError?: unknown }).dbError)) {
+          await idempotency.abandon();
+        }
+        throw entryError;
+      }
+    };
+
     if (entryType === "CAPITAL" && !can(user.role, "accounting.capital")) {
-      return NextResponse.json(
-        { message: "قيود رأس المال متاحة للمالك فقط." },
-        { status: 403 },
-      );
+      return respond(403, { message: "قيود رأس المال متاحة للمالك فقط." });
     }
 
     if (entryType === "CAPITAL") {
       if (!paymentMethod) {
-        return NextResponse.json(
-          {
+        return respond(422, {
             message: "يجب تحديد البنك أو الخزينة",
-          },
-          { status: 422 },
-        );
+          });
       }
 
       const debitAccount = paymentMethod === "BANK" ? "BANK" : "CASH";
 
-      const entry = await createJournalEntry({
+      const entry = await createEntry({
         entryType: "CAPITAL",
         amount,
         debitAccount,
@@ -85,13 +117,10 @@ export async function POST(request: Request) {
         currency,
       });
 
-      return NextResponse.json(
-        {
+      return respond(201, {
           message: "تم تسجيل رأس المال بنجاح",
           data: entry,
-        },
-        { status: 201 },
-      );
+        });
     }
 
     /* =====================================================
@@ -103,12 +132,9 @@ export async function POST(request: Request) {
 
     if (entryType === "EXPENSE") {
       if (!paymentMethod || !account) {
-        return NextResponse.json(
-          {
+        return respond(422, {
             message: "يجب تحديد نوع المصروف وطريقة الدفع",
-          },
-          { status: 422 },
-        );
+          });
       }
 
       const allowedExpenseAccounts = [
@@ -124,12 +150,9 @@ export async function POST(request: Request) {
           account as (typeof allowedExpenseAccounts)[number],
         )
       ) {
-        return NextResponse.json(
-          {
+        return respond(422, {
             message: "حساب المصروف غير صالح",
-          },
-          { status: 422 },
-        );
+          });
       }
 
       const creditAccount = paymentMethod === "BANK" ? "BANK" : "CASH";
@@ -141,13 +164,10 @@ export async function POST(request: Request) {
       const currentBalance = await getAccountBalance(creditAccount, currency);
 
       if (amount > currentBalance) {
-        return NextResponse.json(
-          { message: formatBalanceMessage(creditAccount, currency, currentBalance) },
-          { status: 400 },
-        );
+        return respond(400, { message: formatBalanceMessage(creditAccount, currency, currentBalance) });
       }
 
-      const entry = await createJournalEntry({
+      const entry = await createEntry({
         entryType: "EXPENSE",
         amount,
         debitAccount: account,
@@ -158,13 +178,10 @@ export async function POST(request: Request) {
         currency,
       });
 
-      return NextResponse.json(
-        {
+      return respond(201, {
           message: "تم تسجيل المصروف بنجاح",
           data: entry,
-        },
-        { status: 201 },
-      );
+        });
     }
 
     /* =====================================================
@@ -176,17 +193,14 @@ export async function POST(request: Request) {
 
     if (entryType === "OTHER") {
       if (!paymentMethod) {
-        return NextResponse.json(
-          {
+        return respond(422, {
             message: "يجب تحديد طريقة استلام الإيراد",
-          },
-          { status: 422 },
-        );
+          });
       }
 
       const debitAccount = paymentMethod === "BANK" ? "BANK" : "CASH";
 
-      const entry = await createJournalEntry({
+      const entry = await createEntry({
         entryType: "OTHER",
         amount,
         debitAccount,
@@ -197,29 +211,19 @@ export async function POST(request: Request) {
         currency,
       });
 
-      return NextResponse.json(
-        {
+      return respond(201, {
           message: "تم تسجيل الإيراد بنجاح",
           data: entry,
-        },
-        { status: 201 },
-      );
+        });
     }
 
-    return NextResponse.json(
-      {
+    return respond(422, {
         message: "نوع القيد غير مدعوم",
-      },
-      { status: 422 },
-    );
+      });
   } catch (error: unknown) {
-    console.error("Manual journal entry:", error);
+    if (!wroteEntry && releaseKey) await releaseKey();
 
-    return NextResponse.json(
-      {
-        message: error instanceof Error ? error.message : "تعذر إنشاء القيد",
-      },
-      { status: 500 },
-    );
+    const dbError = (error as { dbError?: unknown })?.dbError;
+    return dbErrorResponse(dbError ?? error, "Manual journal entry", "تعذر إنشاء القيد");
   }
 }

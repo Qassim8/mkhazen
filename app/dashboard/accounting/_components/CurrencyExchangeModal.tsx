@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { LuArrowLeftRight, LuX } from "react-icons/lu";
 
 import { createCurrencyExchange } from "../services/accounting.services";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import { formatRate, formatUSD } from "@/lib/currency";
 
@@ -17,6 +18,7 @@ type Account = "CASH" | "BANK";
 
 export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
   const { rate: systemRate } = useExchangeRate();
+  const idempotency = useIdempotencyKey();
 
   const [fromCurrency, setFromCurrency] = useState<"SDG" | "USD">("SDG");
   const [fromAccount, setFromAccount] = useState<Account>("CASH");
@@ -59,14 +61,18 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
     setSubmitting(true);
 
     try {
-      const result = await createCurrencyExchange({
+      const payload = {
         fromCurrency,
         fromAccount,
         fromAmount: Number(fromAmount),
         toAccount,
         toAmount: Number(toAmount),
         notes: notes.trim() || null,
+      };
+      const result = await createCurrencyExchange(payload, {
+        idempotencyKey: idempotency.keyFor(payload),
       });
+      idempotency.reset();
 
       toast.success(result.message);
       onCreated();
@@ -135,8 +141,8 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
               }
               className={fieldClass}
             >
-              <option value="CASH">الخزينة</option>
-              <option value="BANK">البنك</option>
+              <option value="CASH">نقداً / الخزينة</option>
+              <option value="BANK">حوالة / البنك</option>
             </select>
           </label>
 
@@ -177,8 +183,8 @@ export default function CurrencyExchangeModal({ onClose, onCreated }: Props) {
               onChange={(event) => setToAccount(event.target.value as Account)}
               className={fieldClass}
             >
-              <option value="CASH">الخزينة</option>
-              <option value="BANK">البنك</option>
+              <option value="CASH">نقداً / الخزينة</option>
+              <option value="BANK">حوالة / البنك</option>
             </select>
           </label>
 

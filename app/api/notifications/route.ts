@@ -18,10 +18,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSession } from "@/lib/auth";
+import { forbiddenResponse, requirePermission } from "@/lib/permissions-server";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
-import { can, isManager, normalizeRole } from "@/lib/permissions";
+import { isManager, normalizeRole } from "@/lib/permissions";
 import { ensureTailorAssignmentNotifications } from "@/app/api/tailoring/_lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -34,11 +34,15 @@ let lastMaintenanceAt = 0;
  * كل إشعار ممكن يكون موجّه لأدوار معينة (target_roles)،
  * ولو target_roles فاضي يبقى للإدارة كلها (المالك والمدير).
  */
-async function requireViewer() {
-  const session = await getSession();
-  if (!session || !can(session.role, "notifications.view")) return null;
-  const role = normalizeRole(session.role);
-  return role ? { role, userId: session.userId } : null;
+async function requireViewer(): Promise<
+  { ok: true; role: string; userId: string } | { ok: false; response: NextResponse }
+> {
+  const guard = await requirePermission("notifications.view");
+  if (!guard.ok) return guard;
+  const role = normalizeRole(guard.session.role);
+  return role
+    ? { ok: true, role, userId: guard.session.userId }
+    : { ok: false, response: forbiddenResponse() };
 }
 
 /** كل دور يرى الإشعارات المخوّلة له؛ الخياط مقيّد بالطلبات المسندة لحسابه. */
@@ -112,9 +116,7 @@ async function runMaintenanceIfDue() {
 export async function GET(request: NextRequest) {
   try {
     const viewer = await requireViewer();
-    if (!viewer) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
-    }
+    if (!viewer.ok) return viewer.response;
     const { role, userId } = viewer;
 
     await runMaintenanceIfDue();
@@ -210,9 +212,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: Request) {
   try {
     const viewer = await requireViewer();
-    if (!viewer) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
-    }
+    if (!viewer.ok) return viewer.response;
     const { role, userId } = viewer;
 
     const { id, markAll } = (await request.json()) as { id?: string; markAll?: boolean };
@@ -267,9 +267,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: NextRequest) {
   try {
     const viewer = await requireViewer();
-    if (!viewer) {
-      return NextResponse.json({ message: "غير مصرح" }, { status: 401 });
-    }
+    if (!viewer.ok) return viewer.response;
     const { role, userId } = viewer;
 
     const params = request.nextUrl.searchParams;

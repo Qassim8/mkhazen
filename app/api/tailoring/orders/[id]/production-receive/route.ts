@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -18,12 +18,14 @@ export async function POST(
       return NextResponse.json({ message: "معرف الفرع الرئيسي غير مُعرّف في إعدادات النظام." }, { status: 500 });
     }
 
-    const user = await getSession();
-    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً." }, { status: 401 });
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
+    if (!user) return NextResponse.json({ message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" }, { status: 401 });
 
     const role = String(user.role).toLowerCase();
     if (!can(role, "tailoring.manage")) {
-      return NextResponse.json({ message: "استلام الإنتاج وإنشاء المنتج متاح للمدير أو المالك فقط." }, { status: 403 });
+      return NextResponse.json({ message: "استلام الإنتاج وإنشاء المنتج متاح للمدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const body = await request.json();

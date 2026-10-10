@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { getSession } from "@/lib/auth";
 import { requireLogin } from "@/lib/permissions-server";
 import { can } from "@/lib/permissions";
 
@@ -13,18 +12,20 @@ interface RouteParams {
 }
 
 async function requireAdmin() {
-  const session = await getSession();
+  const guard = await requireLogin();
+  if (!guard.ok) return guard.response;
+  const session = guard.session;
 
   if (!session) {
     return NextResponse.json(
-      { message: "يرجى تسجيل الدخول أولاً." },
+      { message: "يرجى تسجيل الدخول أولاً.", code: "UNAUTHENTICATED" },
       { status: 401 },
     );
   }
 
   if (!can(session.role, "catalog.manage")) {
     return NextResponse.json(
-      { message: "هذه العملية مقتصرة على المدير." },
+      { message: "هذه العملية مقتصرة على المدير.", code: "FORBIDDEN" },
       { status: 403 },
     );
   }

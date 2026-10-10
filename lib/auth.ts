@@ -1,114 +1,107 @@
-// src/lib/auth.ts
-import { SignJWT, jwtVerify } from "jose";
+// lib/auth.ts — الجلسة في الـ API routes والـ Server Components
 import { cookies, headers } from "next/headers";
+
 import { supabaseAdmin } from "@/lib/supabase";
+import {
+  AUTH_COOKIE_NAME,
+  cookieOptions,
+  passwordFingerprint,
+  signSessionToken,
+  verifySessionToken,
+  type TokenPayload,
+} from "@/lib/session-token";
 
-// ✅ دالة تجلب المفتاح وتتحقق منه فقط عند تنفيذ العمليات وليس أثناء الـ Build
-function getJwtSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET;
+export type { TokenPayload } from "@/lib/session-token";
 
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("JWT_SECRET غير مُعرّف في متغيرات البيئة.");
-    }
-    return new TextEncoder().encode("dev-only-secret-do-not-use-in-production");
-  }
+/**
+ * سبب عدم وجود جلسة صالحة:
+ * • missing  → مفيش توكن (مستخدم مش مسجّل)
+ * • expired  → التوكن انتهى أو اتلغى (كلمة السر اتغيرت، الحساب اتعطل/اتحذف)
+ * • invalid  → توكن متلاعب بيه
+ * • unavailable → تعذر التحقق من الحساب (قاعدة البيانات مش متاحة) — مش خروج
+ */
+export type SessionFailure = "missing" | "expired" | "invalid" | "unavailable";
 
-  return new TextEncoder().encode(secret);
-}
+export type SessionResult =
+  | { ok: true; session: TokenPayload }
+  | { ok: false; reason: SessionFailure };
 
-const AUTH_COOKIE_NAME = "auth_token";
-const AUTH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-};
-
-export interface TokenPayload {
-  userId: string;
-  email: string;
-  name: string;
-  role: string;
-  isPasswordChanged: boolean;
-}
-
-// 1. إنشاء الجلسة
-export async function createSession(payload: TokenPayload) {
-  const secret = getJwtSecret(); // 👈 جلب المفتاح وقت الحاجة
-
-  const token = await new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(secret);
-
-  const cookieStore = await cookies();
-  cookieStore.set(AUTH_COOKIE_NAME, token, {
-    ...AUTH_COOKIE_OPTIONS,
-    maxAge: 60 * 60 * 24 * 7,
+// 1. إنشاء الجلسة (بعد تسجيل الدخول أو تغيير كلمة السر)
+export async function createSession(payload: TokenPayload & { passwordHash: string }) {
+  const { passwordHash, ...claims } = payload;
+  const { token, maxAge } = await signSessionToken({
+    ...claims,
+    pwv: await passwordFingerprint(passwordHash),
   });
 
+  const cookieStore = await cookies();
+  cookieStore.set(AUTH_COOKIE_NAME, token, cookieOptions(maxAge));
+
+  invalidateAccountCache(payload.userId);
   return token;
 }
 
-// 2. فحص الجلسة (تصلح للـ APIs والـ Server Components)
-export async function getSession(): Promise<TokenPayload | null> {
-  let token: string | undefined;
-
-  // جلب التوكن من الكوكيز أولاً
+async function readToken(): Promise<string | undefined> {
   const cookieStore = await cookies();
-  token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  const fromCookie = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  if (fromCookie) return fromCookie;
 
-  // إذا لم يوجد في الكوكيز، نجربه من الـ Header
-  if (!token) {
-    const headerList = await headers();
-    const authHeader = headerList.get("authorization");
-    token = authHeader?.split(" ")[1];
-  }
+  const headerList = await headers();
+  const authHeader = headerList.get("authorization");
+  return authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : undefined;
+}
 
-  if (!token) return null;
+// 2. فحص الجلسة بالتفصيل (عشان نفرّق بين 401 و 503)
+export async function getSessionResult(): Promise<SessionResult> {
+  return resolveSession(await readToken());
+}
 
-  let payload: TokenPayload;
+export async function resolveSession(token: string | undefined): Promise<SessionResult> {
+  const verified = await verifySessionToken(token);
+  if (!verified.ok) return { ok: false, reason: verified.reason };
 
-  try {
-    const secret = getJwtSecret(); // 👈 جلب المفتاح وقت الحاجة
-    const verified = await jwtVerify(token, secret);
-    payload = verified.payload as unknown as TokenPayload;
-  } catch {
-    return null;
-  }
-
-  if (typeof payload.userId !== "string" || !payload.userId) return null;
+  const { claims } = verified;
 
   let account: AccountState | null;
   try {
-    account = await getAccountState(payload.userId);
+    account = await getAccountState(claims.userId);
   } catch (error) {
     console.error("getSession account validation:", error);
-    return null;
+    return { ok: false, reason: "unavailable" };
   }
 
-  if (!account || !account.isActive) return null;
+  // الحساب اتحذف أو اتعطل أو كلمة السر اتغيرت بعد إصدار الجلسة
+  if (!account || !account.isActive || account.pwv !== claims.pwv) {
+    return { ok: false, reason: "expired" };
+  }
 
   return {
-    ...payload,
-    role: account.role,
-    isPasswordChanged: account.isPasswordChanged,
+    ok: true,
+    session: {
+      userId: claims.userId,
+      email: claims.email,
+      name: claims.name,
+      role: account.role,
+      isPasswordChanged: account.isPasswordChanged,
+    },
   };
+}
+
+// تصلح للـ APIs والـ Server Components (null = مفيش جلسة صالحة لأي سبب)
+export async function getSession(): Promise<TokenPayload | null> {
+  const result = await getSessionResult();
+  return result.ok ? result.session : null;
 }
 
 type AccountState = {
   role: string;
   isActive: boolean;
   isPasswordChanged: boolean;
+  pwv: string;
 };
 
 const ACCOUNT_CACHE_MS = 30 * 1000;
-const accountCache = new Map<
-  string,
-  { at: number; value: AccountState | null }
->();
+const accountCache = new Map<string, { at: number; value: AccountState | null }>();
 
 async function getAccountState(userId: string): Promise<AccountState | null> {
   const cached = accountCache.get(userId);
@@ -116,7 +109,7 @@ async function getAccountState(userId: string): Promise<AccountState | null> {
 
   const { data, error } = await supabaseAdmin
     .from("users")
-    .select('role, "isActive", "isPasswordChanged"')
+    .select('role, "isActive", "isPasswordChanged", password')
     .eq("id", userId)
     .maybeSingle();
 
@@ -129,6 +122,7 @@ async function getAccountState(userId: string): Promise<AccountState | null> {
         role: String(data.role ?? ""),
         isActive: isAccountActive(data.isActive),
         isPasswordChanged: Boolean(data.isPasswordChanged),
+        pwv: await passwordFingerprint(String(data.password ?? "")),
       }
     : null;
 
@@ -151,9 +145,7 @@ export function invalidateAccountCache(userId: string) {
 export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.set(AUTH_COOKIE_NAME, "", {
-    ...AUTH_COOKIE_OPTIONS,
-    path: "/",
+    ...cookieOptions(0),
     expires: new Date(0),
-    maxAge: 0,
   });
 }

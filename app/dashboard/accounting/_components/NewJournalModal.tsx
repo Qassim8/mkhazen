@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 
 import { LuLoaderCircle, LuX } from "react-icons/lu";
 
@@ -48,6 +49,7 @@ export default function NewJournalEntryModal({
   onClose,
   onCreated,
 }: NewJournalEntryModalProps) {
+  const idempotency = useIdempotencyKey();
   const [entryType, setEntryType] = useState<"CAPITAL" | "EXPENSE" | "OTHER">(
     "EXPENSE",
   );
@@ -121,7 +123,10 @@ export default function NewJournalEntryModal({
     try {
       setLoading(true);
 
-      const response = await createManualJournalEntry(payload);
+      const response = await createManualJournalEntry(payload, {
+        idempotencyKey: idempotency.keyFor(payload),
+      });
+      idempotency.reset();
 
       toast.success(response.message ?? "تم تسجيل القيد بنجاح");
 
@@ -258,9 +263,9 @@ export default function NewJournalEntryModal({
                 }
                 className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-gray-400"
               >
-                <option value="CASH">الخزينة</option>
+                <option value="CASH">نقداً / الخزينة</option>
 
-                <option value="BANK">البنك</option>
+                <option value="BANK">حوالة / البنك</option>
               </select>
             </div>
 

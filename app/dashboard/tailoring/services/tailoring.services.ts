@@ -313,7 +313,10 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
   };
 }
 
-export async function createTailoringOrder(payload: CreateTailoringOrderInput) {
+export async function createTailoringOrder(
+  payload: CreateTailoringOrderInput,
+  options: { idempotencyKey?: string } = {},
+) {
   return serverFetch<{
     message: string;
     data: {
@@ -336,6 +339,7 @@ export async function createTailoringOrder(payload: CreateTailoringOrderInput) {
   }>(`${API_BASE_URL}/orders`, {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }
 
@@ -406,10 +410,12 @@ export async function updateTailoringStatus(
 export async function completeTailoringPickup(
   id: string,
   paymentMethod: "CASH" | "BANK_TRANSFER",
+  options: { idempotencyKey?: string } = {},
 ) {
   return serverFetch(`${API_BASE_URL}/orders/${id}/pickup`, {
     method: "POST",
     body: JSON.stringify({ paymentMethod }),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }
 
@@ -440,10 +446,14 @@ export async function completeTailoringProduction(
   });
 }
 
-export async function payTailorPayment(payload: PayTailorPaymentInput) {
+export async function payTailorPayment(
+  payload: PayTailorPaymentInput,
+  options: { idempotencyKey?: string } = {},
+) {
   return serverFetch(`${API_BASE_URL}/commission-payments`, {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }
 
@@ -478,6 +488,7 @@ export async function cancelTailoringOrder(
 export async function refundCustomerAdvance(
   id: string,
   payload: RefundCustomerAdvanceInput,
+  options: { idempotencyKey?: string } = {},
 ) {
   return serverFetch<{
     message: string;
@@ -491,6 +502,7 @@ export async function refundCustomerAdvance(
   }>(`${API_BASE_URL}/orders/${id}/refund`, {
     method: "POST",
     body: JSON.stringify(payload),
+    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
 }
 

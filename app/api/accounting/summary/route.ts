@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireLogin } from "@/lib/permissions-server";
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { fetchAllResult } from "@/lib/supabase-fetch-all";
-import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
@@ -11,17 +10,18 @@ import {
   computePerformance,
   currentSudanYear,
   sudanYearRange,
-  LEDGER_SELECT,
-  LedgerEntry,
 } from "../_lib/ledger";
+import { entriesBetween, loadLedgerEntries } from "../_lib/ledger-source";
 
 export async function GET(request: Request) {
   try {
-    const user = await getSession();
+    const guard = await requireLogin();
+    if (!guard.ok) return guard.response;
+    const user = guard.session;
 
     if (!user || !can(user.role, "accounting.view")) {
       return NextResponse.json(
-        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك" },
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
       );
     }
@@ -33,34 +33,14 @@ export async function GET(request: Request) {
 
     const yearRange = sudanYearRange(year);
 
-    const [allResult, yearResult, rateResult] = await Promise.all([
-      fetchAllResult((from, to) =>
-        supabaseAdmin
-          .from("journal_entries")
-          .select(LEDGER_SELECT)
-          .eq("branch_id", MAIN_BRANCH_ID)
-          .order("id")
-          .range(from, to),
-      ),
-      fetchAllResult((from, to) =>
-        supabaseAdmin
-          .from("journal_entries")
-          .select(LEDGER_SELECT)
-          .eq("branch_id", MAIN_BRANCH_ID)
-          .gte("created_at", yearRange.start)
-          .lt("created_at", yearRange.end)
-          .order("id")
-          .range(from, to),
-      ),
+    const [ledger, rateResult] = await Promise.all([
+      loadLedgerEntries({ branchId: MAIN_BRANCH_ID }),
       supabaseAdmin.rpc("get_current_exchange_rate", { p_branch_id: MAIN_BRANCH_ID }),
     ]);
 
-    if (allResult.error) throw new Error(allResult.error.message);
-    if (yearResult.error) throw new Error(yearResult.error.message);
-
     const currentRate = rateResult.data != null ? Number(rateResult.data) : null;
-    const balances = computeBalances((allResult.data ?? []) as LedgerEntry[], currentRate);
-    const performance = computePerformance((yearResult.data ?? []) as LedgerEntry[]);
+    const balances = computeBalances(ledger.entries, currentRate);
+    const performance = computePerformance(entriesBetween(ledger.entries, yearRange.start, yearRange.end));
 
     return NextResponse.json({
       year,

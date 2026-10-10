@@ -20,6 +20,7 @@ const pageNames: Record<string, string> = {
   "/dashboard/accounting": "المحاسبة",
   "/dashboard/accounting/journals": "المحاسبة > القيود المحاسبية",
   "/dashboard/accounting/assets": "المحاسبة > الأصول",
+  "/dashboard/accounting/opening-balances": "المحاسبة > الأرصدة الافتتاحية",
   "/dashboard/customers": "العملاء",
 };
 
