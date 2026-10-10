@@ -45,12 +45,14 @@ export async function GET(request: Request) {
           template_id,
           variant_id,
           purchase_order_id,
+          sales_order_id,
           created_by,
 
           product_variants (
             id,
             sku,
             barcode,
+            "packBarcode",
             "colorName",
             size,
 
@@ -63,6 +65,11 @@ export async function GET(request: Request) {
           ),
 
           purchase_orders (
+            id,
+            order_number
+          ),
+
+          sales_orders (
             id,
             order_number
           ),

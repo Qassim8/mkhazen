@@ -2,19 +2,48 @@
 
 import { InventoryMovement } from "../services/inventory.services";
 import {
-  LuX,
-  LuCalendar,
-  LuPackage,
-  LuHash,
-  LuFileText,
   LuArrowDownLeft,
   LuArrowUpRight,
-  LuRefreshCcw,
+  LuBarcode,
+  LuCalendar,
+  LuDollarSign,
+  LuFileText,
+  LuHash,
+  LuPackage,
+  LuUserRound,
+  LuX,
 } from "react-icons/lu";
 
 interface MovementDetailsModalProps {
   movement: InventoryMovement | null;
   onClose: () => void;
+}
+
+const MOVEMENT_LABELS: Record<InventoryMovement["movement_type"], string> = {
+  PURCHASE: "شراء",
+  SALE: "بيع",
+  PURCHASE_RETURN: "مرتجع شراء",
+  SALE_RETURN: "مرتجع بيع",
+  ADJUSTMENT_IN: "تسوية إدخال",
+  ADJUSTMENT_OUT: "تسوية إخراج",
+  PRODUCTION_ISSUE: "صرف للإنتاج",
+  PRODUCTION_RECEIPT: "استلام من الإنتاج",
+  GIFT: "إهداء",
+  OPENING_STOCK: "مخزون افتتاحي",
+};
+
+const STOCK_IN_TYPES: InventoryMovement["movement_type"][] = [
+  "PURCHASE",
+  "SALE_RETURN",
+  "ADJUSTMENT_IN",
+  "PRODUCTION_RECEIPT",
+  "OPENING_STOCK",
+];
+
+function formatNumber(value: number) {
+  return Number(value || 0).toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  });
 }
 
 export default function MovementDetailsModal({
@@ -23,136 +52,212 @@ export default function MovementDetailsModal({
 }: MovementDetailsModalProps) {
   if (!movement) return null;
 
-  const isStockIn =
-    movement.movement_type === "PURCHASE" ||
-    movement.movement_type === "SALE_RETURN" ||
-    movement.movement_type === "ADJUSTMENT_IN" ||
-    movement.movement_type === "OPENING_STOCK";
-  const isStockOut =
-    movement.movement_type === "SALE" ||
-    movement.movement_type === "PURCHASE_RETURN" ||
-    movement.movement_type === "ADJUSTMENT_OUT";
+  const isStockIn = STOCK_IN_TYPES.includes(movement.movement_type);
   const variant = movement.product_variants;
+  const template = variant?.product_templates;
+  const quantity = Math.abs(Number(movement.quantity));
+  const linkedOrder =
+    movement.purchase_orders?.order_number ||
+    movement.sales_orders?.order_number;
+  const unit = template?.sellingUnit || template?.purchaseUnit || "وحدة";
+  const movementDate = new Date(movement.created_at);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-gray-100">
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-950">تفاصيل الحركة</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="movement-details-title"
+        dir="rtl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gray-100 bg-white p-6 shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+          <h3
+            id="movement-details-title"
+            className="text-lg font-bold text-gray-950"
+          >
+            تفاصيل الحركة المخزنية
+          </h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition"
+            aria-label="إغلاق"
+            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
           >
             <LuX className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-4 pt-4 text-sm">
-          {/* نوع الحركة والحالة */}
-          <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
-            <span className="text-gray-500">نوع العملية:</span>
+          <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <span className="text-gray-500">نوع الحركة</span>
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold ${
                 isStockIn
                   ? "bg-emerald-100 text-emerald-800"
-                  : isStockOut
-                    ? "bg-rose-100 text-rose-800"
-                    : "bg-amber-100 text-amber-800"
+                  : "bg-rose-100 text-rose-800"
               }`}
             >
               {isStockIn ? (
-                <LuArrowDownLeft />
-              ) : isStockOut ? (
-                <LuArrowUpRight />
+                <LuArrowDownLeft className="h-4 w-4" />
               ) : (
-                <LuRefreshCcw />
+                <LuArrowUpRight className="h-4 w-4" />
               )}
-              {isStockIn
-                ? "إدخال مخزني"
-                : isStockOut
-                  ? "إخراج مخزني"
-                  : "تسوية يدوية"}
+              {MOVEMENT_LABELS[movement.movement_type]}
             </span>
           </div>
 
-          {/* تفاصيل المنتج */}
           <div className="flex items-start gap-3">
-            <LuPackage className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
-            <div>
+            <LuPackage className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+            <div className="min-w-0 flex-1">
               <p className="text-xs text-gray-400">المنتج</p>
               <p className="font-semibold text-gray-900">
-                {variant?.product_templates?.name || "منتج غير محدد"}
+                {template?.name || "منتج غير محدد"}
               </p>
-              {variant?.barcode && (
-                <p className="text-xs text-gray-500 font-mono">
-                  باركود: {variant.barcode}
+              {(variant?.colorName || variant?.size) && (
+                <p className="mt-1 text-xs text-gray-600">
+                  {[variant.colorName, variant.size]
+                    .filter(Boolean)
+                    .join(" — ")}
+                </p>
+              )}
+              <div className="mt-2 grid gap-x-4 gap-y-1 text-xs text-gray-500 sm:grid-cols-2">
+                <span>
+                  رمز الصنف:{" "}
+                  <b className="font-mono text-gray-700">{variant?.sku || "—"}</b>
+                </span>
+                <span>
+                  وحدة المخزون: <b className="text-gray-700">{unit}</b>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {(variant?.barcode || variant?.packBarcode) && (
+            <div className="grid gap-2 rounded-xl border border-gray-100 p-3 text-xs sm:grid-cols-2">
+              {variant.barcode && (
+                <p className="flex items-center gap-2 text-gray-600">
+                  <LuBarcode className="h-4 w-4 shrink-0 text-gray-400" />
+                  باركود القطعة:{" "}
+                  <span className="font-mono text-gray-800">
+                    {variant.barcode}
+                  </span>
+                </p>
+              )}
+              {variant.packBarcode && (
+                <p className="flex items-center gap-2 text-gray-600">
+                  <LuBarcode className="h-4 w-4 shrink-0 text-gray-400" />
+                  باركود العبوة:{" "}
+                  <span className="font-mono text-gray-800">
+                    {variant.packBarcode}
+                  </span>
                 </p>
               )}
             </div>
-          </div>
+          )}
 
-          {/* الكمية */}
-          <div className="flex items-center justify-between border-y border-gray-100 py-3">
-            <span className="text-gray-500">الكمية المسجلة:</span>
-            <span
-              className={`font-mono text-base font-bold ${
-                movement.quantity < 0 ? "text-rose-600" : "text-emerald-600"
-              }`}
-            >
-              {movement.quantity > 0
-                ? `+${movement.quantity}`
-                : movement.quantity}
-            </span>
-          </div>
-
-          {/* التاريخ */}
-          <div className="flex items-center gap-3">
-            <LuCalendar className="h-5 w-5 text-gray-400 shrink-0" />
+          <div className="grid grid-cols-2 gap-3 border-y border-gray-100 py-3">
             <div>
-              <p className="text-xs text-gray-400">التاريخ والوقت</p>
-              <p className="text-gray-800">
-                {new Date(movement.created_at).toLocaleString("ar-EG-u-nu-latn", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
+              <p className="text-xs text-gray-400">الكمية</p>
+              <p
+                className={`mt-1 font-mono text-base font-bold ${
+                  isStockIn ? "text-emerald-600" : "text-rose-600"
+                }`}
+              >
+                {isStockIn ? "+" : "−"}
+                {formatNumber(quantity)} {unit}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">تكلفة الوحدة</p>
+              <p className="mt-1 flex items-center gap-1 font-mono font-semibold text-gray-800">
+                <LuDollarSign className="h-4 w-4 text-gray-400" />
+                {formatNumber(Number(movement.unit_cost))}
               </p>
             </div>
           </div>
 
-          {/* الرقم المرجعي */}
-          <div className="flex items-center gap-3">
-            <LuHash className="h-5 w-5 text-gray-400 shrink-0" />
-            <div>
-              <p className="text-xs text-gray-400">الرقم المرجعي</p>
-              <p className="font-mono text-xs bg-gray-100 px-2 py-1 rounded text-gray-700 w-fit mt-0.5">
-                {movement.reference || "لا يوجد مرجع"}
-              </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-start gap-3">
+              <LuCalendar className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-400">التاريخ والوقت</p>
+                <p className="text-gray-800">
+                  {Number.isNaN(movementDate.getTime())
+                    ? "غير متوفر"
+                    : movementDate.toLocaleString("ar-EG-u-nu-latn", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <LuUserRound className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+              <div>
+                <p className="text-xs text-gray-400">سجّلها</p>
+                <p className="text-gray-800">
+                  {movement.users?.name || "النظام"}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* ملاحظات / السبب */}
-          <div className="flex items-start gap-3 pt-1">
-            <LuFileText className="h-5 w-5 text-gray-400 mt-0.5 shrink-0" />
-            <div>
+          {(linkedOrder || movement.reference) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {linkedOrder && (
+                <div className="flex items-start gap-3">
+                  <LuHash className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                  <div>
+                    <p className="text-xs text-gray-400">رقم المستند المرتبط</p>
+                    <p className="mt-0.5 w-fit rounded bg-gray-100 px-2 py-1 font-mono text-xs text-gray-700">
+                      {linkedOrder}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {movement.reference && (
+                <div className="flex items-start gap-3">
+                  <LuHash className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                  <div>
+                    <p className="text-xs text-gray-400">المرجع</p>
+                    <p className="mt-0.5 w-fit rounded bg-gray-100 px-2 py-1 font-mono text-xs text-gray-700">
+                      {movement.reference}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-start gap-3">
+            <LuFileText className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+            <div className="min-w-0 flex-1">
               <p className="text-xs text-gray-400">الملاحظات / السبب</p>
-              <p className="text-gray-700 text-xs mt-0.5 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                {movement.notes || "لم يتم تسجيل أي ملاحظات مع هذه الحركة."}
+              <p className="mt-1 whitespace-pre-wrap break-words rounded-lg border border-gray-100 bg-gray-50 p-2.5 text-xs leading-relaxed text-gray-700">
+                {movement.notes || "لم يتم تسجيل ملاحظات لهذه الحركة."}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end">
+        <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 transition"
+            className="rounded-xl bg-gray-100 px-5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
           >
             إغلاق
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

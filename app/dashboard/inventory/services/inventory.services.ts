@@ -60,7 +60,7 @@ export interface InventoryMovement {
 
   purchase_order_id: string | null;
 
-  sales_order_id?: string | null;
+  sales_order_id: string | null;
 
   product_variants?: {
     id: string;
@@ -68,6 +68,8 @@ export interface InventoryMovement {
     sku: string | null;
 
     barcode: string | null;
+
+    packBarcode: string | null;
 
     colorName: string | null;
 
@@ -87,6 +89,12 @@ export interface InventoryMovement {
   } | null;
 
   purchase_orders?: {
+    id: string;
+
+    order_number: string;
+  } | null;
+
+  sales_orders?: {
     id: string;
 
     order_number: string;
