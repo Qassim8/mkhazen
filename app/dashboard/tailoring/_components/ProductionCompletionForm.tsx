@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { formatUSD } from "@/lib/currency";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
@@ -12,7 +13,11 @@ import {
   type ProductionCompletionFormValues,
   type TailoringOrder,
 } from "../schemas/tailoring.schemas";
-import { completeTailoringProduction, convertTailoringToProduct } from "../services/tailoring.services";
+import {
+  completeTailoringProduction,
+  convertTailoringToProduct,
+  generateProductionCodes,
+} from "../services/tailoring.services";
 
 interface CategoryOption {
   id: string;
@@ -45,6 +50,7 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
     watch,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProductionCompletionFormValues>({
     resolver: zodResolver(productionCompletionSchema),
@@ -84,6 +90,21 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
       minStockLevel: "5",
     });
   }, [mode, open, order.tailoringItemDescription, order.tailoringItemName, reset]);
+
+  const [generatingCodes, setGeneratingCodes] = useState(false);
+
+  async function handleGenerateCodes() {
+    setGeneratingCodes(true);
+    try {
+      const { data } = await generateProductionCodes();
+      setValue("sku", data.sku, { shouldDirty: true, shouldValidate: true });
+      setValue("barcode", data.barcode, { shouldDirty: true, shouldValidate: true });
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "تعذر توليد SKU والباركود.");
+    } finally {
+      setGeneratingCodes(false);
+    }
+  }
 
   const quantity = Number(watch("producedQuantity") || 0);
   const estimatedTotalCost = Number(order.totalCost.toFixed(2));
@@ -137,9 +158,9 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
         <div className="space-y-5 p-5">
           <section className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <div><p className="text-[11px] font-bold text-gray-400">تكلفة القماش</p><p dir="ltr" className="mt-1 text-sm font-black">{order.fabricCost.toFixed(2)} $</p></div>
-              <div><p className="text-[11px] font-bold text-gray-400">تكلفة الخياطة</p><p dir="ltr" className="mt-1 text-sm font-black">{order.tailoringCost.toFixed(2)} $</p></div>
-              <div><p className="text-[11px] font-bold text-gray-400">إجمالي تكلفة الإنتاج</p><p dir="ltr" className="mt-1 text-sm font-black">{estimatedTotalCost.toFixed(2)} $</p></div>
+              <div><p className="text-[11px] font-bold text-gray-400">تكلفة القماش</p><p dir="ltr" className="mt-1 text-sm font-black">{formatUSD(order.fabricCost)}</p></div>
+              <div><p className="text-[11px] font-bold text-gray-400">تكلفة الخياطة</p><p dir="ltr" className="mt-1 text-sm font-black">{formatUSD(order.tailoringCost)}</p></div>
+              <div><p className="text-[11px] font-bold text-gray-400">إجمالي تكلفة الإنتاج</p><p dir="ltr" className="mt-1 text-sm font-black">{formatUSD(estimatedTotalCost)}</p></div>
             </div>
             <p className="mt-3 text-[11px] text-gray-500">الكمية هنا هي عدد القطع الناتجة. {mode === "CONVERT_CUSTOMER" ? "القماش الذي أحضره العميل خارج المخزون لا يدخل في التكلفة؛ أما قماش المحل فيكون ضمن تكلفة القطعة." : "هذه ليست كمية القماش."}</p>
           </section>
@@ -174,7 +195,7 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
             </label>
             <div className="rounded-xl bg-emerald-50 p-3">
               <p className="text-[11px] font-bold text-emerald-600">تكلفة القطعة التقديرية</p>
-              <p dir="ltr" className="mt-1 text-sm font-black text-emerald-700">{estimatedUnitCost.toFixed(2)} $</p>
+              <p dir="ltr" className="mt-1 text-sm font-black text-emerald-700">{formatUSD(estimatedUnitCost)}</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-3">
               <p className="text-[11px] font-bold text-blue-600">وحدة المنتج</p>
@@ -196,8 +217,17 @@ export default function ProductionCompletionForm({ order, categories, open, onCl
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block"><span className="text-xs font-bold text-gray-600">SKU</span><input {...register("sku")} disabled={isSubmitting} className={inputClass(Boolean(errors.sku))} placeholder="اختياري" /><InlineError message={errors.sku?.message} /></label>
-            <label className="block"><span className="text-xs font-bold text-gray-600">الباركود</span><input {...register("barcode")} disabled={isSubmitting} className={inputClass(Boolean(errors.barcode))} placeholder="اختياري" /><InlineError message={errors.barcode?.message} /></label>
+            <label className="block"><span className="text-xs font-bold text-gray-600">SKU</span><input {...register("sku")} disabled={isSubmitting} className={inputClass(Boolean(errors.sku))} placeholder="يُولَّد تلقائيًا إذا تُرك فارغًا" /><InlineError message={errors.sku?.message} /></label>
+            <label className="block"><span className="text-xs font-bold text-gray-600">الباركود</span><input {...register("barcode")} disabled={isSubmitting} className={inputClass(Boolean(errors.barcode))} placeholder="يُولَّد تلقائيًا إذا تُرك فارغًا" /><InlineError message={errors.barcode?.message} /></label>
+            <button
+              type="button"
+              onClick={handleGenerateCodes}
+              disabled={isSubmitting || generatingCodes}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 sm:col-span-2"
+            >
+              <LuRefreshCw className={`h-4 w-4 ${generatingCodes ? "animate-spin" : ""}`} />
+              {generatingCodes ? "جارٍ التوليد..." : "توليد SKU والباركود"}
+            </button>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

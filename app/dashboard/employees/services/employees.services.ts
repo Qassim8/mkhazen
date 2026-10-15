@@ -36,11 +36,13 @@ export const creatEmployee = async (data: CreateEmployeeInput) => {
 export const updateEmployee = async (id: string, data: UpdateEmployeeInput) => {
   const isTailor = data.position === "tailor";
 
+  // نسبة العمولة لم تعد تُستخدم (أجرة الخياط تُحدد في كل طلب): لا تُرسل ولا تتغير في القاعدة
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { commissionRate: _commissionRate, ...rest } = data;
   const payload = {
-    ...data,
+    ...rest,
     isActive: Boolean(data.isActive),
     salary: !isTailor ? Number(data.salary ?? 0) : 0,
-    commissionRate: isTailor ? Number(data.commissionRate ?? 0) : 0,
   };
 
   return serverFetch<{ message: string; data: Employee }>(`/api/users/${id}`, {

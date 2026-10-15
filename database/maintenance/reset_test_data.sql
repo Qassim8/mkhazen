@@ -32,6 +32,7 @@ TRUNCATE TABLE
   public.tailoring_customer_advance_refunds,
   public.tailoring_customer_advance_transfers,
   public.tailor_commission_payments,
+  public.employee_payments,
   public.sales_order_payments,
   public.sales_order_items,
   public.inventory_movements,

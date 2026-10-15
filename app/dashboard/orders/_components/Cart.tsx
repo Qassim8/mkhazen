@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber, formatUSD } from "@/lib/currency";
 import { LuTrash2 } from "react-icons/lu";
 
 import type { Dispatch } from "react";
@@ -230,7 +231,7 @@ export default function PurchaseCart({
                       {readOnly ? (
                         <div>
                           <p className="font-semibold text-gray-800">
-                            {item.unitCost.toFixed(2)} $
+                            {formatUSD(item.unitCost)}
                           </p>
                         </div>
                       ) : (
@@ -251,10 +252,10 @@ export default function PurchaseCart({
 
                       {deliveryCost > 0 && (
                         <div className="mt-1 text-[9px] text-gray-400">
-                          شحن/وحدة: {shippingPerUnit.toFixed(2)} <br />
+                          شحن/وحدة: {formatNumber(shippingPerUnit)} <br />
                           تكلفة فعلية:{" "}
                           <span className="font-semibold text-gray-600">
-                            {effectiveUnitCost.toFixed(2)}
+                            {formatNumber(effectiveUnitCost)}
                           </span>
                         </div>
                       )}
@@ -293,7 +294,7 @@ export default function PurchaseCart({
 
                     {/* Total */}
                     <td className="px-4 py-3 font-semibold text-gray-700">
-                      {itemTotal.toFixed(2)} $
+                      {formatUSD(itemTotal)}
                     </td>
 
                     {/* Action */}
@@ -321,25 +322,25 @@ export default function PurchaseCart({
         <div className="flex justify-between text-gray-600">
           <span>المجموع الفرعي:</span>
 
-          <span>{subtotal.toFixed(2)} $</span>
+          <span>{formatUSD(subtotal)}</span>
         </div>
 
         <div className="flex justify-between text-gray-600">
           <span>تكلفة الشحن ($):</span>
 
-          <span>{deliveryCost.toFixed(2)} $</span>
+          <span>{formatUSD(deliveryCost)}</span>
         </div>
 
         <div className="flex justify-between text-gray-600">
           <span>الخصم:</span>
 
-          <span className="text-red-600">-{discountAmount.toFixed(2)} $</span>
+          <span className="text-red-600">-{formatUSD(discountAmount)}</span>
         </div>
 
         <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold text-gray-900">
           <span>الإجمالي النهائي:</span>
 
-          <span>{totalAmount.toFixed(2)} $</span>
+          <span>{formatUSD(totalAmount)}</span>
         </div>
       </div>
     </div>

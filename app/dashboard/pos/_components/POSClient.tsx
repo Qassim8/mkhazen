@@ -20,6 +20,7 @@ import toast from "react-hot-toast";
 
 import Card from "./Card";
 import CartList from "./CartList";
+import CameraBarcodeScanner from "@/components/shared/CameraBarcodeScanner";
 
 import type {
   Product,
@@ -40,7 +41,7 @@ import {
   savePosDraft,
 } from "./pos-draft";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
-import { usdToSdg } from "@/lib/currency";
+import { formatSDG, usdToSdg } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 
 interface POSClientProps {
@@ -353,8 +354,17 @@ export default function POSClient({
 
   const handleSearchSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    await runSearch(searchQuery);
+  };
 
-    const term = searchQuery.trim();
+  // باركود من الكاميرا = نفس مسار البحث (يضيف للسلة لو طابق)
+  const handleCameraScan = (code: string) => {
+    setSearchQuery(code);
+    void runSearch(code);
+  };
+
+  const runSearch = async (rawTerm: string) => {
+    const term = rawTerm.trim();
 
     if (!term) {
       setActiveSearch("");
@@ -590,7 +600,7 @@ export default function POSClient({
     const normalized = Number(value.toFixed(2));
     setDiscountError(
       normalized > maxDiscount + 0.001
-        ? `الحد الأقصى للخصم هو 50% من الإجمالي قبل الخصم (${maxDiscount.toFixed(2)} ج.س). لن يتم السماح بإتمام البيع.`
+        ? `الحد الأقصى للخصم هو 50% من الإجمالي قبل الخصم (${formatSDG(maxDiscount)}). لن يتم السماح بإتمام البيع.`
         : "",
     );
     setDiscountAmount(normalized);
@@ -704,12 +714,18 @@ export default function POSClient({
 
     if (discountOverLimit) {
       toast.error(
-        `الخصم يتجاوز 50% من الإجمالي قبل الخصم. الحد الأقصى ${maxDiscount.toFixed(2)} ج.س`,
+        `الخصم يتجاوز 50% من الإجمالي قبل الخصم. الحد الأقصى ${formatSDG(maxDiscount)}`,
       );
       return;
     }
 
-    if (totalAmount <= 0) {
+    // فاتورة هدايا فقط مسموحة بإجمالي صفر
+    const giftOnly = cart.every((item) => item.isGift);
+    if (giftOnly && paymentMethod === "MIXED") {
+      toast.error("فاتورة الهدايا لا تحتاج دفعًا. اختر طريقة دفع واحدة.");
+      return;
+    }
+    if (totalAmount <= 0 && !giftOnly) {
       toast.error("إجمالي الفاتورة غير صالح");
       return;
     }
@@ -903,6 +919,10 @@ export default function POSClient({
               {isSearching ? "..." : "بحث"}
             </button>
           </div>
+          <CameraBarcodeScanner
+            onDetected={handleCameraScan}
+            disabled={isSearching}
+          />
           <button
             type="button"
             onClick={() => void handleClearSearchAndFilters()}

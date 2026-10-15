@@ -33,30 +33,26 @@ export const baseEmployeeSchema = z.object({
     z.number({ message: "يرجى إدخال مبلغ صحيح" }).optional(),
   ),
 
+  // غير مستخدم في الواجهة (أجرة الخياط تُحدد في كل طلب)؛ اختياري للتوافق فقط
   commissionRate: z.preprocess(
     (val) => (val === "" || Number.isNaN(val) ? undefined : Number(val)),
     z.number({ message: "يرجى إدخال نسبة مئوية صحيحة" }).optional(),
   ),
 
   isActive: z.union([z.boolean(), z.string()]).optional(),
+
+  /** السماح بتسجيل الدخول (منفصل عن النشاط) */
+  canLogin: z.union([z.boolean(), z.string()]).optional(),
 });
 
-// مخطط الإنشاء مع التحقق
-export const createEmployeeSchema = baseEmployeeSchema.superRefine(
-  (data, ctx) => {
-    if (
-      data.position !== "tailor" &&
-      data.commissionRate &&
-      data.commissionRate > 0
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "العمولة مخصصة فقط للترزية (الخياطين)",
-        path: ["commissionRate"],
-      });
-    }
-  },
-);
+/**
+ * إخفاء مفتاح "السماح بالدخول" للخياطين.
+ * لإظهاره لهم: خليه false.
+ */
+export const HIDE_LOGIN_TOGGLE_FOR_TAILORS = true;
+
+// مخطط الإنشاء
+export const createEmployeeSchema = baseEmployeeSchema;
 
 // مخطط التحديث
 export const updateEmployeeSchema = baseEmployeeSchema.partial();
@@ -72,11 +68,12 @@ export type Employee = {
   email: string;
   position: "system_manager" | "tailor" | "cashier";
   salary: number;
-  commissionRate: number;
+  commissionRate?: number;
   address?: string;
   shift: "morning" | "night" | "full_time";
   role: "owner" | "admin" | "tailor" | "cashier";
   status: "active" | "inactive";
   isActive: "TRUE" | "FALSE" | boolean;
+  canLogin?: boolean;
   resetRequested: boolean;
 };

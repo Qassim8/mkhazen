@@ -9,6 +9,9 @@ import {
   CurrencyExchangeInput,
   JournalEntry,
   JournalEntryType,
+  PayTailorDuesInput,
+  TailorDuesRow,
+  TailorStatement,
 } from "../schemas/accounting.schema";
 
 const API_BASE_URL = "/api/accounting";
@@ -128,6 +131,45 @@ export async function createManualJournalEntry(
     body: JSON.stringify(payload),
     headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
+}
+
+/* =========================================================
+   مستحقات وسلف الخياطين
+========================================================= */
+
+export interface TailorDuesResponse {
+  data: TailorDuesRow[];
+  totals: { remainingSdg: number; advancesSdg: number };
+}
+
+export async function getTailorDues(): Promise<TailorDuesResponse> {
+  return serverFetch<TailorDuesResponse>(`${API_BASE_URL}/tailor-dues`, {
+    method: "GET",
+    cache: "no-store",
+  });
+}
+
+export async function getTailorStatement(
+  tailorId: string,
+): Promise<{ data: TailorStatement }> {
+  return serverFetch<{ data: TailorStatement }>(
+    `${API_BASE_URL}/tailor-dues/${tailorId}`,
+    { method: "GET", cache: "no-store" },
+  );
+}
+
+export async function payTailorDues(
+  payload: PayTailorDuesInput,
+  options: { idempotencyKey?: string } = {},
+) {
+  return serverFetch<{ message?: string; data?: Record<string, unknown> }>(
+    `${API_BASE_URL}/tailor-dues`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
+    },
+  );
 }
 
 function mapAsset(raw: Record<string, unknown>): Asset {
@@ -257,6 +299,8 @@ export const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   TAILOR_COST: "تكلفة تفصيل",
   TAILOR_ADVANCE_APPLICATION: "تسوية سلفة خياط",
   TAILOR_PAYMENT: "دفع للخياط",
+  TAILOR_DUES_PAYMENT: "سداد مستحقات خياط",
+  TAILOR_DUES_ADVANCE: "سلفة خياط",
   TAILORING_MATERIAL: "مواد تفصيل",
   PRODUCTION: "إنتاج",
   COGS: "تكلفة البضاعة المباعة",
@@ -310,6 +354,8 @@ export interface AccountingOverviewExpense {
 
 export interface AccountingOverview {
   year: number;
+  /** السنوات المالية المتاحة (الأحدث أولًا) */
+  years?: number[];
   currency?: "USD";
   exchangeRate?: number | null;
   cards: AccountingOverviewCards;

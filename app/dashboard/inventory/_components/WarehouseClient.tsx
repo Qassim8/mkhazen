@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -104,7 +104,6 @@ export default function WarehouseClient({
         </div>
       </header>
 
-      {/* البضاعة اللي كانت موجودة قبل النظام تتسجل من هنا، مش بتسوية */}
       <div className="mb-6 flex justify-end"></div>
 
       {/* =====================================================

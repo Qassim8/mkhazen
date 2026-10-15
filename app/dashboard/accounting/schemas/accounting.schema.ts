@@ -73,6 +73,8 @@ export const journalEntryTypeEnum = z.enum([
   "TAILOR_COST",
   "TAILOR_ADVANCE_APPLICATION",
   "TAILOR_PAYMENT",
+  "TAILOR_DUES_PAYMENT",
+  "TAILOR_DUES_ADVANCE",
 
   "TAILORING_MATERIAL",
   "PRODUCTION",
@@ -397,3 +399,67 @@ export type CreatePurchasePaymentInput = z.infer<
 export type AccountingQueryInput = z.infer<typeof accountingQuerySchema>;
 
 export type AssetsQueryInput = z.infer<typeof assetsQuerySchema>;
+
+/* =========================================================
+   TAILOR DUES (مستحقات وسلف الخياطين)
+========================================================= */
+
+export const payTailorDuesSchema = z
+  .object({
+    tailorId: z.string().uuid("معرف الخياط غير صالح"),
+    /** SETTLEMENT = سداد المستحق كاملًا، ADVANCE = سلفة من المستحق */
+    kind: z.enum(["SETTLEMENT", "ADVANCE"], { message: "نوع العملية غير صالح" }),
+    /** بالجنيه: في السداد = المستحق المعروض، في السلفة = مبلغ السلفة */
+    amount: z
+      .number({ message: "المبلغ غير صالح" })
+      .finite("المبلغ غير صالح")
+      .positive("المبلغ يجب أن يكون أكبر من صفر")
+      .refine((value) => Number(value.toFixed(2)) === value, "المبلغ يجب ألا يتجاوز منزلتين عشريتين"),
+    paymentMethod: accountingPaymentMethodEnum,
+    notes: z.string().trim().max(500, "الملاحظات طويلة جدًا").nullable(),
+  });
+
+export type PayTailorDuesInput = z.infer<typeof payTailorDuesSchema>;
+
+export interface TailorDuesRow {
+  tailorId: string;
+  tailorName: string;
+  tailorPhone: string | null;
+  ordersCount: number;
+  openOrdersCount: number;
+  costSdg: number;
+  paidSdg: number;
+  advancesSdg: number;
+  remainingSdg: number;
+}
+
+export interface TailorDuesOrderRow {
+  salesOrderId: string;
+  orderNumber: string;
+  itemName: string | null;
+  purpose: "CUSTOMER" | "PRODUCTION";
+  orderCreatedAt: string;
+  costRecognizedAt: string;
+  costSdg: number;
+  paidSdg: number;
+  advancesSdg: number;
+  remainingSdg: number;
+}
+
+export interface TailorDuesPaymentRow {
+  id: string;
+  createdAt: string;
+  salesOrderId: string | null;
+  orderNumber: string | null;
+  paymentType: "ADVANCE" | "SETTLEMENT" | "DUES_ADVANCE";
+  paymentMethod: "CASH" | "BANK";
+  amountSdg: number;
+  amountUsd: number;
+  notes: string | null;
+}
+
+export interface TailorStatement {
+  summary: TailorDuesRow;
+  orders: TailorDuesOrderRow[];
+  payments: TailorDuesPaymentRow[];
+}

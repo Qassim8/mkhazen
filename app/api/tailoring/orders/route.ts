@@ -90,7 +90,7 @@ export async function GET(request: Request) {
     }
 
     if (isTailor && params.tailorId && params.tailorId !== user.userId) {
-      return NextResponse.json({ message: "لا يمكنك عرض طلبات ترزي آخر.", code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ message: "لا يمكنك عرض طلبات خياط آخر.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const requestedTailorId = isTailor ? user.userId : params.tailorId;

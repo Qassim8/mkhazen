@@ -223,6 +223,18 @@ export const updateProductSchema = baseProductFields
 
 export const productSchema = createProductSchema;
 
+/*
+ * فورم المنتج (إضافة وتعديل بنفس المكونات):
+ * نفس قواعد الإضافة + id اختياري للمتغير الموجود في التعديل.
+ */
+export const productFormSchema = baseProductFields
+  .extend({
+    variants: z
+      .array(updateVariantSchema)
+      .min(1, "يجب إدخال بيانات المتغير للمنتج"),
+  })
+  .superRefine(validateCreateProduct);
+
 /* =========================================================
    Form / API Input Types
 ========================================================= */
@@ -232,8 +244,8 @@ export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
 export type VariantInput = z.infer<typeof variantSchema>;
-export type ProductFormInputType = z.input<typeof createProductSchema>;
-export type ProductFormOutputType = z.output<typeof createProductSchema>;
+export type ProductFormInputType = z.input<typeof productFormSchema>;
+export type ProductFormOutputType = z.output<typeof productFormSchema>;
 export type UpdateProductFormInputType = z.input<typeof updateProductSchema>;
 export type CreateProductFormInput = ProductFormOutputType;
 export type UpdateProductFormInput = UpdateProductInput;

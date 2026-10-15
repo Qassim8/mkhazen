@@ -1,5 +1,6 @@
 import AccountingEntriesClient from "../_components/AccountingEntriesClient";
 import { getAccountingEntries } from "../services/accounting.services";
+import { getFiscalYears } from "@/app/api/accounting/_lib/fiscal-years";
 
 interface AccountingPageProps {
   searchParams: Promise<{
@@ -41,6 +42,8 @@ const Accounting = async ({ searchParams }: AccountingPageProps) => {
 
   const search = params.search ?? "";
 
+  const years = await getFiscalYears();
+
   const { data, meta } = await getAccountingEntries({
     page,
     limit: 20,
@@ -53,6 +56,7 @@ const Accounting = async ({ searchParams }: AccountingPageProps) => {
     <AccountingEntriesClient
       initialData={data}
       initialMeta={meta}
+      years={years}
     />
   );
 };

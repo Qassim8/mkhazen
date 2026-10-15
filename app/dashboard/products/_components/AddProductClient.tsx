@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  productSchema,
+  productFormSchema,
 } from "../schemas/product.schemas";
 import type {
   ProductFormInputType,
@@ -64,7 +64,7 @@ export default function AddProductClient({
     setValue,
     formState: { errors },
   } = useForm<ProductFormInputType, unknown, ProductFormOutputType>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: "",
       description: "",

@@ -65,3 +65,23 @@ export function formatRate(rate: number | null | undefined) {
     maximumFractionDigits: 2,
   }).format(rate)} ج.س`;
 }
+
+/** كميات بفاصل الآلاف: 12,500 / 2.5 */
+export function formatQuantity(value: unknown) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(toNumber(value));
+}
+
+/** رقم بفاصل الآلاف ومنزلتين ثابتتين: 12,500.00 */
+export function formatNumber(value: unknown, fractionDigits = 2) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(toNumber(value));
+}
+
+/** نسبة: 12.50% */
+export function formatPercent(value: unknown) {
+  return `${formatNumber(value, 2)}%`;
+}

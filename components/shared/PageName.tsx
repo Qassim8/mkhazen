@@ -10,7 +10,6 @@ const pageNames: Record<string, string> = {
   "/dashboard/suppliers": "الموردون",
   "/dashboard/orders": "المشتريات والتوريد",
   "/dashboard/inventory": "المخزون",
-  "/dashboard/inventory/opening-stock": "المخزون الافتتاحي",
   "/dashboard/employees": "الموظفين",
   "/dashboard/reports": "التقارير",
   "/dashboard/settings": "الإعدادات",
@@ -20,7 +19,9 @@ const pageNames: Record<string, string> = {
   "/dashboard/accounting": "المحاسبة",
   "/dashboard/accounting/journals": "المحاسبة > القيود المحاسبية",
   "/dashboard/accounting/assets": "المحاسبة > الأصول",
+  "/dashboard/employees/payroll": "الموظفين > السلف والمستحقات",
   "/dashboard/accounting/opening-balances": "المحاسبة > الأرصدة الافتتاحية",
+  "/dashboard/inventory/opening-stock": "المخزون > المخزون الافتتاحي",
   "/dashboard/customers": "العملاء",
 };
 

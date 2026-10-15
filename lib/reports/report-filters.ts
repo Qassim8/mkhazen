@@ -19,7 +19,7 @@ export const REPORT_PRESETS = {
 
 export type ReportPreset = keyof typeof REPORT_PRESETS;
 
-export type ReportTab = "summary" | "products" | "categories" | "inventory";
+export type ReportTab = "summary" | "products" | "categories" | "inventory" | "cashiers" | "tailors";
 
 export interface ReportFilters {
   preset: ReportPreset;
@@ -187,6 +187,44 @@ export interface CategoryRow {
   share: number;
 }
 
+/** أداء الكاشير (فواتير الكاشير المكتملة في الفترة) */
+export interface CashierRow {
+  cashierId: string;
+  name: string;
+  invoices: number;
+  /** الكميات المباعة (بدون الهدايا) */
+  quantity: number;
+  revenueSdg: number;
+  revenueUsd: number;
+  avgInvoiceSdg: number;
+  avgInvoiceUsd: number;
+  discountsSdg: number;
+}
+
+/** أداء الخياط في الفترة + رصيد مستحقاته الحالي */
+export interface TailorRow {
+  tailorId: string;
+  name: string;
+  /** طلبات ثُبتت تكلفتها في الفترة (تسليم/تصنيع/تحويل) */
+  executedOrders: number;
+  /** طلبات عملاء سُلّمت في الفترة */
+  deliveredOrders: number;
+  /** قطع التصنيع للمخزون المستلمة في الفترة */
+  producedPieces: number;
+  /** إيراد طلباته المسلّمة بالدولار */
+  revenueUsd: number;
+  /** الأجرة المستحقة عن الطلبات المثبتة في الفترة (ج.س) */
+  wagesSdg: number;
+  /** المدفوع له في الفترة (ج.س) */
+  paidSdg: number;
+  /** السلف في الفترة (ج.س) */
+  advancesSdg: number;
+  /** المتبقي من مستحقاته حاليًا (ج.س) */
+  remainingSdg: number;
+  /** طلبات مفتوحة تجاوزت تاريخ التسليم (حاليًا) */
+  overdueOrders: number;
+}
+
 export type StockStatus = "OUT" | "LOW" | "OK";
 
 export interface InventoryRow {
@@ -222,6 +260,8 @@ export interface ReportData {
   products: ProductRow[];
   categories: CategoryRow[];
   inventory: InventoryRow[];
+  cashiers: CashierRow[];
+  tailors: TailorRow[];
   inventoryTotals: {
     variants: number;
     units: number;

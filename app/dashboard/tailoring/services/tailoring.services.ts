@@ -2,7 +2,6 @@ import { serverFetch } from "@/lib/api-client";
 
 import type {
   CreateTailoringOrderInput,
-  PayTailorPaymentInput,
   ProductionCompletionInput,
   UpdateTailoringOrderApiInput,
   CancelTailoringOrderInput,
@@ -446,15 +445,12 @@ export async function completeTailoringProduction(
   });
 }
 
-export async function payTailorPayment(
-  payload: PayTailorPaymentInput,
-  options: { idempotencyKey?: string } = {},
-) {
-  return serverFetch(`${API_BASE_URL}/commission-payments`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
-  });
+/** SKU وباركود جديدين لمنتج التصنيع/التحويل */
+export async function generateProductionCodes() {
+  return serverFetch<{ data: { sku: string; barcode: string } }>(
+    `${API_BASE_URL}/product-codes`,
+    { method: "GET", cache: "no-store" },
+  );
 }
 
 export async function updateTailoringOrder(
@@ -542,5 +538,3 @@ export async function createOverdueNotifications() {
     method: "POST",
   });
 }
-
-export const payTailorCommission = payTailorPayment;

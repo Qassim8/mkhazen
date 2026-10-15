@@ -71,7 +71,7 @@ export async function resolveSession(token: string | undefined): Promise<Session
   }
 
   // الحساب اتحذف أو اتعطل أو كلمة السر اتغيرت بعد إصدار الجلسة
-  if (!account || !account.isActive || account.pwv !== claims.pwv) {
+  if (!account || !account.isActive || !account.canLogin || account.pwv !== claims.pwv) {
     return { ok: false, reason: "expired" };
   }
 
@@ -96,6 +96,7 @@ export async function getSession(): Promise<TokenPayload | null> {
 type AccountState = {
   role: string;
   isActive: boolean;
+  canLogin: boolean;
   isPasswordChanged: boolean;
   pwv: string;
 };
@@ -109,7 +110,7 @@ async function getAccountState(userId: string): Promise<AccountState | null> {
 
   const { data, error } = await supabaseAdmin
     .from("users")
-    .select('role, "isActive", "isPasswordChanged", password')
+    .select('role, "isActive", "canLogin", "isPasswordChanged", password')
     .eq("id", userId)
     .maybeSingle();
 
@@ -121,6 +122,7 @@ async function getAccountState(userId: string): Promise<AccountState | null> {
     ? {
         role: String(data.role ?? ""),
         isActive: isAccountActive(data.isActive),
+        canLogin: data.canLogin !== false,
         isPasswordChanged: Boolean(data.isPasswordChanged),
         pwv: await passwordFingerprint(String(data.password ?? "")),
       }

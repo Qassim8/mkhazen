@@ -1,10 +1,10 @@
 "use client";
 
 import BackLink from "@/components/shared/BackLink";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,26 +19,23 @@ import {
   LuFilePenLine,
   LuMessageCircle,
   LuPackage,
+  LuPrinter,
   LuRefreshCw,
   LuRotateCcw,
   LuShare2,
-  LuWalletCards,
 } from "react-icons/lu";
 
 import {
   cancelTailoringOrder,
   completeTailoringPickup,
-  payTailorPayment,
   refundCustomerAdvance,
   updateTailoringStatus,
 } from "../services/tailoring.services";
 import {
   cancelTailoringOrderSchema,
   completeTailoringPickupSchema,
-  payTailorPaymentFormSchema,
   refundCustomerAdvanceSchema,
   type CompleteTailoringPickupInput,
-  type PayTailorPaymentFormValues,
   type RefundCustomerAdvanceInput,
   type TailoringOrder,
 } from "../schemas/tailoring.schemas";
@@ -48,8 +45,8 @@ import {
   getTailoringPdfFileName,
 } from "./tailoringPdf";
 import ProductionCompletionForm from "./ProductionCompletionForm";
-import { formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
-import { useExchangeRate } from "@/components/shared/useExchangeRate";
+import TailoringReceipt, { type TailoringReceiptMode } from "./TailoringReceipt";
+import { formatQuantity, formatSDG, formatUSD } from "@/lib/currency";
 
 interface CategoryOption {
   id: string;
@@ -89,7 +86,7 @@ function usd(value: number) {
 
 /** مبالغ الزبون (الإجمالي/العربون/الباقي) بالجنيه */
 function money(value: number) {
-  return `${value.toFixed(2)} ج.س`;
+  return `${formatSDG(value)}`;
 }
 
 function dateLabel(value: string) {
@@ -148,15 +145,36 @@ export default function TailoringOrderDetail({
   categories,
 }: Props) {
   const router = useRouter();
-  // مفاتيح منع التكرار للعمليات المالية (تسليم/دفع خياط/استرداد)
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const autoPrint = searchParams.get("print") === "1";
+
+  // فاتورة العميل (مالية) وفاتورة الخياط (مقاسات بلا مبالغ)
+  const [receiptMode, setReceiptMode] = useState<TailoringReceiptMode>(
+    order.tailoringPurpose === "CUSTOMER" ? "both" : "tailor",
+  );
+
+  function printReceipt(mode: TailoringReceiptMode) {
+    setReceiptMode(mode);
+    window.setTimeout(() => window.print(), 150);
+  }
+
+  // بعد إنشاء طلب العميل: طباعة فاتورة العميل وفاتورة الخياط تلقائيًا مرة واحدة
+  useEffect(() => {
+    if (!autoPrint || order.tailoringPurpose !== "CUSTOMER") return;
+    const timer = window.setTimeout(() => {
+      window.print();
+      router.replace(pathname, { scroll: false });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [autoPrint, order.tailoringPurpose, pathname, router]);
+
+  // مفاتيح منع التكرار للعمليات المالية (تسليم/استرداد)
   const pickupIdempotency = useIdempotencyKey();
-  const tailorPaymentIdempotency = useIdempotencyKey();
   const refundIdempotency = useIdempotencyKey();
-  const { rate: exchangeRate } = useExchangeRate();
   const [actionLoading, setActionLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
-  const [paymentOpen, setPaymentOpen] = useState(false);
   const [productionOpen, setProductionOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -170,24 +188,6 @@ export default function TailoringOrderDetail({
   } = useForm<CompleteTailoringPickupInput>({
     resolver: zodResolver(completeTailoringPickupSchema),
     defaultValues: { paymentMethod: "CASH" },
-  });
-
-  const {
-    register: registerTailorPayment,
-    handleSubmit: handleSubmitTailorPayment,
-    formState: {
-      errors: tailorPaymentErrors,
-      isSubmitting: tailorPaymentSubmitting,
-    },
-    reset: resetTailorPayment,
-  } = useForm<PayTailorPaymentFormValues>({
-    resolver: zodResolver(payTailorPaymentFormSchema),
-    defaultValues: {
-      amount: "",
-      paymentMethod: "CASH",
-      currency: "SDG",
-      notes: "",
-    },
   });
 
   const {
@@ -236,11 +236,6 @@ export default function TailoringOrderDetail({
     order.tailoringStatus === "CANCELLED" &&
     order.customerAdvanceAvailable > 0;
   const canCreateReplacement = canRefundAdvance;
-  const canPayTailor =
-    canManageAll &&
-    order.tailorRemainingAmountSdg > 0 &&
-    (order.tailoringStatus !== "CANCELLED" ||
-      Boolean(order.convertedToProductAt || order.producedProduct?.variantId));
 
   const tailorOrderMessage = useMemo(() => {
     const common = [
@@ -263,7 +258,7 @@ export default function TailoringOrderDetail({
         "الهدف: تصنيع منتج للمخزون",
         ...common,
         order.fabric
-          ? `القماش من المحل: ${order.fabric.name} - الكمية ${order.fabricQuantity?.toFixed(2) ?? "0.00"} متر`
+          ? `القماش من المحل: ${order.fabric.name} - الكمية ${formatQuantity(order.fabricQuantity ?? 0)} متر`
           : "القماش: غير موجود",
       ].join("\n");
     }
@@ -274,7 +269,7 @@ export default function TailoringOrderDetail({
       `واتساب العميل: ${order.customer?.whatsappNumber ?? "-"}`,
       ...common,
       order.fabric
-        ? `القماش من المحل: ${order.fabric.name} - الكمية ${order.fabricQuantity?.toFixed(2) ?? "0.00"} متر`
+        ? `القماش من المحل: ${order.fabric.name} - الكمية ${formatQuantity(order.fabricQuantity ?? 0)} متر`
         : "القماش: العميل أحضر القماش",
     ].join("\n");
   }, [isProduction, order]);
@@ -329,57 +324,6 @@ export default function TailoringOrderDetail({
       }
     },
     () => toast.error("تحقق من طريقة الدفع."),
-  );
-
-  function openTailorPayment() {
-    // أجرة الخياط متفق عليها وتُدفع بالجنيه؛ الافتراضي = المتبقي بالجنيه
-    resetTailorPayment({
-      amount:
-        order.tailorRemainingAmountSdg > 0
-          ? order.tailorRemainingAmountSdg.toFixed(2)
-          : "",
-      paymentMethod: "CASH",
-      currency: "SDG",
-      notes: "",
-    });
-    setPaymentOpen(true);
-  }
-
-  const submitTailorPayment = handleSubmitTailorPayment(
-    async (values) => {
-      const amount = Number(values.amount);
-      setActionLoading(true);
-      try {
-        const tailorPayload = {
-          tailorId: order.tailorId,
-          salesOrderId: order.id,
-          amount,
-          paymentMethod: values.paymentMethod,
-          currency: "SDG" as const,
-          notes: values.notes?.trim() || null,
-        };
-        await payTailorPayment(tailorPayload, {
-          idempotencyKey: tailorPaymentIdempotency.keyFor(tailorPayload),
-        });
-        tailorPaymentIdempotency.reset();
-        const paid = formatSDG(amount);
-        toast.success(
-          order.tailoringCostRecognized
-            ? `تم سداد ${paid} من مستحقات الخياط.`
-            : `تم تسجيل دفعة مقدمة للخياط بقيمة ${paid}.`,
-        );
-        setPaymentOpen(false);
-        router.refresh();
-      } catch (error: unknown) {
-        console.error("Pay tailor payment:", error);
-        toast.error(
-          error instanceof Error ? error.message : "تعذر تسجيل دفعة الخياط.",
-        );
-      } finally {
-        setActionLoading(false);
-      }
-    },
-    () => toast.error("تحقق من مبلغ الدفعة والملاحظات الظاهرة تحت الحقول."),
   );
 
   async function handleDownloadCustomerPdf() {
@@ -528,6 +472,7 @@ export default function TailoringOrderDetail({
 
   return (
     <div className="space-y-5 p-4 pb-16">
+      <TailoringReceipt order={order} mode={isProduction ? "tailor" : receiptMode} />
       <header className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="mb-3">
@@ -695,20 +640,6 @@ export default function TailoringOrderDetail({
               </div>
             )}
 
-          {canPayTailor && (
-            <button
-              type="button"
-              disabled={actionLoading}
-              onClick={openTailorPayment}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <LuWalletCards className="h-4 w-4" />
-              {order.tailoringCostRecognized
-                ? "سداد مستحق الخياط"
-                : "دفع دفعة مقدمة للخياط"}
-            </button>
-          )}
-
           {canManageAll && order.tailorPhone && (
             <a
               href={whatsappLink(order.tailorPhone, tailorOrderMessage)}
@@ -719,6 +650,28 @@ export default function TailoringOrderDetail({
               <LuMessageCircle className="h-4 w-4" />
               واتساب الخياط
             </a>
+          )}
+
+          {canContactCustomer && !isProduction && (
+            <button
+              type="button"
+              onClick={() => printReceipt("customer")}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+            >
+              <LuPrinter className="h-4 w-4" />
+              فاتورة العميل
+            </button>
+          )}
+
+          {canContactCustomer && (
+            <button
+              type="button"
+              onClick={() => printReceipt("tailor")}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50"
+            >
+              <LuPrinter className="h-4 w-4" />
+              فاتورة الخياط
+            </button>
           )}
 
           {canContactCustomer &&
@@ -839,7 +792,7 @@ export default function TailoringOrderDetail({
                   {canManageAll && order.fabric.sku
                     ? `SKU: ${order.fabric.sku} · `
                     : ""}
-                  الكمية: {order.fabricQuantity?.toFixed(2) ?? "0.00"} متر
+                  الكمية: {formatQuantity(order.fabricQuantity ?? 0)} متر
                 </p>
                 {canManageAll && (
                   <p className="mt-2 text-xs font-bold text-gray-700">
@@ -1141,7 +1094,9 @@ export default function TailoringOrderDetail({
                       <td className="px-5 py-3 font-semibold">
                         {payment.paymentType === "ADVANCE"
                           ? "دفعة مقدمة"
-                          : "سداد مستحق"}
+                          : payment.paymentType === "DUES_ADVANCE"
+                            ? "سلفة"
+                            : "سداد مستحق"}
                       </td>
                       <td dir="ltr" className="px-5 py-3 font-black">
                         {payment.currency === "SDG" &&
@@ -1219,114 +1174,6 @@ export default function TailoringOrderDetail({
                 {pickupSubmitting || actionLoading
                   ? "جارٍ التنفيذ..."
                   : "تأكيد الاستلام"}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
-      )}
-
-      {paymentOpen && canManageAll && (
-        <ModalShell>
-          <form
-            onSubmit={submitTailorPayment}
-            dir="rtl"
-            className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-2xl"
-            noValidate
-          >
-            <h3 className="text-sm font-black">
-              {order.tailoringCostRecognized
-                ? "سداد مستحق الخياط"
-                : "دفع دفعة مقدمة للخياط"}
-            </h3>
-            <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
-              <p>
-                التكلفة المتفق عليها:{" "}
-                <strong>{formatSDG(order.tailoringCostSdg)}</strong>
-              </p>
-              <p className="mt-1">
-                المدفوع حتى الآن:{" "}
-                <strong>{formatSDG(order.tailorPaidAmountSdg)}</strong>
-              </p>
-              <p className="mt-1">
-                المتبقي:{" "}
-                <strong>{formatSDG(order.tailorRemainingAmountSdg)}</strong>
-              </p>
-              {!order.tailoringCostRecognized && (
-                <p className="mt-2 font-semibold text-blue-700">
-                  هذه دفعة مقدمة فقط؛ لا تغيّر تكلفة الطلب، وستُسوّى عند تثبيت
-                  تكلفة الخياطة.
-                </p>
-              )}
-            </div>
-            <label className="block">
-              <span className="text-xs font-bold text-gray-600">
-                مبلغ الدفعة (ج.س)
-              </span>
-              <input
-                {...registerTailorPayment("amount")}
-                disabled={tailorPaymentSubmitting || actionLoading}
-                type="number"
-                min="0.01"
-                step="0.01"
-                className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
-              />
-              <InlineError message={tailorPaymentErrors.amount?.message} />
-              {order.tailorRemainingAmountSdg > 0 && (
-                <p className="mt-1 text-[11px] font-semibold text-gray-500">
-                  المتبقي للخياط: {formatSDG(order.tailorRemainingAmountSdg)}
-                  {exchangeRate
-                    ? ` (≈ ${usd(sdgToUsd(order.tailorRemainingAmountSdg, exchangeRate))} بسعر اليوم)`
-                    : ""}
-                </p>
-              )}
-            </label>
-            <label className="block">
-              <span className="text-xs font-bold text-gray-600">
-                طريقة الدفع
-              </span>
-              <select
-                {...registerTailorPayment("paymentMethod")}
-                disabled={tailorPaymentSubmitting || actionLoading}
-                className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
-              >
-                <option value="CASH">نقداً / الخزينة</option>
-                <option value="BANK">حوالة / البنك</option>
-              </select>
-              <InlineError
-                message={tailorPaymentErrors.paymentMethod?.message}
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-bold text-gray-600">ملاحظات</span>
-              <textarea
-                {...registerTailorPayment("notes")}
-                rows={3}
-                disabled={tailorPaymentSubmitting || actionLoading}
-                className="mt-1 w-full resize-none rounded-xl border border-gray-300 px-3 py-2.5 text-sm"
-              />
-              <InlineError message={tailorPaymentErrors.notes?.message} />
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPaymentOpen(false)}
-                disabled={tailorPaymentSubmitting || actionLoading}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-bold"
-              >
-                إلغاء
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  tailorPaymentSubmitting ||
-                  actionLoading ||
-                  order.tailorRemainingAmountSdg <= 0
-                }
-                className="flex-1 rounded-xl bg-gray-900 py-2.5 text-xs font-bold text-white"
-              >
-                {tailorPaymentSubmitting || actionLoading
-                  ? "جارٍ الحفظ..."
-                  : "تسجيل الدفعة"}
               </button>
             </div>
           </form>

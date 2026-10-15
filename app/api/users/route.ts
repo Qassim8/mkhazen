@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from("users")
-      .select('id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"', { count: "exact" })
+      .select('id, name, email, role, position, phone, salary, shift, "isActive", "canLogin", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"', { count: "exact" })
       .eq("branchId", MAIN_BRANCH_ID);
 
     if (normalizeRole(user.role) !== "owner") {
@@ -142,6 +142,8 @@ export async function POST(request: Request) {
       resetRequested: false,
       salary: finalSalary,
       commissionRate: finalCommission,
+      // الخياط يُنشأ بدون دخول للنظام
+      canLogin: isTailor ? false : validation.data.canLogin ?? true,
       branchId: MAIN_BRANCH_ID,
       role: position === "system_manager" ? "admin" : position,
       password: hashPassword,
@@ -152,7 +154,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from("users")
       .insert([newUserData])
-      .select('id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"')
+      .select('id, name, email, role, position, phone, salary, shift, "isActive", "canLogin", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"')
       .single();
 
     if (error)

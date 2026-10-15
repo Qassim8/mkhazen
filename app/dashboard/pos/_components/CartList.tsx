@@ -12,7 +12,7 @@ import {
 import CartItem from "./CartItem";
 import GiftPicker from "./GiftPicker";
 import type { POSCartItem } from "./POSClient";
-import { formatRate, formatUSD, sdgToUsd } from "@/lib/currency";
+import { formatNumber, formatRate, formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
 import type { PaymentMethod, PaymentSplit } from "../schemas/pos.schemas";
 import type {
   Product,
@@ -313,7 +313,7 @@ export default function CartList({
                       : "font-bold text-red-500"
                   }
                 >
-                  {mixedPaymentAmount.toFixed(2)} ج.س
+                  {formatSDG(mixedPaymentAmount)}
                 </span>
               </div>
 
@@ -334,7 +334,7 @@ export default function CartList({
                 الخصم
               </label>
               <span className="text-[10px] text-gray-400">
-                حتى 50% = {maxDiscount.toFixed(2)} ج.س
+                حتى 50% = {formatSDG(maxDiscount)}
               </span>
             </div>
             <div className="relative">
@@ -360,7 +360,7 @@ export default function CartList({
             {(discountError || isDiscountOverLimit) && (
               <p className="mt-1 text-[10px] font-medium text-red-500">
                 {discountError ||
-                  `الخصم الحالي يتجاوز الحد المسموح ${maxDiscount.toFixed(2)} ج.س.`}
+                  `الخصم الحالي يتجاوز الحد المسموح ${formatSDG(maxDiscount)}.`}
               </p>
             )}
           </div>
@@ -372,24 +372,22 @@ export default function CartList({
             </div>
             <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
               <span>المجموع الفرعي</span>
-              <span>{subtotal.toFixed(2)} ج.س</span>
+              <span>{formatSDG(subtotal)}</span>
             </div>
             {discountAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-semibold text-red-600">
                 <span>
                   الخصم (
-                  {subtotal > 0
-                    ? ((discountAmount / subtotal) * 100).toFixed(2)
-                    : "0.00"}
+                  {formatNumber(subtotal > 0 ? (discountAmount / subtotal) * 100 : 0)}
                   %)
                 </span>
-                <span>- {discountAmount.toFixed(2)} ج.س</span>
+                <span>- {formatSDG(discountAmount)}</span>
               </div>
             )}
             {taxAmount > 0 && (
               <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
                 <span>الضريبة</span>
-                <span>{taxAmount.toFixed(2)} ج.س</span>
+                <span>{formatSDG(taxAmount)}</span>
               </div>
             )}
             <div className="flex items-center justify-between border-t border-gray-200 pt-2.5 text-sm font-black text-gray-900">
@@ -399,7 +397,7 @@ export default function CartList({
                   totalAmount > 0 ? "text-(--primary-red)" : "text-red-600"
                 }`}
               >
-                {totalAmount.toFixed(2)} ج.س
+                {formatSDG(totalAmount)}
               </span>
             </div>
 
@@ -433,7 +431,7 @@ export default function CartList({
               cart.length === 0 ||
               isCheckingOut ||
               isDiscountOverLimit ||
-              totalAmount <= 0 ||
+              (totalAmount <= 0 && !cart.every((item) => item.isGift)) ||
               !mixedPaymentValid
             }
             onClick={onCheckout}
@@ -445,7 +443,9 @@ export default function CartList({
                 ? "الخصم يتجاوز 50%"
                 : paymentMethod === "MIXED" && !mixedPaymentValid
                   ? "أكمل تقسيم الدفعة"
-                  : "تأكيد المبيعة وإصدار الفاتورة"}
+                  : cart.length > 0 && cart.every((item) => item.isGift)
+                    ? "إصدار فاتورة هدايا"
+                    : "تأكيد المبيعة وإصدار الفاتورة"}
           </button>
         </div>
       </div>

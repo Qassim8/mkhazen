@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
+import { withGeneratedCodes } from "@/app/api/tailoring/_lib/product-codes";
 import {
   productionCompletionApiSchema,
 } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
@@ -25,7 +26,7 @@ export async function POST(
 
     const role = String(user.role).toLowerCase();
     if (!can(role, "tailoring.manage")) {
-      return NextResponse.json({ message: "استلام الإنتاج وإنشاء المنتج متاح للمدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ message: "استلام الإنتاج وإنشاء المنتج متاح للكاشير أو المدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -48,7 +49,8 @@ export async function POST(
       p_branch_id: MAIN_BRANCH_ID,
       p_user_id: user.userId,
       p_order_id: id,
-      p_product_payload: input,
+      // SKU والباركود يتولدوا تلقائيًا لو فاضيين
+      p_product_payload: await withGeneratedCodes(input),
     });
 
     if (error) {

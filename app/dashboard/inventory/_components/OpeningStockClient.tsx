@@ -28,7 +28,7 @@ function variantLabel(item: OpeningStockCandidate) {
   return [item.colorName, item.size, item.sku].filter(Boolean).join(" · ");
 }
 
-/** رقم من حقل نصي: فاضي أو غير صالح = صفر */
+/** رقم من حقل نصي: الفارغ أو غير الصالح = صفر */
 function parseNumber(value: string) {
   const parsed = Number(String(value).trim());
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
@@ -71,7 +71,7 @@ export default function OpeningStockClient({ candidates }: Props) {
     [candidates, drafts],
   );
 
-  // صف ناقص: المستخدم كتب كمية بدون تكلفة أو العكس
+  // صف ناقص: أُدخلت الكمية دون التكلفة أو العكس
   const incomplete = useMemo(
     () =>
       candidates.filter((item) => {
@@ -107,7 +107,7 @@ export default function OpeningStockClient({ candidates }: Props) {
 
     if (incomplete.length > 0) {
       toast.error(
-        `${incomplete.length} صنف ناقص: لازم تكتب الكمية والتكلفة مع بعض`,
+        `${incomplete.length} صنف ناقص: يجب إدخال الكمية والتكلفة معًا`,
       );
       return;
     }
@@ -157,15 +157,15 @@ export default function OpeningStockClient({ candidates }: Props) {
       <div className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         <LuInfo className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="space-y-1">
-          <p className="font-bold">كيف تسجل محاسبيًا؟</p>
+          <p className="font-bold">كيف تُسجَّل محاسبيًا؟</p>
           <p>
-            قيمة البضاعة بتزيد المخزون وتتسجل مساهمة من المالك في رأس المال
-            (مدين: المخزون / دائن: رأس المال) يعني لا تحسب إيراد ولا ربح، ولا
-            بتعمل دين على مورد.
+            تزيد قيمة البضاعة المخزون وتُسجَّل مساهمةً من المالك في رأس المال
+            (مدين: المخزون / دائن: رأس المال)، أي أنها لا تُحتسب إيرادًا ولا ربحًا،
+            ولا تُنشئ دينًا على أي مورد.
           </p>
           <p className="font-medium">
-            التكلفة التي تكتب هنا هي التي يحسب منها ربح كل بيعة بعد ذلك، لابد ان
-            تكون التكلفة الحقيقية.
+            التكلفة المُدخلة هنا هي التي يُحتسب منها ربح كل عملية بيع لاحقًا، لذا
+            يجب أن تكون التكلفة الحقيقية.
           </p>
         </div>
       </div>
@@ -174,8 +174,8 @@ export default function OpeningStockClient({ candidates }: Props) {
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
           <p className="font-bold text-gray-900">لا توجد أصناف مؤهلة</p>
           <p className="mt-2 text-sm text-gray-500">
-            الصنف يظهر هنا لو كان نشطًا ورصيده صفر وليس له أي حركة مخزون. لو
-            الصنف اتباع أو اشترى من قبل، استخدم تسوية المخزون بدل المخزون
+            يظهر الصنف هنا إذا كان نشطًا ورصيده صفرًا وليست له أي حركة مخزون. وإذا
+            سبق بيع الصنف أو شراؤه، فاستخدم تسوية المخزون بدلًا من المخزون
             الافتتاحي.
           </p>
         </div>

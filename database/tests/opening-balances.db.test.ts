@@ -85,7 +85,8 @@ describe("opening balances (20261010_05)", () => {
 
   it("validates caller, date and every line", async () => {
     const ok: Payload = { cash: [{ account: "CASH", currency: "USD", amount: 10 }] };
-    assert.match(await rpcError(run(ok, { userId: users.admin })), /للمالك فقط/);
+    // 20261015_01: المالك والمدير
+    assert.match(await rpcError(run(ok, { userId: users.cashier })), /للمالك أو المدير/);
     assert.match(await rpcError(run(ok, { userId: users.inactiveAdmin })), /غير صالح لهذا الفرع/);
     assert.match(await rpcError(run(ok, { asOf: "2999-01-01" })), /في المستقبل/);
     assert.match(await rpcError(run({})), /رصيدًا واحدًا على الأقل/);
@@ -210,9 +211,10 @@ describe("opening balances (20261010_05)", () => {
     assert.equal(num(debts[0].paid), 150);
   });
 
-  it("a later batch keeps the date, refuses what is already recorded and accepts what was forgotten", async () => {
-    assert.match(await rpcError(run({ cash: [{ account: "CASH", currency: "SDG", amount: 5 }] })), /مسجّل من قبل/);
-    assert.match(await rpcError(run({ supplierDebts: [{ supplierId: supplierA, amount: 5 }] })), /مسجّل من قبل/);
+  it("a later batch keeps the date and accepts repeated and forgotten lines (20261015_01)", async () => {
+    // إدخال متكرر لنفس الحساب/العملة ولنفس المورد مسموح (معاينة)
+    await run({ cash: [{ account: "CASH", currency: "SDG", amount: 5 }] });
+    await run({ supplierDebts: [{ supplierId: supplierA, amount: 5 }] });
     assert.match(await rpcError(run({ cash: [{ account: "CASH", currency: "USD", amount: 5 }] }, { asOf: "2025-01-01" })), /محدد من قبل/);
 
     await run(

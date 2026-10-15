@@ -37,6 +37,8 @@ interface ProductVariantsSectionProps {
     event: React.ChangeEvent<HTMLInputElement>,
   ) => Promise<void>;
   onRemoveVariantImage: (variantIndex: number, imageIndex: number) => void;
+  /** رصيد كل متغير موجود (في التعديل) — للعرض فقط */
+  stockByVariantId?: Record<string, number>;
 }
 
 export default function ProductVariantsSection({
@@ -47,6 +49,7 @@ export default function ProductVariantsSection({
   hasVariants = false,
   onVariantImageChange,
   onRemoveVariantImage,
+  stockByVariantId,
 }: ProductVariantsSectionProps) {
   const { fields, append, remove } = useFieldArray({
     control,
@@ -364,7 +367,11 @@ export default function ProductVariantsSection({
                   <input
                     type="number"
                     readOnly
-                    value={0}
+                    value={
+                      (variants[index]?.id &&
+                        stockByVariantId?.[variants[index].id as string]) ||
+                      0
+                    }
                     className="w-full rounded-xl border border-gray-200 bg-gray-100/80 px-3 py-2 text-xs font-bold text-gray-500 cursor-not-allowed outline-hidden"
                   />
                 </div>

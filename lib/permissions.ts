@@ -33,8 +33,12 @@ export const PERMISSIONS = {
   "accounting.view": ["owner", "admin"],
   /** مصروفات، إيرادات أخرى، أصول، تحويل عملة */
   "accounting.manage": ["owner", "admin"],
-  /** الأرصدة الافتتاحية (نقدية، أصول قائمة، ديون موردين) — مرة واحدة عند بدء التشغيل */
-  "accounting.openingBalances": ["owner"],
+  /** الأرصدة الافتتاحية (فلوس ومخزون) — متكررة لاستكمال ما نُسي */
+  "accounting.openingBalances": ["owner", "admin"],
+  /** السلف والمستحقات (الموظفين بالراتب + مستحقات وسلف الخياطين) */
+  "payroll.manage": ["owner", "admin"],
+  /** المخزون الافتتاحي (يزيد الرصيد + قيد مدين المخزون / دائن رأس المال) */
+  "inventory.openingStock": ["owner", "admin"],
   /** تسجيل سعر الصرف */
   "exchangeRate.manage": ["owner", "admin"],
 
@@ -43,8 +47,6 @@ export const PERMISSIONS = {
 
   /** المنتجات والتصنيفات والموردين والمخزون وتسويته */
   "catalog.manage": ["owner", "admin"],
-  /** المخزون الافتتاحي (بيولّد قيد رأس مال) */
-  "inventory.openingStock": ["owner", "admin"],
 
   /** إدارة الكاشير والخياطين */
   "users.manageStaff": ["owner", "admin"],
@@ -59,8 +61,12 @@ export const PERMISSIONS = {
 
   /** إنشاء الطلبات وتحصيل الرصيد من العملاء */
   "tailoring.operate": ["owner", "admin", "cashier"],
-  /** إدارة طلبات التفصيل وصرف مستحقات الخياطين */
-  "tailoring.manage": ["owner", "admin"],
+  /**
+   * دورة التفصيل كاملة: إنشاء، تعديل، حالة، تسليم، تحصيل، إلغاء، استرداد،
+   * نقل عربون، استلام إنتاج، تحويل لمنتج.
+   * (مستحقات الخياطين وسلفهم = accounting.manage للمالك والمدير فقط)
+   */
+  "tailoring.manage": ["owner", "admin", "cashier"],
   /** عرض الطلبات (الخياط: طلباته فقط) وتحديث الحالة */
   "tailoring.view": ["owner", "admin", "cashier", "tailor"],
 
@@ -110,6 +116,7 @@ export function homePageFor(role: unknown) {
 const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permission }[] = [
   { prefix: "/dashboard", exact: true, permission: "dashboard.view" },
   { prefix: "/dashboard/accounting/opening-balances", permission: "accounting.openingBalances" },
+  { prefix: "/dashboard/employees/payroll", permission: "payroll.manage" },
   { prefix: "/dashboard/accounting", permission: "accounting.view" },
   { prefix: "/dashboard/reports", permission: "reports.view" },
   { prefix: "/dashboard/sales", permission: "sales.view" },

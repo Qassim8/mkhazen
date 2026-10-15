@@ -376,7 +376,7 @@ export async function notifyTailorPayment(input: {
 
     await insertRows([
       {
-        title: input.isAdvance ? "دفعة مقدمة للخياط" : "سداد مستحقات خياط",
+        title: input.isAdvance ? "سلفة للخياط" : "سداد مستحقات خياط",
         message: withActor(
           `تم دفع ${amount} ${currency} للخياط ${tailor?.name ?? ""}${orderPart}.`.replace(/\s+\./, "."),
           input.actor,
@@ -384,7 +384,7 @@ export async function notifyTailorPayment(input: {
         type: "TAILOR_PAYMENT",
         link: input.salesOrderId
           ? `/dashboard/tailoring/${input.salesOrderId}`
-          : "/dashboard/accounting/journals",
+          : "/dashboard/employees/payroll?tab=tailors",
         target_roles: null,
         metadata: {
           tailor_id: input.tailorId,

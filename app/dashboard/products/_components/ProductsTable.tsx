@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUSD } from "@/lib/currency";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -201,7 +202,7 @@ const ProductsTable = ({
             </span>
 
             <span className="text-[11px] text-gray-400">
-              تكلفة تبدأ من {minPurchasePrice.toLocaleString("en-US")} $
+              تكلفة تبدأ من {formatUSD(minPurchasePrice)}
             </span>
           </div>
         );

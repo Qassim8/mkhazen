@@ -19,7 +19,7 @@ import { runIdempotentRpc } from "@/lib/idempotency";
 import { dbErrorResponse, invalidJsonResponse, readJson } from "@/lib/api-response";
 import { openingBalancesSchema } from "@/app/dashboard/accounting/schemas/opening-balances.schema";
 
-const FORBIDDEN = "الأرصدة الافتتاحية متاحة للمالك فقط.";
+const FORBIDDEN = "الأرصدة الافتتاحية متاحة للمالك أو المدير فقط.";
 
 type Raw = Record<string, unknown>;
 

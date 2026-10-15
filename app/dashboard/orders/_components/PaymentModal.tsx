@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUSD } from "@/lib/currency";
 import { useEffect, useMemo, useState } from "react";
 
 import { useForm } from "react-hook-form";
@@ -106,9 +107,7 @@ export default function PaymentModal({
 
     if (paymentAmount > remainingAmount) {
       toast.error(
-        `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(
-          2,
-        )} $)`,
+        `مبلغ الدفعة أكبر من المبلغ المتبقي (${formatUSD(remainingAmount)})`,
       );
 
       return;
@@ -183,7 +182,7 @@ export default function PaymentModal({
               <span className="font-medium text-amber-700">المبلغ المتبقي</span>
 
               <span className="font-mono font-bold text-amber-800">
-                {remainingAmount.toFixed(2)} $
+                {formatUSD(remainingAmount)}
               </span>
             </div>
           </div>
@@ -309,7 +308,7 @@ export default function PaymentModal({
                 <span>المتبقي قبل الدفع</span>
 
                 <span className="font-mono font-semibold text-gray-900">
-                  {remainingAmount.toFixed(2)} $
+                  {formatUSD(remainingAmount)}
                 </span>
               </div>
 
@@ -317,7 +316,7 @@ export default function PaymentModal({
                 <span>الدفعة الحالية</span>
 
                 <span className="font-mono font-semibold text-emerald-600">
-                  {Math.max(amount, 0).toFixed(2)} $
+                  {formatUSD(Math.max(amount, 0))}
                 </span>
               </div>
 
@@ -325,7 +324,7 @@ export default function PaymentModal({
                 <span>المتبقي بعد الدفع</span>
 
                 <span className="font-mono">
-                  {remainingAfterPayment.toFixed(2)} $
+                  {formatUSD(remainingAfterPayment)}
                 </span>
               </div>
             </div>

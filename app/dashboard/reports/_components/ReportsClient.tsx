@@ -2,7 +2,7 @@
 
 /**
  * صفحة التقارير:
- * الملخص المالي • المبيعات حسب المنتج • المبيعات حسب التصنيف • المخزون
+ * الملخص المالي • المبيعات حسب المنتج • المبيعات حسب التصنيف • المخزون • الكاشير • الخياطين
  * + طباعة (التبويب الحالي) + تصدير Excel (كل الأقسام في ملف واحد)
  */
 
@@ -31,15 +31,19 @@ import {
   LuLayoutDashboard,
   LuPackage,
   LuPrinter,
+  LuScissors,
+  LuUserCheck,
 } from "react-icons/lu";
 
-import { formatSDG, formatUSD } from "@/lib/currency";
+import { formatNumber, formatSDG, formatUSD } from "@/lib/currency";
 import {
+  type CashierRow,
   type CategoryRow,
   type InventoryRow,
   type ProductRow,
   type ReportData,
   type ReportTab,
+  type TailorRow,
 } from "@/lib/reports/report-filters";
 import { exportReportXlsx } from "../services/reports.services";
 
@@ -51,13 +55,15 @@ const TABS: { id: ReportTab; label: string; icon: typeof LuPackage }[] = [
   { id: "products", label: "المبيعات حسب المنتج", icon: LuPackage },
   { id: "categories", label: "المبيعات حسب التصنيف", icon: LuChartPie },
   { id: "inventory", label: "المخزون", icon: LuBoxes },
+  { id: "cashiers", label: "تقارير الكاشير", icon: LuUserCheck },
+  { id: "tailors", label: "تقارير الخياطين", icon: LuScissors },
 ];
 
 const COLORS = ["#b99048", "#f02c76", "#16a34a", "#8b5cf6", "#0ea5e9", "#f59e0b", "#64748b", "#ef4444"];
 
 const qty = (value: number) =>
   new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
-const percent = (value: number) => `${value.toFixed(1)}%`;
+const percent = (value: number) => `${formatNumber(value, 1)}%`;
 const sum = <T,>(rows: T[], pick: (row: T) => number) => rows.reduce((a, r) => a + pick(r), 0);
 
 /* =====================================================================
@@ -501,6 +507,134 @@ function InventoryTab({ report }: { report: ReportData }) {
   );
 }
 
+function CashiersTab({ report }: { report: ReportData }) {
+  const rows = report.cashiers;
+  const invoices = sum(rows, (r) => r.invoices);
+  const revenueSdg = sum(rows, (r) => r.revenueSdg);
+  const revenueUsd = sum(rows, (r) => r.revenueUsd);
+
+  const columns: ReportColumn<CashierRow>[] = [
+    { key: "name", header: "الكاشير", value: (r) => r.name, className: "font-bold text-gray-900", total: "الإجمالي" },
+    { key: "invoices", header: "عدد الفواتير", align: "end", value: (r) => r.invoices, total: qty(invoices) },
+    { key: "quantity", header: "الكميات", align: "end", value: (r) => r.quantity, render: (r) => qty(r.quantity), total: qty(sum(rows, (r) => r.quantity)) },
+    { key: "revenueSdg", header: "الإيراد بالجنيه", align: "end", value: (r) => r.revenueSdg, render: (r) => formatSDG(r.revenueSdg), total: formatSDG(revenueSdg) },
+    { key: "revenueUsd", header: "الإيراد بالدولار", align: "end", value: (r) => r.revenueUsd, render: (r) => formatUSD(r.revenueUsd), total: formatUSD(revenueUsd) },
+    {
+      key: "avgInvoiceSdg",
+      header: "متوسط الفاتورة",
+      align: "end",
+      value: (r) => r.avgInvoiceSdg,
+      render: (r) => (
+        <span>
+          {formatSDG(r.avgInvoiceSdg)}
+          <span dir="ltr" className="block text-[10px] text-gray-400">{formatUSD(r.avgInvoiceUsd)}</span>
+        </span>
+      ),
+      total: invoices ? formatSDG(revenueSdg / invoices) : "",
+    },
+    { key: "discountsSdg", header: "الخصومات", align: "end", value: (r) => r.discountsSdg, render: (r) => formatSDG(r.discountsSdg), total: formatSDG(sum(rows, (r) => r.discountsSdg)) },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 print:hidden">
+        فواتير الكاشير المكتملة في الفترة لكل مستخدم، ولا يتأثر بفلتر التصنيف أو المنتج. الإيراد بعد الخصم.
+      </p>
+
+      {rows.length > 0 && (
+        <Section title="الإيراد حسب الكاشير">
+          <div className="h-72 rounded-2xl border border-gray-200 bg-white p-3 print:h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={rows} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value) => formatUSD(Number(value))} />
+                <Bar dataKey="revenueUsd" name="الإيراد" radius={[4, 4, 0, 0]}>
+                  {rows.map((row, index) => (
+                    <Cell key={row.cashierId} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Section>
+      )}
+
+      <Section title="تفاصيل أداء الكاشير">
+        <ReportTable
+          rows={rows}
+          columns={columns}
+          rowKey={(r) => r.cashierId}
+          showTotals
+          defaultSort={{ key: "revenueUsd", direction: "desc" }}
+        />
+      </Section>
+    </div>
+  );
+}
+
+function TailorsTab({ report }: { report: ReportData }) {
+  const rows = report.tailors;
+
+  const columns: ReportColumn<TailorRow>[] = [
+    { key: "name", header: "الخياط", value: (r) => r.name, className: "font-bold text-gray-900", total: "الإجمالي" },
+    { key: "executedOrders", header: "منفذة", align: "end", value: (r) => r.executedOrders, total: qty(sum(rows, (r) => r.executedOrders)) },
+    { key: "deliveredOrders", header: "مسلّمة", align: "end", value: (r) => r.deliveredOrders, total: qty(sum(rows, (r) => r.deliveredOrders)) },
+    { key: "producedPieces", header: "قطع التصنيع", align: "end", value: (r) => r.producedPieces, render: (r) => qty(r.producedPieces), total: qty(sum(rows, (r) => r.producedPieces)) },
+    { key: "revenueUsd", header: "إيراد طلباته", align: "end", value: (r) => r.revenueUsd, render: (r) => formatUSD(r.revenueUsd), total: formatUSD(sum(rows, (r) => r.revenueUsd)) },
+    { key: "wagesSdg", header: "الأجرة المستحقة", align: "end", value: (r) => r.wagesSdg, render: (r) => formatSDG(r.wagesSdg), total: formatSDG(sum(rows, (r) => r.wagesSdg)) },
+    {
+      key: "paidSdg",
+      header: "المدفوع والسلف",
+      align: "end",
+      value: (r) => r.paidSdg + r.advancesSdg,
+      render: (r) => (
+        <span>
+          {formatSDG(r.paidSdg)}
+          <span className="block text-[10px] font-semibold text-amber-700">سلف: {formatSDG(r.advancesSdg)}</span>
+        </span>
+      ),
+      total: `${formatSDG(sum(rows, (r) => r.paidSdg))} + ${formatSDG(sum(rows, (r) => r.advancesSdg))}`,
+    },
+    {
+      key: "remainingSdg",
+      header: "المتبقي",
+      align: "end",
+      value: (r) => r.remainingSdg,
+      render: (r) => <span className={r.remainingSdg > 0 ? "font-bold text-red-600" : ""}>{formatSDG(r.remainingSdg)}</span>,
+      total: formatSDG(sum(rows, (r) => r.remainingSdg)),
+    },
+    {
+      key: "overdueOrders",
+      header: "متأخرة",
+      align: "end",
+      value: (r) => r.overdueOrders,
+      render: (r) => <span className={r.overdueOrders > 0 ? "font-bold text-red-600" : ""}>{r.overdueOrders}</span>,
+      total: qty(sum(rows, (r) => r.overdueOrders)),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 print:hidden">
+        المنفذة = طلبات ثُبتت أجرتها في الفترة (تسليم أو تصنيع أو تحويل لمنتج). المسلّمة وإيرادها = طلبات العملاء المسلّمة في الفترة.
+        المدفوع والسلف خلال الفترة، أما المتبقي والطلبات المتأخرة فهي الوضع الحالي.
+      </p>
+
+      <Section title="تفاصيل أداء الخياطين">
+        <ReportTable
+          rows={rows}
+          columns={columns}
+          rowKey={(r) => r.tailorId}
+          showTotals
+          defaultSort={{ key: "revenueUsd", direction: "desc" }}
+        />
+      </Section>
+    </div>
+  );
+}
+
 /* =====================================================================
    الصفحة
 ===================================================================== */
@@ -617,6 +751,8 @@ export default function ReportsClient({ report, filterLabels, initialTab }: Prop
         {tab === "products" && <ProductsTab report={report} />}
         {tab === "categories" && <CategoriesTab report={report} />}
         {tab === "inventory" && <InventoryTab report={report} />}
+        {tab === "cashiers" && <CashiersTab report={report} />}
+        {tab === "tailors" && <TailorsTab report={report} />}
       </div>
 
       <style jsx global>{`

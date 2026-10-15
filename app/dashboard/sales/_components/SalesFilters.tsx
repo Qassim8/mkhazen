@@ -19,7 +19,11 @@ function updateParams(
   return params;
 }
 
-export default function SalesFilters() {
+export default function SalesFilters({
+  cashiers = [],
+}: {
+  cashiers?: { id: string; name: string }[];
+}) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -39,7 +43,7 @@ export default function SalesFilters() {
       <div className="flex flex-col gap-3">
         <SalesSearchInput key={searchParams.get("search") ?? ""} />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
           <select
             value={searchParams.get("orderType") ?? ""}
             onChange={(event) => handleSelect("orderType", event.target.value)}
@@ -75,6 +79,20 @@ export default function SalesFilters() {
             <option value="CARD">بطاقة</option>
             <option value="BANK_TRANSFER">حوالة / البنك</option>
             <option value="MIXED">دفع مختلط</option>
+          </select>
+
+          <select
+            value={searchParams.get("cashierId") ?? ""}
+            onChange={(event) => handleSelect("cashierId", event.target.value)}
+            className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none"
+            aria-label="الكاشير"
+          >
+            <option value="">كل الكاشير</option>
+            {cashiers.map((cashier) => (
+              <option key={cashier.id} value={cashier.id}>
+                {cashier.name}
+              </option>
+            ))}
           </select>
 
           <div>

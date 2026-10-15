@@ -31,13 +31,16 @@ export const M = {
   openingBalances: join(MIGRATIONS_DIR, "20261010_05_opening_balances.sql"),
   openingBalancesRollback: join(MIGRATIONS_DIR, "20261010_05_opening_balances.rollback.sql"),
   reassert: join(MIGRATIONS_DIR, "20261010_06_reassert_api_acl.sql"),
+  tailorDues: join(MIGRATIONS_DIR, "20261013_01_tailor_dues_and_deposit.sql"),
+  depositGiftsPayroll: join(MIGRATIONS_DIR, "20261014_01_deposit_gifts_opening_payroll.sql"),
+  openingRepeatable: join(MIGRATIONS_DIR, "20261015_01_opening_repeatable_payroll_list.sql"),
   guard: join(MIGRATIONS_DIR, "20261010_07_acl_guard_event_trigger.sql"),
   dupTrigger: join(MIGRATIONS_DIR, "20261010_08_drop_duplicate_users_trigger.sql"),
   verify: join(MIGRATIONS_DIR, "20261010_verify.sql"),
 } as const;
 
 /** The mandatory release sequence, in filename order (07/08 are optional). */
-export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.reassert];
+export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.reassert];
 
 const ROLES_SQL = `
 DO $$ BEGIN

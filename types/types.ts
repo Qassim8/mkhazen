@@ -66,6 +66,15 @@ export interface Employee {
   role?: "owner" | "admin" | "tailor" | "cashier";
   status?: "active" | "inactive";
   isActive?: "TRUE" | "FALSE" | boolean;
+  canLogin?: boolean;
+  /** ملخص الشهر الحالي (من الرواتب والسلف) */
+  monthSummary?: {
+    kind: "SALARY" | "TAILOR";
+    /** الراتب، أو مستحقات الخياط في الشهر */
+    dueSdg: number;
+    takenSdg: number;
+    remainingSdg: number;
+  };
   resetRequested?: boolean;
   job?: string;
   department?: string;

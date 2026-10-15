@@ -27,12 +27,14 @@ import {
 import {
   REPORT_PRESETS,
   localStartUtc,
+  type CashierRow,
   type CategoryRow,
   type InventoryRow,
   type ProductRow,
   type ReportData,
   type ReportFilters,
   type StockStatus,
+  type TailorRow,
   type TrendPoint,
 } from "./report-filters";
 
@@ -139,6 +141,8 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       id: string;
       order_type: string;
       tailoring_purpose: string | null;
+      cashier_id: string | null;
+      tailor_id: string | null;
       subtotal: number;
       discount_amount: number;
       total_amount: number;
@@ -147,7 +151,7 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
     }>((from, to) =>
       supabaseAdmin
         .from("sales_orders")
-        .select("id, order_type, tailoring_purpose, subtotal, discount_amount, total_amount, total_amount_usd, exchange_rate_used")
+        .select("id, order_type, tailoring_purpose, cashier_id, tailor_id, subtotal, discount_amount, total_amount, total_amount_usd, exchange_rate_used")
         .eq("branch_id", MAIN_BRANCH_ID)
         .eq("status", "COMPLETED")
         .gte("completed_at", startIso)
@@ -445,6 +449,203 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
 
   const inventoryValueUsd = r2(inventory.reduce((sum, row) => sum + row.valueUsd, 0));
 
+  /* ---------------- تقارير الكاشير والخياطين ---------------- */
+
+  const orderUsd = (o: { total_amount: number; total_amount_usd: number | null; exchange_rate_used: number | null }) =>
+    o.total_amount_usd != null
+      ? num(o.total_amount_usd)
+      : o.exchange_rate_used
+        ? num(o.total_amount) / num(o.exchange_rate_used)
+        : 0;
+
+  // الطلبات اللي ثُبتت أجرة خياطها في الفترة
+  const laborOrderIds = [
+    ...new Set(
+      entries
+        .filter((e) => e.entry_type === "TAILOR_COST" && e.credit_account === "TAILORS_PAYABLE" && e.sales_order_id)
+        .map((e) => e.sales_order_id as string),
+    ),
+  ];
+  const todayLocal = new Date(Date.now() + TZ_OFFSET_MS).toISOString().slice(0, 10);
+
+  const [staff, laborOrders, tailorPayments, overdueOrders, duesResult] = await Promise.all([
+    fetchAll<{ id: string; name: string | null; role: string | null }>((from, to) =>
+      supabaseAdmin
+        .from("users")
+        .select("id, name, role")
+        .eq("branchId", MAIN_BRANCH_ID)
+        .order("id")
+        .range(from, to),
+    ),
+    fetchIn<{
+      id: string;
+      tailor_id: string | null;
+      tailoring_purpose: string | null;
+      tailoring_cost: number | null;
+      tailoring_cost_sdg: number | null;
+      exchange_rate_used: number | null;
+      produced_quantity: number | null;
+    }>(laborOrderIds, (chunk, from, to) =>
+      supabaseAdmin
+        .from("sales_orders")
+        .select("id, tailor_id, tailoring_purpose, tailoring_cost, tailoring_cost_sdg, exchange_rate_used, produced_quantity")
+        .in("id", chunk)
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAll<{
+      tailor_id: string;
+      payment_type: string;
+      amount: number;
+      amount_original: number | null;
+      currency: string;
+      exchange_rate_used: number | null;
+    }>((from, to) =>
+      supabaseAdmin
+        .from("tailor_commission_payments")
+        .select("id, tailor_id, payment_type, amount, amount_original, currency, exchange_rate_used")
+        .eq("branch_id", MAIN_BRANCH_ID)
+        .gte("created_at", startIso)
+        .lt("created_at", endIso)
+        .order("id")
+        .range(from, to),
+    ),
+    fetchAll<{ id: string; tailor_id: string | null }>((from, to) =>
+      supabaseAdmin
+        .from("sales_orders")
+        .select("id, tailor_id")
+        .eq("branch_id", MAIN_BRANCH_ID)
+        .eq("order_type", "TAILORING")
+        .in("tailoring_status", ["NEW", "UNDER_TAILORING", "READY_FOR_PICKUP"])
+        .lt("expected_delivery_date", todayLocal)
+        .order("id")
+        .range(from, to),
+    ),
+    supabaseAdmin.rpc("get_tailor_dues", { p_branch_id: MAIN_BRANCH_ID, p_tailor_id: null }),
+  ]);
+
+  if (duesResult.error) throw new Error(`تعذر جلب مستحقات الخياطين: ${duesResult.error.message}`);
+
+  const staffById = new Map(staff.map((u) => [u.id, u]));
+  const staffName = (id: string) => staffById.get(id)?.name ?? "مستخدم محذوف";
+
+  // الكاشير
+  const itemQtyByOrder = new Map<string, number>();
+  for (const item of items) {
+    if (item.is_gift) continue;
+    itemQtyByOrder.set(item.sales_order_id, (itemQtyByOrder.get(item.sales_order_id) ?? 0) + num(item.quantity));
+  }
+
+  const cashierAgg = new Map<string, CashierRow>();
+  for (const order of posOrders) {
+    const key = order.cashier_id ?? "unknown";
+    const row =
+      cashierAgg.get(key) ??
+      {
+        cashierId: key,
+        name: order.cashier_id ? staffName(order.cashier_id) : "غير محدد",
+        invoices: 0,
+        quantity: 0,
+        revenueSdg: 0,
+        revenueUsd: 0,
+        avgInvoiceSdg: 0,
+        avgInvoiceUsd: 0,
+        discountsSdg: 0,
+      };
+    row.invoices += 1;
+    row.quantity += itemQtyByOrder.get(order.id) ?? 0;
+    row.revenueSdg += num(order.total_amount);
+    row.revenueUsd += orderUsd(order);
+    row.discountsSdg += num(order.discount_amount);
+    cashierAgg.set(key, row);
+  }
+
+  const cashiers: CashierRow[] = [...cashierAgg.values()]
+    .map((row) => ({
+      ...row,
+      quantity: r2(row.quantity),
+      revenueSdg: r2(row.revenueSdg),
+      revenueUsd: r2(row.revenueUsd),
+      avgInvoiceSdg: row.invoices ? r2(row.revenueSdg / row.invoices) : 0,
+      avgInvoiceUsd: row.invoices ? r2(row.revenueUsd / row.invoices) : 0,
+      discountsSdg: r2(row.discountsSdg),
+    }))
+    .sort((a, b) => b.revenueUsd - a.revenueUsd);
+
+  // الخياطين
+  const tailorAgg = new Map<string, TailorRow>();
+  const tailorRow = (id: string) => {
+    const existing = tailorAgg.get(id);
+    if (existing) return existing;
+    const row: TailorRow = {
+      tailorId: id,
+      name: staffName(id),
+      executedOrders: 0,
+      deliveredOrders: 0,
+      producedPieces: 0,
+      revenueUsd: 0,
+      wagesSdg: 0,
+      paidSdg: 0,
+      advancesSdg: 0,
+      remainingSdg: 0,
+      overdueOrders: 0,
+    };
+    tailorAgg.set(id, row);
+    return row;
+  };
+
+  for (const user of staff) {
+    if (String(user.role ?? "").toLowerCase() === "tailor") tailorRow(user.id);
+  }
+
+  for (const order of laborOrders) {
+    if (!order.tailor_id) continue;
+    const row = tailorRow(order.tailor_id);
+    row.executedOrders += 1;
+    row.wagesSdg +=
+      order.tailoring_cost_sdg != null
+        ? num(order.tailoring_cost_sdg)
+        : num(order.tailoring_cost) * num(order.exchange_rate_used);
+    if (order.tailoring_purpose === "PRODUCTION") row.producedPieces += num(order.produced_quantity);
+  }
+
+  for (const order of orders) {
+    if (order.order_type !== "TAILORING" || order.tailoring_purpose !== "CUSTOMER" || !order.tailor_id) continue;
+    const row = tailorRow(order.tailor_id);
+    row.deliveredOrders += 1;
+    row.revenueUsd += orderUsd(order);
+  }
+
+  for (const payment of tailorPayments) {
+    const row = tailorRow(payment.tailor_id);
+    const sdg =
+      payment.currency === "SDG" && payment.amount_original != null
+        ? num(payment.amount_original)
+        : num(payment.amount) * num(payment.exchange_rate_used);
+    if (payment.payment_type === "DUES_ADVANCE") row.advancesSdg += sdg;
+    else row.paidSdg += sdg;
+  }
+
+  for (const order of overdueOrders) {
+    if (order.tailor_id) tailorRow(order.tailor_id).overdueOrders += 1;
+  }
+
+  for (const due of (duesResult.data ?? []) as { tailor_id: string; remaining_sdg: number }[]) {
+    tailorRow(due.tailor_id).remainingSdg = num(due.remaining_sdg);
+  }
+
+  const tailors: TailorRow[] = [...tailorAgg.values()]
+    .map((row) => ({
+      ...row,
+      producedPieces: r2(row.producedPieces),
+      revenueUsd: r2(row.revenueUsd),
+      wagesSdg: r2(row.wagesSdg),
+      paidSdg: r2(row.paidSdg),
+      advancesSdg: r2(row.advancesSdg),
+      remainingSdg: r2(row.remainingSdg),
+    }))
+    .sort((a, b) => b.revenueUsd - a.revenueUsd || b.wagesSdg - a.wagesSdg);
+
   /* ---------------- النتيجة ---------------- */
 
   const posTotalsUsd = posOrders.reduce(
@@ -503,6 +704,8 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
     products,
     categories: categoriesReport,
     inventory,
+    cashiers,
+    tailors,
     inventoryTotals: {
       variants: inventory.length,
       units: r2(inventory.reduce((sum, row) => sum + Math.max(row.stock, 0), 0)),

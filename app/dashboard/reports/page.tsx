@@ -29,7 +29,11 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   const tabParam = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const initialTab =
-    tabParam === "products" || tabParam === "categories" || tabParam === "inventory"
+    tabParam === "products" ||
+    tabParam === "categories" ||
+    tabParam === "inventory" ||
+    tabParam === "cashiers" ||
+    tabParam === "tailors"
       ? tabParam
       : "summary";
 

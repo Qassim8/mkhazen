@@ -111,6 +111,8 @@ export interface SalesOrder {
 
 export interface SalesOrdersResponse {
   data: SalesOrderListItem[];
+  /** خيارات فلتر الكاشير */
+  cashiers?: { id: string; name: string }[];
   pagination: {
     total: number;
     page: number;
@@ -227,6 +229,7 @@ export interface GetSalesParams {
   paymentStatus?: PaymentStatus | "ALL";
   paymentMethod?: PaymentMethod | "ALL";
   orderType?: SalesOrderType;
+  cashierId?: string;
   fromDate?: string;
   toDate?: string;
   sort?: "date-desc" | "date-asc";
@@ -308,6 +311,7 @@ export async function getSalesOrders(
             ? params.paymentMethod
             : undefined,
         orderType: params?.orderType,
+        cashierId: params?.cashierId || undefined,
         fromDate: params?.fromDate,
         toDate: params?.toDate,
         sort: params?.sort,

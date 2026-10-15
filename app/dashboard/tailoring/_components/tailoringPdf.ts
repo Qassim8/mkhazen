@@ -1,4 +1,6 @@
 import type { TailoringOrder } from "../schemas/tailoring.schemas";
+import { formatQuantity, formatSDG } from "@/lib/currency";
+import { STORE_INFO } from "@/lib/store";
 
 const PAGE_WIDTH = 1654;
 const PAGE_HEIGHT = 2339;
@@ -7,7 +9,17 @@ const PDF_HEIGHT = 841.89;
 const MARGIN = 90;
 
 function money(value: number) {
-  return `${value.toFixed(2)} ج.س`;
+  return formatSDG(value);
+}
+
+/** لوقو المتجر (لو فشل التحميل يكمل الـ PDF بدونه) */
+function loadLogo(): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = STORE_INFO.logo;
+  });
 }
 
 function formatDate(value: string) {
@@ -81,7 +93,17 @@ function roundedRect(
   ctx.closePath();
 }
 
-function drawHeader(ctx: CanvasRenderingContext2D, order: TailoringOrder) {
+function drawHeader(
+  ctx: CanvasRenderingContext2D,
+  order: TailoringOrder,
+  logo: HTMLImageElement | null,
+) {
+  if (logo && logo.naturalHeight > 0) {
+    const height = 130;
+    const width = (logo.naturalWidth / logo.naturalHeight) * height;
+    ctx.drawImage(logo, MARGIN, 45, width, height);
+  }
+
   ctx.fillStyle = "#111827";
   ctx.textAlign = "right";
   ctx.direction = "rtl";
@@ -141,7 +163,11 @@ function drawKeyValue(
   return y + 58;
 }
 
-function createPage(order: TailoringOrder, pageNumber: number) {
+function createPage(
+  order: TailoringOrder,
+  pageNumber: number,
+  logo: HTMLImageElement | null = null,
+) {
   const canvas = document.createElement("canvas");
   canvas.width = PAGE_WIDTH;
   canvas.height = PAGE_HEIGHT;
@@ -153,7 +179,7 @@ function createPage(order: TailoringOrder, pageNumber: number) {
   ctx.fillRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
   ctx.direction = "rtl";
 
-  drawHeader(ctx, order);
+  drawHeader(ctx, order, logo);
 
   let y = 280;
 
@@ -243,7 +269,7 @@ function createPage(order: TailoringOrder, pageNumber: number) {
   ctx.fillStyle = "#374151";
   ctx.font = "700 25px Arial, sans-serif";
   const fabricText = order.fabric
-    ? `${order.fabric.name} — ${order.fabricQuantity?.toFixed(2) ?? "0.00"} متر`
+    ? `${order.fabric.name} — ${formatQuantity(order.fabricQuantity ?? 0)} متر`
     : "العميل أحضر القماش من الخارج";
 
   const fabricLines = wrapText(ctx, fabricText, PAGE_WIDTH - MARGIN * 2 - 100);
@@ -293,8 +319,12 @@ function createPage(order: TailoringOrder, pageNumber: number) {
     }
   }
 
-  ctx.fillStyle = "#9ca3af";
+  ctx.fillStyle = "#374151";
   ctx.textAlign = "center";
+  ctx.font = "700 26px Arial, sans-serif";
+  ctx.fillText(`${STORE_INFO.name} — للتواصل: ${STORE_INFO.phone}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 90);
+
+  ctx.fillStyle = "#9ca3af";
   ctx.font = "600 20px Arial, sans-serif";
   ctx.fillText(`صفحة ${pageNumber}`, PAGE_WIDTH / 2, PAGE_HEIGHT - 45);
 
@@ -412,7 +442,7 @@ function jpegPdf(jpegs: { bytes: Uint8Array; width: number; height: number }[]) 
 }
 
 export async function createTailoringCustomerPdf(order: TailoringOrder) {
-  const canvas = createPage(order, 1);
+  const canvas = createPage(order, 1, await loadLogo());
   const jpeg = canvas.toDataURL("image/jpeg", 0.93);
 
   return jpegPdf([

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQuantity } from "@/lib/currency";
 import BackLink from "@/components/shared/BackLink";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -281,7 +282,7 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
           <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-black text-gray-900">المقاسات</h2>
-              <span className="rounded-lg bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-500">الإجمالي التقريبي: {measurementMeters.toFixed(2)} متر</span>
+              <span className="rounded-lg bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-500">الإجمالي التقريبي: {formatQuantity(measurementMeters)} متر</span>
             </div>
             <div className="space-y-3">
               {fields.map((field, index) => (
@@ -327,7 +328,7 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
                   </label>
                   <div className="rounded-xl bg-gray-50 p-3">
                     <p className="text-[11px] font-bold text-gray-400">الحد المسموح</p>
-                    <p className="mt-1 text-sm font-black text-gray-900">{maxFabricQuantity.toFixed(2)} متر</p>
+                    <p className="mt-1 text-sm font-black text-gray-900">{formatQuantity(maxFabricQuantity)} متر</p>
                   </div>
                 </div>
               </div>

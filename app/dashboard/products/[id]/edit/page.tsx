@@ -33,19 +33,19 @@ export default async function EditProductPage({
   const suppliers = suppliersResponse?.data ?? [];
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-      <div className="border-b border-gray-100 pb-4">
-        <div className="mb-3">
-          <BackLink href="/dashboard/products" label="العودة إلى المنتجات" />
+    <div className="space-y-6 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+        <div>
+          <div className="mb-3">
+            <BackLink href="/dashboard/products" label="العودة إلى المنتجات" />
+          </div>
+          <h1 className="text-2xl font-black text-gray-950">تعديل المنتج</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            تحديث بيانات{" "}
+            <span className="font-semibold text-gray-700">{product.name}</span>{" "}
+            والأسعار والخيارات المرتبطة به.
+          </p>
         </div>
-
-        <h1 className="text-2xl font-bold text-gray-900">تعديل المنتج</h1>
-
-        <p className="mt-1 text-sm text-gray-500">
-          تحديث بيانات{" "}
-          <span className="font-semibold text-gray-700">{product.name}</span>{" "}
-          والأسعار والخيارات المرتبطة به.
-        </p>
       </div>
 
       <EditProductForm
@@ -53,6 +53,6 @@ export default async function EditProductPage({
         categories={categories}
         suppliers={suppliers}
       />
-    </main>
+    </div>
   );
 }

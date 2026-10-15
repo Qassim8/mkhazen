@@ -17,7 +17,7 @@ import {
 } from "../schemas/tailoring.schemas";
 import { createTailoringOrder } from "../services/tailoring.services";
 import { useIdempotencyKey } from "@/lib/use-idempotency-key";
-import { formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
+import { formatQuantity, formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import ExchangeRateBadge from "@/components/shared/ExchangeRateBadge";
 import CustomerPicker from "@/app/dashboard/customers/_components/CustomerPicker";
@@ -144,6 +144,7 @@ export default function NewTailoringOrderForm({
       fabricVariantId: null,
       fabricQuantity: "",
       totalAmount: "",
+      depositAmount: "",
       tailoringCost: "",
       paymentMethod: "CASH",
       notes: "",
@@ -160,6 +161,7 @@ export default function NewTailoringOrderForm({
   const measurements =
     useWatch({ control, name: "measurements" }) ?? NO_MEASUREMENTS;
   const totalAmountValue = useWatch({ control, name: "totalAmount" });
+  const depositAmountValue = useWatch({ control, name: "depositAmount" });
   const tailoringCostValue = useWatch({ control, name: "tailoringCost" });
   const selectedFabricId = useWatch({ control, name: "fabricVariantId" });
   const intakeDate = useWatch({ control, name: "intakeDate" });
@@ -221,7 +223,10 @@ export default function NewTailoringOrderForm({
 
   const maxFabricQuantity = Number((measurementMeters + 1).toFixed(2));
   const totalAmount = Number(totalAmountValue || 0);
-  const deposit = Number((totalAmount * 0.5).toFixed(2));
+  // الطلب البديل: كامل الرصيد المنقول + عربون إضافي اختياري
+  const transferredDeposit = advanceSource?.customerAdvanceAvailable ?? 0;
+  const extraDeposit = Number(Number(depositAmountValue || 0).toFixed(2));
+  const deposit = Number((transferredDeposit + extraDeposit).toFixed(2));
   const tailoringCost = Number(tailoringCostValue || 0);
 
   // سعر الطلب للزبون بالجنيه، وأجرة الخياط والقماش بالدولار
@@ -313,18 +318,24 @@ export default function NewTailoringOrderForm({
 
       const requestedTotal =
         values.tailoringPurpose === "CUSTOMER" ? Number(values.totalAmount) : 0;
-      const requiredDeposit = Number((requestedTotal * 0.5).toFixed(2));
-      if (
-        advanceSource &&
-        advanceSource.customerAdvanceAvailable < requiredDeposit
-      ) {
+      const requiredDeposit =
+        values.tailoringPurpose === "CUSTOMER"
+          ? Number(Number(values.depositAmount).toFixed(2))
+          : 0;
+      if (advanceSource && transferredDeposit > requestedTotal) {
         toast.error(
-          `الرصيد المتاح من الطلب السابق ${advanceSource.customerAdvanceAvailable.toFixed(2)} ج.س لا يغطي عربون الطلب الجديد ${requiredDeposit.toFixed(2)} ج.س. خفّض قيمة الطلب أو استرد العربون أولًا.`,
+          `العربون المنقول ${formatSDG(transferredDeposit)} أكبر من إجمالي الطلب الجديد ${formatSDG(requestedTotal)}. استرد الفرق ${formatSDG(transferredDeposit - requestedTotal)} من الطلب الملغي أولًا.`,
         );
         return;
       }
-
-      const transferDeposit = advanceSource ? requiredDeposit : null;
+      if (requestedTotal > 0 && transferredDeposit + requiredDeposit > requestedTotal) {
+        toast.error(
+          advanceSource
+            ? "مجموع العربون المنقول والإضافي لا يمكن أن يتجاوز المبلغ الإجمالي."
+            : "العربون لا يمكن أن يتجاوز المبلغ الإجمالي.",
+        );
+        return;
+      }
 
       const payload = {
         tailoringItemName: values.tailoringItemName.trim(),
@@ -357,13 +368,11 @@ export default function NewTailoringOrderForm({
             ? Number(values.totalAmount)
             : 0,
         depositAmount:
-          values.tailoringPurpose === "CUSTOMER"
-            ? (transferDeposit ??
-              Number((Number(values.totalAmount) * 0.5).toFixed(2)))
-            : 0,
+          values.tailoringPurpose === "CUSTOMER" ? requiredDeposit : 0,
         tailoringCost: Number(values.tailoringCost),
         paymentMethod:
-          values.tailoringPurpose === "CUSTOMER" && !advanceSource
+          values.tailoringPurpose === "CUSTOMER" &&
+          (!advanceSource || requiredDeposit > 0)
             ? values.paymentMethod
             : null,
         notes: values.notes.trim() || null,
@@ -375,7 +384,11 @@ export default function NewTailoringOrderForm({
         });
         idempotency.reset();
         toast.success(`تم إنشاء الطلب ${response.data.order_number} بنجاح.`);
-        router.push(`/dashboard/tailoring/${response.data.id}`);
+        router.push(
+          values.tailoringPurpose === "CUSTOMER"
+            ? `/dashboard/tailoring/${response.data.id}?print=1`
+            : `/dashboard/tailoring/${response.data.id}`,
+        );
         router.refresh();
       } catch (error: unknown) {
         console.error("Create tailoring order:", error);
@@ -408,7 +421,7 @@ export default function NewTailoringOrderForm({
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               {advanceSource
-                ? `سيتم نقل الرصيد المتاح من العربون في الطلب ${advanceSource.orderNumber} إلى الطلب الجديد بدون تحصيل مبلغ جديد من العميل.`
+                ? `سيتم نقل كامل رصيد العربون من الطلب ${advanceSource.orderNumber} إلى الطلب الجديد، ويمكن تحصيل عربون إضافي اختياري.`
                 : canManageAll
                   ? "سجل طلب العميل أو أضف طلب تصنيع للمخزون وحدد الخياط المسؤول."
                   : "سجل طلب العميل وحدد الخياط المسؤول وتفاصيل التسليم."}
@@ -433,10 +446,9 @@ export default function NewTailoringOrderForm({
             <strong>{advanceSource.customerName}</strong>
           </p>
           <p className="mt-1 text-xs font-bold text-blue-800">
-            الرصيد المتاح: {advanceSource.customerAdvanceAvailable.toFixed(2)}{" "}
-            ج.س. لن يتم تحصيله مرة ثانية. حتى يتم إنشاء الطلب بدون دفع جديد يجب
-            ألا يتجاوز إجماليه{" "}
-            {(advanceSource.customerAdvanceAvailable * 2).toFixed(2)} ج.س.
+            العربون المنقول بالكامل: {formatSDG(advanceSource.customerAdvanceAvailable)}.
+            سعر الطلب الجديد حر، ويجب ألا يقل عن العربون المنقول (وإلا استرد الفرق
+            أولًا من الطلب الملغي).
           </p>
         </section>
       )}
@@ -658,7 +670,7 @@ export default function NewTailoringOrderForm({
                   مجموع المقاسات
                 </p>
                 <p className="mt-1 text-lg font-black text-gray-900">
-                  {measurementMeters.toFixed(2)} متر
+                  {formatQuantity(measurementMeters)} متر
                 </p>
               </div>
               <div className="rounded-xl bg-gray-50 p-3">
@@ -666,7 +678,7 @@ export default function NewTailoringOrderForm({
                   أقصى كمية قماش مسموحة
                 </p>
                 <p className="mt-1 text-lg font-black text-gray-900">
-                  {maxFabricQuantity.toFixed(2)} متر
+                  {formatQuantity(maxFabricQuantity)} متر
                 </p>
               </div>
             </div>
@@ -732,7 +744,7 @@ export default function NewTailoringOrderForm({
                     <InlineError message={errors.fabricQuantity?.message} />
                     {selectedFabricId && !errors.fabricQuantity && (
                       <p className="mt-1 text-[11px] text-gray-400">
-                        الافتراضي {measurementMeters.toFixed(2)} متر، والحد
+                        الافتراضي {formatQuantity(measurementMeters)} متر، والحد
                         الأعلى مجموع المقاسات + 1 متر.
                       </p>
                     )}
@@ -742,12 +754,12 @@ export default function NewTailoringOrderForm({
                       الحد المسموح
                     </p>
                     <p className="mt-1 text-sm font-black text-gray-900">
-                      {maxFabricQuantity.toFixed(2)} متر
+                      {formatQuantity(maxFabricQuantity)} متر
                     </p>
                     {selectedFabric && (
                       <p className="mt-2 text-[11px] text-gray-500">
                         المتوفر حاليًا:{" "}
-                        {selectedFabric.stockQuantity.toFixed(2)}{" "}
+                        {formatQuantity(selectedFabric.stockQuantity)}{" "}
                         {selectedFabric.sellingUnit ?? "وحدة"}
                       </p>
                     )}
@@ -810,13 +822,29 @@ export default function NewTailoringOrderForm({
                   />
                   <InlineError message={errors.totalAmount?.message} />
                 </label>
+                <label className="block">
+                  <span className="text-xs font-bold text-gray-600">
+                    {advanceSource ? "عربون إضافي (اختياري)" : "العربون المدفوع"}
+                  </span>
+                  <input
+                    {...register("depositAmount")}
+                    disabled={isSubmitting}
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="مبلغ العربون"
+                    className={inputClass(Boolean(errors.depositAmount))}
+                  />
+                  <InlineError message={errors.depositAmount?.message} />
+                </label>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl bg-gray-50 p-3">
                     <p className="text-[11px] font-bold text-gray-400">
                       الإجمالي
                     </p>
                     <p dir="ltr" className="mt-1 text-sm font-black">
-                      {totalAmount.toFixed(2)} ج.س
+                      {formatSDG(totalAmount)}
                     </p>
                     {exchangeRate && totalAmount > 0 && (
                       <p
@@ -835,14 +863,7 @@ export default function NewTailoringOrderForm({
                       dir="ltr"
                       className="mt-1 text-sm font-black text-emerald-700"
                     >
-                      {(advanceSource
-                        ? Math.min(
-                            advanceSource.customerAdvanceAvailable,
-                            totalAmount * 0.5,
-                          )
-                        : deposit
-                      ).toFixed(2)}{" "}
-                      ج.س
+                      {formatSDG(deposit)}
                     </p>
                   </div>
                   <div className="rounded-xl bg-red-50 p-3">
@@ -853,32 +874,21 @@ export default function NewTailoringOrderForm({
                       dir="ltr"
                       className="mt-1 text-sm font-black text-red-600"
                     >
-                      {Number(
-                        Math.max(
-                          totalAmount -
-                            (advanceSource
-                              ? Math.min(
-                                  advanceSource.customerAdvanceAvailable,
-                                  totalAmount * 0.5,
-                                )
-                              : deposit),
-                          0,
-                        ).toFixed(2),
-                      )}{" "}
-                      ج.س
+                      {formatSDG(Math.max(totalAmount - deposit, 0))}
                     </p>
                   </div>
                 </div>
-                {advanceSource ? (
+                {advanceSource && (
                   <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs font-semibold text-blue-800">
-                    لن يتم تحصيل عربون جديد. سيتم فقط نقل الرصيد المتاح من الطلب
-                    المصدر إلى هذا الطلب، بما لا يتجاوز 50% من قيمة الطلب
-                    الجديد.
+                    العربون = المنقول {formatSDG(transferredDeposit)} + الإضافي{" "}
+                    {formatSDG(extraDeposit)}. الإضافي يُحصَّل بالجنيه بطريقة الدفع
+                    المختارة.
                   </div>
-                ) : (
+                )}
+                {(!advanceSource || extraDeposit > 0) && (
                   <label className="block">
                     <span className="text-xs font-bold text-gray-600">
-                      طريقة دفع العربون
+                      {advanceSource ? "طريقة دفع العربون الإضافي" : "طريقة دفع العربون"}
                     </span>
                     <select
                       {...register("paymentMethod")}
@@ -898,7 +908,7 @@ export default function NewTailoringOrderForm({
 
             <label className="block">
               <span className="text-xs font-bold text-gray-600">
-                أجرة الخياطة المتفق عليها مع الترزي (بالجنيه ج.س)
+                أجرة الخياطة المتفق عليها مع الخياط (بالجنيه ج.س)
               </span>
               <input
                 {...register("tailoringCost")}
@@ -967,7 +977,7 @@ export default function NewTailoringOrderForm({
           : purpose === "CUSTOMER"
             ? advanceSource
               ? "إنشاء الطلب ونقل العربون"
-              : "إنشاء الطلب وتحصيل العربون 50%"
+              : "إنشاء الطلب وتحصيل العربون"
             : "إنشاء طلب تصنيع للمخزون"}
       </button>
     </form>

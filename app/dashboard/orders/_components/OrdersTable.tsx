@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUSD } from "@/lib/currency";
 import { useState } from "react";
 
 import { useRouter } from "next/navigation";
@@ -197,9 +198,7 @@ function ReceivePurchaseModal({
 
     if (paymentEnabled && data.amount > remainingAmount) {
       toast.error(
-        `مبلغ الدفعة أكبر من المبلغ المتبقي (${remainingAmount.toFixed(
-          2,
-        )} $)`,
+        `مبلغ الدفعة أكبر من المبلغ المتبقي (${formatUSD(remainingAmount)})`,
       );
 
       return;
@@ -301,7 +300,7 @@ function ReceivePurchaseModal({
                 <p className="text-xs text-gray-500">إجمالي الطلب</p>
 
                 <p className="mt-1 font-mono font-bold text-gray-900">
-                  {Number(order.totalAmount).toFixed(2)} $
+                  {formatUSD(order.totalAmount)}
                 </p>
               </div>
 
@@ -309,7 +308,7 @@ function ReceivePurchaseModal({
                 <p className="text-xs text-gray-500">المتبقي</p>
 
                 <p className="mt-1 font-mono font-bold text-amber-600">
-                  {remainingAmount.toFixed(2)} $
+                  {formatUSD(remainingAmount)}
                 </p>
               </div>
             </div>
@@ -408,7 +407,7 @@ function ReceivePurchaseModal({
 
                     max: {
                       value: remainingAmount,
-                      message: `الحد الأقصى ${remainingAmount.toFixed(2)} $`,
+                      message: `الحد الأقصى ${formatUSD(remainingAmount)}`,
                     },
                   })}
                   disabled={isPending}
@@ -499,7 +498,7 @@ function ReceivePurchaseModal({
                   <span className="text-gray-500">المتبقي بعد الدفع</span>
 
                   <span className="font-mono font-bold text-gray-900">
-                    {Math.max(remainingAfterPayment, 0).toFixed(2)} $
+                    {formatUSD(Math.max(remainingAfterPayment, 0))}
                   </span>
                 </div>
               </div>
@@ -702,7 +701,7 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
 
       cell: (info) => (
         <span className="font-mono font-bold text-gray-900">
-          {(info.getValue() || 0).toLocaleString("en-US")} $
+          {formatUSD(info.getValue() || 0)}
         </span>
       ),
     }),

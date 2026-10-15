@@ -206,25 +206,44 @@ export const createTailoringOrderSchema = z
         });
       }
 
-      const expectedDeposit = Number(
-        ((data.totalAmount ?? 0) * 0.5).toFixed(2),
-      );
+      // في الطلب البديل: depositAmount = العربون الإضافي (اختياري، صفر مسموح)
+      const isReplacement = Boolean(data.customerAdvanceSourceOrderId);
       if (
         data.depositAmount == null ||
-        Number(data.depositAmount.toFixed(2)) !== expectedDeposit
+        data.depositAmount < 0 ||
+        (!isReplacement && data.depositAmount <= 0)
       ) {
         ctx.addIssue({
           code: "custom",
-          message: "العربون يجب أن يساوي 50% من المبلغ الإجمالي",
+          message: isReplacement
+            ? "العربون الإضافي غير صالح"
+            : "العربون يجب أن يكون أكبر من صفر",
+          path: ["depositAmount"],
+        });
+      } else if (
+        Number(data.depositAmount.toFixed(2)) !== data.depositAmount
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "العربون يجب ألا يتجاوز منزلتين عشريتين",
+          path: ["depositAmount"],
+        });
+      } else if (
+        data.totalAmount != null &&
+        data.depositAmount > data.totalAmount
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "العربون لا يمكن أن يتجاوز المبلغ الإجمالي",
           path: ["depositAmount"],
         });
       }
 
-      if (data.customerAdvanceSourceOrderId) {
-        if (data.paymentMethod !== null) {
+      if (isReplacement) {
+        if ((data.depositAmount ?? 0) > 0 && !data.paymentMethod) {
           ctx.addIssue({
             code: "custom",
-            message: "الطلب البديل لا يستلم دفعة جديدة من العميل",
+            message: "طريقة دفع العربون الإضافي مطلوبة",
             path: ["paymentMethod"],
           });
         }
@@ -323,6 +342,7 @@ export const tailoringOrderFormSchema = z
     fabricVariantId: z.string().nullable(),
     fabricQuantity: z.string(),
     totalAmount: z.string(),
+    depositAmount: z.string(),
     tailoringCost: z
       .string()
       .trim()
@@ -378,7 +398,36 @@ export const tailoringOrderFormSchema = z
           path: ["totalAmount"],
         });
       }
-      if (!data.paymentMethod && !data.customerAdvanceSourceOrderId) {
+      // في الطلب البديل: الحقل = العربون الإضافي (اختياري)
+      const isReplacement = Boolean(data.customerAdvanceSourceOrderId);
+      const deposit = Number(data.depositAmount || 0);
+      if (
+        (!isReplacement && !data.depositAmount.trim()) ||
+        !Number.isFinite(deposit) ||
+        deposit < 0 ||
+        (!isReplacement && deposit <= 0)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: isReplacement
+            ? "العربون الإضافي غير صالح"
+            : "العربون يجب أن يكون أكبر من صفر",
+          path: ["depositAmount"],
+        });
+      } else if (Number(deposit.toFixed(2)) !== deposit) {
+        ctx.addIssue({
+          code: "custom",
+          message: "العربون يجب ألا يتجاوز منزلتين عشريتين",
+          path: ["depositAmount"],
+        });
+      } else if (Number.isFinite(total) && total > 0 && deposit > total) {
+        ctx.addIssue({
+          code: "custom",
+          message: "العربون لا يمكن أن يتجاوز المبلغ الإجمالي",
+          path: ["depositAmount"],
+        });
+      }
+      if (!data.paymentMethod && (!isReplacement || deposit > 0)) {
         ctx.addIssue({
           code: "custom",
           message: "طريقة دفع العربون مطلوبة",
@@ -968,7 +1017,7 @@ export interface TailorPaymentRecord {
   amountOriginal: number | null;
   currency: "USD" | "SDG";
   exchangeRateUsed: number | null;
-  paymentType: "ADVANCE" | "SETTLEMENT";
+  paymentType: "ADVANCE" | "SETTLEMENT" | "DUES_ADVANCE";
   paymentMethod: "CASH" | "BANK";
   notes: string | null;
   createdAt: string;

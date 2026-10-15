@@ -102,7 +102,7 @@ export async function GET(
     if (orderError || !order) return NextResponse.json({ message: "طلب التفصيل غير موجود." }, { status: 404 });
 
     if (role === "tailor" && order.tailor_id !== user.userId) {
-      return NextResponse.json({ message: "لا يمكنك عرض طلب مسند إلى ترزي آخر.", code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ message: "لا يمكنك عرض طلب مسند إلى خياط آخر.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     if (role === "tailor") {

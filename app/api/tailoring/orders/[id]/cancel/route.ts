@@ -21,7 +21,7 @@ export async function POST(
 
     const role = String(user.role).toLowerCase();
     if (!can(role, "tailoring.manage")) {
-      return NextResponse.json({ message: "إلغاء طلبات التفصيل متاح للمدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ message: "إلغاء طلبات التفصيل متاح للكاشير أو المدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const parsed = cancelTailoringOrderSchema.safeParse(await request.json());

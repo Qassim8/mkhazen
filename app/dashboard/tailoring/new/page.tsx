@@ -81,6 +81,8 @@ export default async function NewTailoringOrderPage({ searchParams }: Props) {
     .select("id, name")
     .eq("branchId", MAIN_BRANCH_ID)
     .eq("role", "tailor")
+    // الخياطين النشطين فقط (المتاحين لإسناد طلبات جديدة)
+    .eq("isActive", true)
     .order("name", { ascending: true });
 
   if (error) {

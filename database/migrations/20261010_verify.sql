@@ -26,10 +26,14 @@ DECLARE
     'complete_tailoring_production', 'convert_tailoring_to_product',
     'create_asset_with_journal_entry', 'create_product', 'create_tailoring_order',
     'exchange_currency', 'generate_overdue_tailoring_notifications', 'get_account_balance',
+    'generate_product_barcode', 'generate_product_sku',
     'get_opening_balances_status', 'record_opening_balances',
-    'get_current_exchange_rate', 'ledger_period_totals', 'list_opening_stock_candidates',
-    'maintain_notifications', 'pay_tailor_payment', 'process_inventory_adjustment',
-    'receive_purchase_order', 'record_opening_stock', 'record_purchase_payment',
+    'get_tailor_dues', 'get_tailor_dues_orders', 'pay_tailor_dues',
+    'list_opening_stock_candidates', 'record_opening_stock',
+    'get_payroll', 'pay_employee', 'get_tailor_month_summary',
+    'get_current_exchange_rate', 'ledger_period_totals',
+    'maintain_notifications', 'process_inventory_adjustment',
+    'receive_purchase_order', 'record_purchase_payment',
     'refund_customer_advance', 'update_product', 'update_tailoring_order',
     'update_tailoring_status'
   ];

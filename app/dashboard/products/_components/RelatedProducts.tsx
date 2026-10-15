@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUSD } from "@/lib/currency";
 import { useState } from "react";
 import Image from "next/image";
 import {
@@ -122,7 +123,7 @@ export default function RelatedProducts({
               {/* السعر وزر الحذف */}
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-xs font-black text-emerald-500 dir-ltr">
-                  {item.sellingPrice.toLocaleString("en-US")} $
+                  {formatUSD(item.sellingPrice)}
                 </span>
                 <button
                   type="button"
@@ -213,7 +214,7 @@ export default function RelatedProducts({
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs font-bold text-gray-700">
-                        {product.sellingPrice} $
+                        {formatUSD(product.sellingPrice)}
                       </span>
                       <button
                         type="button"

@@ -32,10 +32,6 @@ const EXPENSE_ACCOUNTS: {
     label: "مصاريف الايجار",
   },
   {
-    value: "SALARIES",
-    label: "الرواتب والأجور",
-  },
-  {
     value: "MAINTENANCE",
     label: "الصيانة والإصلاحات",
   },

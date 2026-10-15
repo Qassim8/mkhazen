@@ -1,5 +1,6 @@
 "use client";
 
+import { formatSDG, formatUSD } from "@/lib/currency";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -44,7 +45,7 @@ const statusClasses: Record<TailoringOrder["tailoringStatus"], string> = {
 };
 
 function money(value: number) {
-  return `${value.toFixed(2)} ج.س`;
+  return `${formatSDG(value)}`;
 }
 function todayInSudan() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -201,7 +202,7 @@ export default function TailoringOrdersTable({
             cell: ({ row }) => (
               <span className="whitespace-nowrap font-bold text-gray-800">
                 {row.original.tailoringPurpose === "PRODUCTION"
-                  ? `${row.original.totalCost.toFixed(2)} $` // تصنيع: تكلفة بالدولار
+                  ? `${formatUSD(row.original.totalCost)}` // تصنيع: تكلفة بالدولار
                   : money(row.original.totalAmount)}
               </span>
             ),
@@ -313,7 +314,7 @@ export default function TailoringOrdersTable({
               className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-(--primary-red)"
             >
               <option value="">كل حالات الدفع</option>
-              <option value="PARTIAL">عربون 50%</option>
+              <option value="PARTIAL">مدفوع جزئيًا (عربون)</option>
               <option value="PAID">مسدد بالكامل</option>
               <option value="UNPAID">غير مدفوع</option>
             </select>

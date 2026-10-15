@@ -17,6 +17,8 @@ export default function SalesPageClient() {
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
 
+  // خيارات الكاشير تفضل ظاهرة أثناء التحميل
+  const [lastCashiers, setLastCashiers] = useState<{ id: string; name: string }[]>([]);
   const [result, setResult] = useState<{
     queryString: string;
     data: SalesOrdersResponse | null;
@@ -46,6 +48,7 @@ export default function SalesPageClient() {
           orderType:
             (params.get("orderType") as "POS" | "TAILORING" | undefined) ??
             undefined,
+          cashierId: params.get("cashierId") || undefined,
           fromDate: params.get("fromDate") || undefined,
           toDate: params.get("toDate") || undefined,
           sort:
@@ -53,7 +56,10 @@ export default function SalesPageClient() {
           page: Number(params.get("page")) || 1,
           limit: Number(params.get("limit")) || 10,
         });
-        if (active) setResult({ queryString, data: body });
+        if (active) {
+          setResult({ queryString, data: body });
+          if (body.cashiers) setLastCashiers(body.cashiers);
+        }
       } catch (error) {
         if (!active) return;
 
@@ -84,7 +90,7 @@ export default function SalesPageClient() {
                 المبيعات المكتملة من الكاشير وطلبات التفصيل"
       />
 
-      <SalesFilters />
+      <SalesFilters cashiers={response?.cashiers ?? lastCashiers} />
 
       <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">

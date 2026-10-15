@@ -1,5 +1,6 @@
 "use client";
 
+import { formatNumber } from "@/lib/currency";
 import {
   Control,
   UseFormRegister,
@@ -26,7 +27,7 @@ export default function UnitConversionSection({ control, register }: Props) {
   const purchasePrice = Number(rawPurchasePrice) || 0;
 
   const unitCost =
-    conversionFactor > 0 ? (purchasePrice / conversionFactor).toFixed(2) : "—";
+    conversionFactor > 0 ? formatNumber(purchasePrice / conversionFactor) : "—";
 
   const isDifferentUnits = purchaseUnit !== sellingUnit;
 

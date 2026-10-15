@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     // البحث عن الموظف/المستخدم في Supabase
     const { data: user, error } = await supabaseAdmin
       .from("users")
-      .select('id, name, email, role, position, password, "isActive", "isPasswordChanged"')
+      .select('id, name, email, role, position, password, "isActive", "canLogin", "isPasswordChanged"')
       .eq("email", email)
       .maybeSingle();
 
@@ -61,6 +61,11 @@ export async function POST(req: Request) {
     // التأكد من أن الحساب نشط (بعد التحقق من كلمة السر)
     if (!isAccountActive(user.isActive)) {
       return apiError(403, "FORBIDDEN", "هذا الحساب غير نشط، يرجى مراجعة الإدارة");
+    }
+
+    // canLogin منفصل عن النشاط (الخياط ممكن يكون نشط بدون دخول للنظام)
+    if (user.canLogin === false) {
+      return apiError(403, "FORBIDDEN", "هذا الحساب غير مسموح له بتسجيل الدخول، يرجى مراجعة الإدارة");
     }
 
     resetRateLimit(limiterKey);

@@ -66,7 +66,10 @@ const ProductsPageClient = ({
           }
         >
           <div className="flex flex-col gap-3 px-3 py-5 md:flex-row md:items-center">
-            <TableSearchbar placeholder="ابحث باسم المنتج أو SKU أو الباركود..." />
+            <TableSearchbar
+              placeholder="ابحث باسم المنتج أو SKU أو الباركود..."
+              withScanner
+            />
 
             <Filters />
             <ResetFilters />

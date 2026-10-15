@@ -172,17 +172,17 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState<"preview" | "post" | null>(null);
 
-  const recordedCash = useMemo(
-    () =>
-      new Map(
-        status.cash.map((line) => [`${line.account}:${line.currency}`, line]),
-      ),
-    [status.cash],
-  );
-  const suppliersWithDebt = useMemo(
-    () => new Set(status.supplierDebts.map((debt) => debt.supplierId)),
-    [status.supplierDebts],
-  );
+  const recordedCash = useMemo(() => {
+    const totals = new Map<string, { amount: number; amountUsd: number; currency: string }>();
+    for (const line of status.cash) {
+      const key = `${line.account}:${line.currency}`;
+      const current = totals.get(key) ?? { amount: 0, amountUsd: 0, currency: line.currency };
+      current.amount += Number(line.amount);
+      current.amountUsd += Number(line.amountUsd);
+      totals.set(key, current);
+    }
+    return totals;
+  }, [status.cash]);
   const allSuppliers = useMemo(
     () => [
       ...addedSuppliers,
@@ -193,9 +193,8 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
     ],
     [addedSuppliers, suppliers],
   );
-  const availableSuppliers = allSuppliers.filter(
-    (supplier) => !suppliersWithDebt.has(supplier.id),
-  );
+  // الإدخال متكرر: دين افتتاحي إضافي لنفس المورد مسموح
+  const availableSuppliers = allSuppliers;
 
   /** أي تعديل بعد المعاينة يلغيها (لازم معاينة جديدة قبل الحفظ) */
   function changed<T>(setter: (value: T) => void) {
@@ -213,10 +212,7 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
   /* ---------- payload ---------- */
 
   const payload = useMemo(() => {
-    const cashLines = CASH_SLOTS.filter(
-      (slot) => !recordedCash.has(`${slot.account}:${slot.currency}`),
-    )
-      .map((slot) => ({
+    const cashLines = CASH_SLOTS.map((slot) => ({
         account: slot.account,
         currency: slot.currency,
         amount: positive(cash[`${slot.account}:${slot.currency}`] ?? ""),
@@ -248,7 +244,7 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
       supplierDebts: debtLines,
       notes: notes.trim() || null,
     };
-  }, [asOf, cash, assets, debts, notes, recordedCash]);
+  }, [asOf, cash, assets, debts, notes]);
 
   const problems = useMemo(() => {
     const list: string[] = [];
@@ -344,7 +340,7 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           وضع المتجر المالي في يوم بدء استخدام النظام: ما تملكه وما عليك.
-          تُسجَّل مرة واحدة لكل بند.
+          يمكن الإدخال أكثر من مرة لاستكمال ما نُسي.
         </p>
       </header>
 
@@ -354,9 +350,9 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
         <div className="space-y-1">
           <p className="font-bold">ما هي الأرصدة الافتتاحية؟</p>
           <p>
-            قبل أول عملية بيع في النظام، يكون لديك اموال في الخزينة والحساب
+            قبل أول عملية بيع في النظام، يكون لديك أموال في الخزينة والحساب
             البنكي، وبضاعة في المحل، وأجهزة وأثاث، وربما ديون لموردين. هذه
-            الصفحة تُدخل كل ذلك مرة واحدة حتى تبدأ أرصدة النظام مطابقة للواقع.
+            الصفحة تُدخل كل ذلك حتى تبدأ أرصدة النظام مطابقة للواقع، ويمكن إضافة ما نُسي لاحقًا.
           </p>
           <p>
             الطرف المقابل لكل ذلك هو <b>رأس مال المالك</b>: ما تملكه يزيد رأس
@@ -408,7 +404,7 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
                   href="/dashboard/inventory/opening-stock"
                   className="text-xs font-bold text-(--primary-red) underline"
                 >
-                  يُسجَّل من صفحة المخزون
+                  يُسجَّل من صفحة المخزون الافتتاحي
                 </Link>
               )}
             </li>
@@ -439,7 +435,7 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
             <li className="flex items-center justify-between">
               <span>النقدية والبنك</span>
               <span className="text-xs font-bold text-gray-700">
-                {status.cash.length} / 4
+                {status.cash.length}
               </span>
             </li>
             <li className="flex items-center justify-between">
@@ -514,29 +510,28 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
                   {slot.label}
                   {recorded && <Done>مسجّل</Done>}
                 </label>
-                {recorded ? (
-                  <p className="font-mono text-lg font-bold text-gray-900">
-                    {money(recorded.amount, recorded.currency)}
+                {recorded && (
+                  <p className="mb-1.5 font-mono text-sm font-bold text-gray-900">
+                    {money(recorded.amount, recorded.currency as Currency)}
                     {recorded.currency === "SDG" && (
                       <span className="mr-2 text-xs font-normal text-gray-400">
                         ≈ {formatUSD(recorded.amountUsd)}
                       </span>
                     )}
                   </p>
-                ) : (
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={cash[key] ?? ""}
-                    onChange={(event) =>
-                      updateCash({ ...cash, [key]: event.target.value })
-                    }
-                    className={inputClass}
-                  />
                 )}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder={recorded ? "مبلغ إضافي" : "0.00"}
+                  value={cash[key] ?? ""}
+                  onChange={(event) =>
+                    updateCash({ ...cash, [key]: event.target.value })
+                  }
+                  className={inputClass}
+                />
               </div>
             );
           })}
@@ -944,8 +939,8 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
               checked={confirmed}
               onChange={(event) => setConfirmed(event.target.checked)}
             />
-            راجعت الأرقام، وأعرف أن كل بند يُسجَّل مرة واحدة ولا يُعدَّل من هذه
-            الصفحة بعد الحفظ.
+            راجعت الأرقام، وأعرف أن البنود المحفوظة لا تُعدَّل من هذه الصفحة،
+            ويمكن إضافة بنود جديدة لاحقًا.
           </label>
         </section>
       )}

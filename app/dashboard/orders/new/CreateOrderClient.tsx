@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUSD } from "@/lib/currency";
 import { useMemo, useRef, useState, useEffect } from "react";
 
 import { FieldErrors, useForm, useWatch } from "react-hook-form";
@@ -740,7 +741,7 @@ export default function CreateOrderClient({
                         </span>
 
                         <span className="shrink-0 text-xs font-bold text-emerald-600">
-                          {item.price} $ /{item.purchaseUnit}
+                          {formatUSD(item.price)} /{item.purchaseUnit}
                         </span>
                       </div>
 
@@ -988,7 +989,7 @@ export default function CreateOrderClient({
                 <span>إجمالي الطلب</span>
 
                 <span className="font-semibold text-gray-800">
-                  {totalAmount.toFixed(2)} $
+                  {formatUSD(totalAmount)}
                 </span>
               </div>
 
@@ -996,14 +997,14 @@ export default function CreateOrderClient({
                 <span>الدفعة الحالية</span>
 
                 <span className="font-semibold text-emerald-600">
-                  {currentPaymentAmount.toFixed(2)} $
+                  {formatUSD(currentPaymentAmount)}
                 </span>
               </div>
 
               <div className="flex justify-between border-t border-gray-100 pt-1.5 font-bold text-gray-800">
                 <span>المتبقي</span>
 
-                <span>{remainingAfterPayment.toFixed(2)} $</span>
+                <span>{formatUSD(remainingAfterPayment)}</span>
               </div>
             </div>
           </div>

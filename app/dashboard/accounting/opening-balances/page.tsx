@@ -9,6 +9,8 @@ import OpeningBalancesClient from "../_components/OpeningBalancesClient";
 import { getOpeningBalancesStatus } from "../services/opening-balances.services";
 import type { OpeningBalancesStatus } from "../schemas/opening-balances.schema";
 
+export const dynamic = "force-dynamic";
+
 export default async function OpeningBalancesPage() {
   const user = await getSession();
 
@@ -22,7 +24,7 @@ export default async function OpeningBalancesPage() {
   try {
     status = await getOpeningBalancesStatus();
   } catch (error) {
-    // أشهر سبب: ملف 20261010_05_opening_balances.sql لسه ما اتشغلش على قاعدة البيانات
+    // أشهر سبب: ملف 20261010_05_opening_balances.sql لم يُطبَّق بعد على قاعدة البيانات
     loadError = error instanceof Error ? error.message : "تعذر جلب الأرصدة الافتتاحية.";
   }
 
@@ -39,7 +41,7 @@ export default async function OpeningBalancesPage() {
             <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">
               database/migrations/20261010_05_opening_balances.sql
             </code>{" "}
-            على قاعدة البيانات في Supabase، وبعدها حدّث الصفحة.
+            على قاعدة البيانات في Supabase، ثم حدّث الصفحة.
           </p>
           <p className="mt-3 font-mono text-xs break-all text-amber-700">{loadError}</p>
         </div>
@@ -51,5 +53,7 @@ export default async function OpeningBalancesPage() {
     .then((response) => response.data.map((supplier) => ({ id: supplier.id, name: supplier.name, isActive: supplier.isActive })))
     .catch(() => []);
 
-  return <OpeningBalancesClient status={status} suppliers={suppliers} />;
+  return (
+    <OpeningBalancesClient status={status} suppliers={suppliers} />
+  );
 }

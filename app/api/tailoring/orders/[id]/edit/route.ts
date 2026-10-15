@@ -23,7 +23,7 @@ export async function PATCH(
 
     const role = String(user.role).toLowerCase();
     if (!can(role, "tailoring.manage")) {
-      return NextResponse.json({ message: "تعديل طلبات التفصيل متاح للمدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
+      return NextResponse.json({ message: "تعديل طلبات التفصيل متاح للكاشير أو المدير أو المالك فقط.", code: "FORBIDDEN" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -39,6 +39,18 @@ export async function PATCH(
     if (!id) return NextResponse.json({ message: "معرف طلب التفصيل مطلوب." }, { status: 400 });
 
     const value = parsed.data;
+
+    // تغيير الخياط: لخياط نشط فقط (isActive = متاح لإسناد طلبات جديدة)
+    if (value.tailorId) {
+      const [{ data: current }, { data: tailor }] = await Promise.all([
+        supabaseAdmin.from("sales_orders").select("tailor_id").eq("id", id).maybeSingle<{ tailor_id: string | null }>(),
+        supabaseAdmin.from("users").select('"isActive"').eq("id", value.tailorId).maybeSingle<{ isActive: boolean }>(),
+      ]);
+      if (current && current.tailor_id !== value.tailorId && tailor && !tailor.isActive) {
+        return NextResponse.json({ message: "الخياط المختار غير نشط ولا يمكن إسناد طلبات جديدة له." }, { status: 400 });
+      }
+    }
+
     const { data, error } = await supabaseAdmin.rpc("update_tailoring_order", {
       p_order_id: id,
       p_branch_id: MAIN_BRANCH_ID,

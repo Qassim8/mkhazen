@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
+  HIDE_LOGIN_TOGGLE_FOR_TAILORS,
   createEmployeeSchema,
   CreateEmployeeInput,
 } from "@/app/dashboard/employees/schemas/employee.schemas";
@@ -32,6 +33,7 @@ export default function ModalContent() {
       position: "cashier",
       shift: "morning",
       isActive: "TRUE",
+      canLogin: true,
     },
   });
 
@@ -172,27 +174,6 @@ export default function ModalContent() {
           </div>
         )}
 
-        {role === "tailor" && (
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              نسبة العمولة (%)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              disabled={isSubmitting}
-              {...register("commissionRate", { valueAsNumber: true })}
-              placeholder="مثال: 5.0"
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-(--primary-red) focus:bg-white focus:outline-none disabled:opacity-60"
-            />
-            {errors.commissionRate && (
-              <p className="mt-1 text-xs text-red-500">
-                {errors.commissionRate.message}
-              </p>
-            )}
-          </div>
-        )}
-
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
             الدوام <span className="text-red-500">*</span>
@@ -219,9 +200,22 @@ export default function ModalContent() {
               {...register("isActive")}
               className="h-4 w-4 rounded border-gray-300 text-(--primary-red) focus:ring-(--primary-red)"
             />
-            حساب نشط (Is Active)
+            {role === "tailor" ? "نشط (متاح لإسناد طلبات جديدة)" : "حساب نشط (Is Active)"}
           </label>
         </div>
+        {!(HIDE_LOGIN_TOGGLE_FOR_TAILORS && role === "tailor") && (
+          <div className="flex items-center pt-6">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                disabled={isSubmitting}
+                {...register("canLogin")}
+                className="h-4 w-4 rounded border-gray-300 text-(--primary-red) focus:ring-(--primary-red)"
+              />
+              السماح بتسجيل الدخول
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">

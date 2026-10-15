@@ -10,7 +10,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const guard = await requirePermission("tailoring.manage", "استرداد عربون العميل متاح للمدير أو المالك فقط.");
+  const guard = await requirePermission("tailoring.manage", "استرداد عربون العميل متاح للكاشير أو المدير أو المالك فقط.");
   if (!guard.ok) return guard.response;
   const user = guard.session;
 

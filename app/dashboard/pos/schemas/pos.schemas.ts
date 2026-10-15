@@ -177,7 +177,8 @@ export const createSalesOrderSchema = z
     totalAmount: z
       .number({ error: "إجمالي الفاتورة مطلوب" })
       .finite("إجمالي الفاتورة غير صالح")
-      .positive("إجمالي الفاتورة يجب أن يكون أكبر من صفر")
+      // صفر مسموح لفاتورة الهدايا فقط (يتحقق في superRefine)
+      .nonnegative("إجمالي الفاتورة غير صالح")
       .refine(
         hasAtMostTwoDecimals,
         "إجمالي الفاتورة يجب ألا يتجاوز منزلتين عشريتين",
@@ -260,7 +261,17 @@ export const createSalesOrderSchema = z
       });
     }
 
-    if (data.totalAmount <= 0) {
+    // فاتورة هدايا فقط: إجمالي صفر، بدون خصم أو دفع مختلط
+    const giftOnly = data.items.length > 0 && data.items.every((item) => item.isGift);
+    if (giftOnly) {
+      if (data.totalAmount !== 0 || data.discountAmount !== 0 || data.paymentMethod === "MIXED") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "فاتورة الهدايا إجماليها صفر وبدون خصم أو دفع مختلط",
+          path: ["totalAmount"],
+        });
+      }
+    } else if (data.totalAmount <= 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "إجمالي الفاتورة يجب أن يكون أكبر من صفر",

@@ -28,6 +28,7 @@ import {
   LuX,
   LuLandmark,
   LuScissorsLineDashed,
+  LuHandCoins,
   LuBadgeDollarSign,
 } from "react-icons/lu";
 
@@ -131,6 +132,13 @@ const menuItems: MenuItem[] = [
         roles: ["admin"],
         exact: true,
       },
+      {
+        href: "/dashboard/inventory/opening-stock",
+        label: "المخزون الافتتاحي",
+        icon: LuPackageOpen,
+        roles: ["admin"],
+        exact: true,
+      },
     ],
   },
 
@@ -165,11 +173,25 @@ const menuItems: MenuItem[] = [
   ========================================================= */
 
   {
-    href: "/dashboard/employees",
     label: "الموظفين",
     icon: LuUsers,
     roles: ["admin"],
-    exact: true,
+    subItems: [
+      {
+        href: "/dashboard/employees",
+        label: "قائمة الموظفين",
+        icon: LuUsers,
+        roles: ["admin"],
+        exact: true,
+      },
+      {
+        href: "/dashboard/employees/payroll",
+        label: "السلف والمستحقات",
+        icon: LuHandCoins,
+        roles: ["admin"],
+        exact: true,
+      },
+    ],
   },
 
   /* =========================================================

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatUSD } from "@/lib/currency";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FieldErrors, useForm } from "react-hook-form";
@@ -553,7 +554,7 @@ export default function EditPurchaseOrderForm({
                           <span>{item.productName}</span>
 
                           <span className="font-semibold text-emerald-600">
-                            {item.price} $
+                            {formatUSD(item.price)}
                           </span>
                         </div>
 

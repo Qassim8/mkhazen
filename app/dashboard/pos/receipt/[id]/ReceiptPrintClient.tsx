@@ -3,6 +3,8 @@
 import BackLink from "@/components/shared/BackLink";
 import { useEffect } from "react";
 import { LuGift, LuPrinter } from "react-icons/lu";
+import { STORE_INFO } from "@/lib/store";
+import { formatPercent, formatQuantity, formatSDG } from "@/lib/currency";
 
 interface ReceiptItem {
   id: string;
@@ -45,7 +47,7 @@ interface Props {
 }
 
 function formatMoney(value: number) {
-  return `${Number(value).toFixed(2)} ج.س`;
+  return formatSDG(value);
 }
 
 function formatDateTime(value: string) {
@@ -79,6 +81,8 @@ function getPaymentMethodLabel(method: string) {
 
 export default function ReceiptPrintClient({ receipt }: Props) {
   const { date, time } = formatDateTime(receipt.createdAt);
+  const giftOnly =
+    receipt.items.length > 0 && receipt.items.every((item) => item.isGift);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -107,10 +111,24 @@ export default function ReceiptPrintClient({ receipt }: Props) {
           className="receipt mx-auto w-[80mm] bg-white px-4 py-5 text-black print:m-0 print:w-[80mm] print:px-3 print:py-2"
           dir="rtl"
         >
-          <header className="border-b border-dashed border-black pb-3 text-center">
-            <h1 className="text-lg font-bold">متجري</h1>
-            <p className="mt-1 text-xs">فاتورة بيع</p>
-          </header>
+          <div className="border-b border-dashed border-black pb-3 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={STORE_INFO.logo}
+              alt={STORE_INFO.name}
+              className="mx-auto mb-1 h-12 w-auto object-contain"
+            />
+            <h1 className="font-semibold text-sm">{STORE_INFO.name}</h1>
+            <p className="mt-1 text-xs">
+              {giftOnly ? "فاتورة هدايا" : "فاتورة بيع"}
+            </p>
+            {giftOnly && (
+              <p className="mx-auto mt-1 inline-flex items-center gap-1 rounded border border-black px-2 py-0.5 text-xs font-black">
+                <LuGift className="h-3 w-3" />
+                هدية من المتجر
+              </p>
+            )}
+          </div>
 
           <div className="space-y-1 border-b border-dashed border-black py-3 text-[11px]">
             <div className="flex justify-between gap-3">
@@ -127,10 +145,12 @@ export default function ReceiptPrintClient({ receipt }: Props) {
               <span>الكاشير</span>
               <span>{receipt.cashierName}</span>
             </div>
-            <div className="flex justify-between gap-3">
-              <span>طريقة الدفع</span>
-              <span>{getPaymentMethodLabel(receipt.paymentMethod)}</span>
-            </div>
+            {!giftOnly && (
+              <div className="flex justify-between gap-3">
+                <span>طريقة الدفع</span>
+                <span>{getPaymentMethodLabel(receipt.paymentMethod)}</span>
+              </div>
+            )}
           </div>
 
           <div className="py-3">
@@ -176,7 +196,9 @@ export default function ReceiptPrintClient({ receipt }: Props) {
 
                   <div className="mt-1 grid grid-cols-[1fr_auto_auto] gap-2 text-[10px]">
                     <span>{formatMoney(item.unitPrice)}</span>
-                    <span className="text-center">{item.quantity}</span>
+                    <span className="text-center">
+                      {formatQuantity(item.quantity)}
+                    </span>
                     <span className="font-semibold">
                       {formatMoney(item.totalPrice)}
                     </span>
@@ -200,7 +222,7 @@ export default function ReceiptPrintClient({ receipt }: Props) {
                 </div>
                 <div className="flex justify-between text-[10px] text-gray-600">
                   <span>نسبة الخصم</span>
-                  <span>{receipt.discountPercentage.toFixed(2)}%</span>
+                  <span>{formatPercent(receipt.discountPercentage)}</span>
                 </div>
               </>
             )}
@@ -220,6 +242,9 @@ export default function ReceiptPrintClient({ receipt }: Props) {
 
           <footer className="border-t border-dashed border-black pt-4 text-center text-[10px]">
             <p className="font-semibold">شكرًا لزيارتكم</p>
+            <p className="mt-1" dir="ltr">
+              للتواصل: {STORE_INFO.phone}
+            </p>
           </footer>
         </section>
       </main>

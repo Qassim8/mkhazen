@@ -22,7 +22,7 @@ export default async function OpeningStockPage() {
     const { data } = await getOpeningStockCandidates();
     candidates = data;
   } catch (error) {
-    // أشهر سبب: ملف SQL الخاص بالمخزون الافتتاحي لسه ما اتشغلش على قاعدة البيانات
+    // أشهر سبب: ملف SQL الخاص بالمخزون الافتتاحي لم يُطبَّق بعد على قاعدة البيانات
     loadError =
       error instanceof Error ? error.message : "تعذر جلب الأصناف المؤهلة.";
   }
@@ -44,7 +44,7 @@ export default async function OpeningStockPage() {
             <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-xs">
               database/migrations/20261006_opening_stock.sql
             </code>{" "}
-            على قاعدة البيانات في Supabase، وبعدها حدّث الصفحة.
+            على قاعدة البيانات في Supabase، ثم حدّث الصفحة.
           </p>
 
           <p className="mt-3 font-mono text-xs break-all text-amber-700">

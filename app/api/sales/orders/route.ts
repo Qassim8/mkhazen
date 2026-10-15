@@ -12,6 +12,7 @@ const salesOrdersQuerySchema = z.object({
   paymentStatus: z.enum(["UNPAID", "PARTIAL", "PAID"]).optional(),
   paymentMethod: z.enum(["CASH", "CARD", "BANK_TRANSFER", "MIXED"]).optional(),
   orderType: z.enum(["POS", "TAILORING"]).optional(),
+  cashierId: z.string().uuid("معرف الكاشير غير صالح").optional(),
   fromDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ البداية غير صالح")
@@ -119,6 +120,7 @@ export async function GET(req: NextRequest) {
       paymentStatus: searchParams.get("paymentStatus") || undefined,
       paymentMethod: searchParams.get("paymentMethod") || undefined,
       orderType: searchParams.get("orderType") || undefined,
+      cashierId: searchParams.get("cashierId") || undefined,
       fromDate: searchParams.get("fromDate") || undefined,
       toDate: searchParams.get("toDate") || undefined,
       sort: searchParams.get("sort") || undefined,
@@ -141,6 +143,7 @@ export async function GET(req: NextRequest) {
       paymentStatus,
       paymentMethod,
       orderType,
+      cashierId,
       fromDate,
       toDate,
       sort,
@@ -192,6 +195,10 @@ export async function GET(req: NextRequest) {
 
     if (paymentMethod) {
       query = query.eq("payment_method", paymentMethod);
+    }
+
+    if (cashierId) {
+      query = query.eq("cashier_id", cashierId);
     }
 
     if (paymentStatus) {
@@ -425,8 +432,18 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // قائمة الكاشير لفلتر الواجهة (كل من يقدر يبيع في الفرع)
+    const { data: sellers } = await supabaseAdmin
+      .from("users")
+      .select("id, name, role")
+      .eq("branchId", MAIN_BRANCH_ID)
+      .order("name", { ascending: true });
+
     return NextResponse.json({
       data: enrichedOrders,
+      cashiers: ((sellers ?? []) as { id: string; name: string | null; role: string | null }[])
+        .filter((user) => ["owner", "admin", "cashier"].includes(String(user.role ?? "").toLowerCase()))
+        .map((user) => ({ id: user.id, name: user.name ?? "—" })),
       pagination: {
         total,
         page,

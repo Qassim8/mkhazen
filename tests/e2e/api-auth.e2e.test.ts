@@ -506,23 +506,24 @@ describe("E2E: الجلسات والصلاحيات والكاشير (next start 
       ["POST", "/api/suppliers"],
       ["PUT", `/api/suppliers/${id}`],
       ["DELETE", `/api/suppliers/${id}`],
-      ["POST", "/api/tailoring/commission-payments"],
-      ["POST", `/api/tailoring/orders/${id}/refund`],
-      ["POST", `/api/tailoring/orders/${id}/cancel`],
-      ["POST", `/api/tailoring/orders/${id}/convert-to-product`],
-      ["PATCH", `/api/tailoring/orders/${id}/edit`],
-      ["POST", `/api/tailoring/orders/${id}/production-receive`],
+      ["POST", "/api/accounting/tailor-dues"],
       ["POST", "/api/users"],
       ["PUT", `/api/users/${id}`],
       ["DELETE", `/api/users/${id}`],
       ["POST", "/api/upload"],
     ];
-    // allowed for cashier (sales.pos / tailoring.operate) but forbidden for tailor
+    // allowed for cashier (sales.pos / tailoring.operate / tailoring.manage) but forbidden for tailor
     const NOT_FOR_TAILOR: [string, string][] = [
       ["POST", "/api/sales/checkout"],
       ["POST", "/api/sales"],
       ["POST", `/api/sales/orders/${id}/cancel`],
       ["POST", "/api/tailoring/orders"],
+      // دورة التفصيل كاملة للكاشير (tailoring.manage)
+      ["POST", `/api/tailoring/orders/${id}/refund`],
+      ["POST", `/api/tailoring/orders/${id}/cancel`],
+      ["POST", `/api/tailoring/orders/${id}/convert-to-product`],
+      ["PATCH", `/api/tailoring/orders/${id}/edit`],
+      ["POST", `/api/tailoring/orders/${id}/production-receive`],
     ];
 
     const send = (method: string, path: string, cookie?: string) => call(path, { method, cookie, body: "{}" });
@@ -564,9 +565,9 @@ describe("E2E: الجلسات والصلاحيات والكاشير (next start 
     const body = (dryRun: boolean) =>
       JSON.stringify({ asOf: "2026-10-09", cash: [{ account: "CASH", currency: "SDG", amount: 250000 }], dryRun });
 
-    it("owner only: admin, cashier and tailor get 403 on read, preview and post; no session gets 401", async () => {
+    it("owner and admin only: cashier and tailor get 403 on read, preview and post; no session gets 401", async () => {
       assert.equal((await call("/api/accounting/opening-balances")).status, 401);
-      for (const role of ["admin", "cashier", "tailor"] as const) {
+      for (const role of ["cashier", "tailor"] as const) {
         const cookie = await token(users[role]);
         assert.equal((await call("/api/accounting/opening-balances", { cookie })).status, 403, `${role} GET`);
         for (const dryRun of [true, false]) {

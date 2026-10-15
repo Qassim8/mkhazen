@@ -37,6 +37,8 @@ export default async function EditTailoringOrderPage({ params }: Props) {
     .select("id, name")
     .eq("branchId", MAIN_BRANCH_ID)
     .eq("role", "tailor")
+    // النشطين + الخياط الحالي للطلب حتى لو أصبح غير نشط
+    .or(`isActive.eq.true,id.eq.${order.tailorId}`)
     .order("name", { ascending: true });
 
   if (error) throw new Error(`تعذر جلب قائمة الخياطين: ${error.message}`);

@@ -9,6 +9,7 @@ import UpdateModalContent from "./UpdateModalContent";
 import EmployeeViewContent from "./EmployeeDetails";
 import { useModalStore } from "@/store/useModalStore";
 import ResetPasswordModalContent from "@/components/ui/ResetPasswordModal";
+import { formatSDG } from "@/lib/currency";
 
 const columnHelper = createColumnHelper<Employee>();
 
@@ -74,24 +75,30 @@ const EmployeesTable = ({ initialData }: Props) => {
     }),
 
     columnHelper.accessor("salary", {
-      header: "الراتب / العمولة",
+      header: "هذا الشهر",
       cell: (info) => {
         const row = info.row.original;
+        const summary = row.monthSummary;
         const isTailor = row.position === "tailor";
 
-        if (isTailor) {
+        if (!summary) {
           return (
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              <span>{row.commissionRate ?? 0}% (عمولة)</span>
-            </div>
+            <span className="text-sm text-gray-500">
+              {isTailor ? "لا توجد مستحقات" : info.getValue() ? formatSDG(info.getValue()) : "غير محدد"}
+            </span>
           );
         }
 
         return (
-          <div className="flex items-center gap-1.5 text-sm text-gray-700 font-medium">
-            <span>
-              {info.getValue() ? `${info.getValue()} ج.س` : "غير محدد"}
-            </span>
+          <div className="space-y-0.5 text-xs text-gray-600">
+            <p>
+              {summary.kind === "TAILOR" ? "المستحق" : "الراتب"}:{" "}
+              <strong className="text-gray-900">{formatSDG(summary.dueSdg)}</strong>
+            </p>
+            <p>المأخوذ: {formatSDG(summary.takenSdg)}</p>
+            <p>
+              المتبقي: <strong className="text-gray-900">{formatSDG(summary.remainingSdg)}</strong>
+            </p>
           </div>
         );
       },

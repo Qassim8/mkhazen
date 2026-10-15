@@ -20,7 +20,7 @@ const positionToRoleMap: Record<string, string> = {
 
 // أعمدة آمنة للعرض (بدون كلمة السر)
 const SAFE_COLUMNS =
-  'id, name, email, role, position, phone, salary, shift, "isActive", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"';
+  'id, name, email, role, position, phone, salary, shift, "isActive", "canLogin", "isPasswordChanged", "resetRequested", "commissionRate", "branchId", "createdAt", "updatedAt"';
 
 function forbidden(message: string) {
   return NextResponse.json({ message,
@@ -300,7 +300,7 @@ export async function DELETE(request: Request, { params }: Params) {
       return NextResponse.json(
         {
           message:
-            "تعذر حذف الموظف. لو عليه عمليات مسجلة (مبيعات، طلبات، قيود) عطّل حسابه بدل الحذف.",
+            "تعذر حذف الموظف. إذا كانت عليه عمليات مسجلة (مبيعات، طلبات، قيود) فعطّل حسابه بدلًا من حذفه.",
         },
         { status: 400 },
       );

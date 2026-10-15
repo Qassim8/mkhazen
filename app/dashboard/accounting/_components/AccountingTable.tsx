@@ -54,6 +54,8 @@ const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   TAILOR_COST: "تكلفة الخياطة",
   TAILOR_ADVANCE_APPLICATION: "تسوية دفعة الخياط",
   TAILOR_PAYMENT: "سداد مستحق خياط",
+  TAILOR_DUES_PAYMENT: "سداد مستحقات خياط",
+  TAILOR_DUES_ADVANCE: "سلفة خياط",
 
   TAILORING_MATERIAL: "خامة طلب تفصيل",
   PRODUCTION: "تصنيع",

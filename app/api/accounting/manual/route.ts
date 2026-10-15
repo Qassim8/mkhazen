@@ -137,10 +137,17 @@ export async function POST(request: Request) {
           });
       }
 
+      // الرواتب تُصرف من صفحة "السلف والمستحقات" فقط (employee_payments)
+      // حتى لا يُسجَّل القيد مرتين ويظهر في متبقي راتب الموظف
+      if (account === "SALARIES") {
+        return respond(422, {
+          message: "الرواتب والسلف تُصرف من صفحة الموظفين > السلف والمستحقات وليس من القيد اليدوي.",
+        });
+      }
+
       const allowedExpenseAccounts = [
         "UTILITIES",
         "RENTS",
-        "SALARIES",
         "MAINTENANCE",
         "OTHER_EXPENSE",
       ] as const;

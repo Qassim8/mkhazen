@@ -12,6 +12,7 @@ import {
   sudanYearRange,
 } from "../_lib/ledger";
 import { entriesBetween, loadLedgerEntries } from "../_lib/ledger-source";
+import { getFiscalYears } from "../_lib/fiscal-years";
 
 export async function GET(request: Request) {
   try {
@@ -36,9 +37,10 @@ export async function GET(request: Request) {
     const { start: startDate, end: nextYearDate } = sudanYearRange(year);
 
     // مصدر واحد (مجاميع من قاعدة البيانات) للأرصدة حتى نهاية السنة وأداء السنة نفسها
-    const [ledger, rateResult] = await Promise.all([
+    const [ledger, rateResult, years] = await Promise.all([
       loadLedgerEntries({ branchId: MAIN_BRANCH_ID, before: nextYearDate }),
       supabaseAdmin.rpc("get_current_exchange_rate", { p_branch_id: MAIN_BRANCH_ID }),
+      getFiscalYears(),
     ]);
 
     const currentRate = rateResult.data != null ? Number(rateResult.data) : null;
@@ -49,6 +51,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
       data: {
         year,
+        // السنوات اللي فيها قيود فعلًا حتى السنة الحالية
+        years,
         currency: "USD",
         exchangeRate: currentRate,
         cards: {

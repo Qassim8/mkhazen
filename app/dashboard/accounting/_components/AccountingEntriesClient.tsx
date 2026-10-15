@@ -26,6 +26,7 @@ interface Meta {
 interface Props {
   initialData: JournalEntryInput[];
   initialMeta: Meta;
+  years: number[];
 }
 
 const ENTRY_TYPES = [
@@ -38,16 +39,14 @@ const ENTRY_TYPES = [
   { value: "OTHER", label: "أخرى" },
 ];
 
-const currentYear = new Date().getFullYear();
-const YEAR_OPTIONS = Array.from({ length: 5 }, (_, index) => {
-  const y = currentYear - index;
-  return { label: String(y), value: String(y) };
-});
 
 export default function AccountingEntriesClient({
   initialData,
   initialMeta,
+  years,
 }: Props) {
+  // السنوات اللي فيها قيود فعلًا حتى السنة الحالية
+  const YEAR_OPTIONS = years.map((y) => ({ label: String(y), value: String(y) }));
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
 

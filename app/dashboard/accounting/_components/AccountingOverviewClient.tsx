@@ -31,10 +31,6 @@ interface Props {
   initialData: AccountingOverview;
 }
 
-const years = Array.from(
-  { length: 5 },
-  (_, index) => new Date().getFullYear() - index,
-);
 
 export function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -54,6 +50,7 @@ export default function AccountingOverviewClient({ initialData }: Props) {
   const [data, setData] = useState<AccountingOverview>(initialData);
 
   const [year, setYear] = useState(initialData.year);
+  const years = initialData.years?.length ? initialData.years : [initialData.year];
 
   const [loading, setLoading] = useState(false);
 
