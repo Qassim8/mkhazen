@@ -246,6 +246,16 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
                       </td>
                       <td className="px-4 py-3 text-gray-700">
                         {money(item.unitPrice)}
+                        {item.priceOverridden && (
+                          <span className="mt-1 block text-[11px] font-bold text-sky-700">
+                            سعر معدّل
+                            {item.listUnitPrice != null && (
+                              <span className="mr-1 font-normal text-gray-500">
+                                (الأصلي {money(item.listUnitPrice)})
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-left font-black text-gray-900">
                         {money(item.totalPrice)}

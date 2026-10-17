@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import {
   type FormEvent,
   useCallback,
@@ -11,9 +12,12 @@ import {
 
 import Image from "next/image";
 import {
+  LuCheck,
   LuChevronLeft,
   LuChevronRight,
   LuList,
+  LuPlus,
+  LuPrinter,
   LuShoppingCart,
 } from "react-icons/lu";
 import toast from "react-hot-toast";
@@ -57,6 +61,8 @@ export interface POSCartItem {
   qty: number;
   isGift: boolean;
   giftNote: string | null;
+  /** سعر وحدة بالجنيه عدّله الكاشير بطلب العميل (null = السعر الأصلي) */
+  priceSdg?: number | null;
 }
 
 interface ProductsPagination {
@@ -112,6 +118,21 @@ export default function POSClient({
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  // التركيز التلقائي على البحث فقط مع مؤشر دقيق (ماوس) حتى لا تظهر لوحة المفاتيح على اللمس
+  const focusSearch = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    searchInputRef.current?.focus();
+  }, []);
+
+  // بعد البيع: رسالة نجاح مع زري الطباعة وبيع جديد
+  const [lastSale, setLastSale] = useState<{
+    orderId: string;
+    orderNumber: string;
+    totalAmount: number;
+    replayed: boolean;
+  } | null>(null);
+
   // منع النقر المزدوج (أسرع من تحديث الـ state) + مفتاح منع التكرار للسلة الحالية
   const checkingOutRef = useRef(false);
   const checkoutKeyRef = useRef<CheckoutKey | null>(null);
@@ -160,7 +181,9 @@ export default function POSClient({
         setDiscountAmount(draft.discountAmount);
         setDiscountInput(draft.discountInput);
         setPaymentMethod(
-          draft.paymentMethod === "CARD" ? "BANK_TRANSFER" : draft.paymentMethod,
+          draft.paymentMethod === "CARD"
+            ? "BANK_TRANSFER"
+            : draft.paymentMethod,
         );
         const restoredSplitMethods = new Set(
           draft.paymentSplits
@@ -205,14 +228,52 @@ export default function POSClient({
       paymentSplits,
       checkoutKey: checkoutKeyRef.current,
     });
-  }, [draftReady, cart, discountAmount, discountInput, paymentMethod, paymentSplits]);
+  }, [
+    draftReady,
+    cart,
+    discountAmount,
+    discountInput,
+    paymentMethod,
+    paymentSplits,
+  ]);
 
   // =====================================================
   // Focus search
   // =====================================================
 
   useEffect(() => {
-    searchInputRef.current?.focus();
+    focusSearch();
+  }, [focusSearch]);
+
+  // قارئ الباركود (لوحة مفاتيح): لو لا يوجد حقل مُركّز (شاشات اللمس)، نوجّه الأحرف للبحث
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.key.length !== 1
+      )
+        return;
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        active &&
+        (active.tagName === "INPUT" ||
+          active.tagName === "TEXTAREA" ||
+          active.tagName === "SELECT" ||
+          active.isContentEditable)
+      ) {
+        return;
+      }
+      if (document.querySelector('[role="dialog"]')) return;
+      const input = searchInputRef.current;
+      if (!input) return;
+      event.preventDefault();
+      input.focus({ preventScroll: true });
+      setSearchQuery((current) => current + event.key);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // =====================================================
@@ -410,7 +471,7 @@ export default function POSClient({
         setSearchQuery("");
 
         requestAnimationFrame(() => {
-          searchInputRef.current?.focus();
+          focusSearch();
         });
 
         return;
@@ -449,7 +510,7 @@ export default function POSClient({
     setSelectedCategory("all");
     await fetchProducts("", "all", 1);
     requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
+      focusSearch();
     });
   };
 
@@ -564,6 +625,26 @@ export default function POSClient({
   // Remove
   // =====================================================
 
+  // سعر مرن للسطر (بطلب العميل): null = الرجوع للسعر الأصلي
+  const setLinePrice = useCallback(
+    (variantId: string, isGift: boolean, price: number | null) => {
+      if (isGift) return;
+      if (price !== null && (!Number.isFinite(price) || price <= 0)) {
+        toast.error("سعر الوحدة يجب أن يكون أكبر من صفر");
+        return;
+      }
+      const normalized = price === null ? null : Number(price.toFixed(2));
+      replaceCart(
+        cartRef.current.map((item) =>
+          item.variant.id === variantId && item.isGift === isGift
+            ? { ...item, priceSdg: normalized }
+            : item,
+        ),
+      );
+    },
+    [replaceCart],
+  );
+
   const removeItem = useCallback(
     (variantId: string, isGift: boolean) => {
       const currentCart = cartRef.current;
@@ -600,7 +681,7 @@ export default function POSClient({
     const normalized = Number(value.toFixed(2));
     setDiscountError(
       normalized > maxDiscount + 0.001
-        ? `الحد الأقصى للخصم هو 50% من الإجمالي قبل الخصم (${formatSDG(maxDiscount)}). لن يتم السماح بإتمام البيع.`
+        ? `الخصم لا يمكن أن يتجاوز المجموع الفرعي (${formatSDG(maxDiscount)}).`
         : "",
     );
     setDiscountAmount(normalized);
@@ -617,16 +698,28 @@ export default function POSClient({
   // Totals
   // =====================================================
 
-  // سطر الفاتورة بالجنيه = (سعر الوحدة بالدولار × سعر الصرف، مقرّب) × الكمية
-  // نفس معادلة دالة complete_sales_checkout بالظبط
-  const getLineTotalSdg = useCallback(
+  // سعر الوحدة الأصلي بالجنيه = سعر البيع بالدولار × سعر الصرف (مقرّب)
+  const getListUnitSdg = useCallback(
+    (item: POSCartItem) => usdToSdg(item.variant.sellingPrice, exchangeRate),
+    [exchangeRate],
+  );
+
+  // سعر الوحدة الفعلي: المعدّل يدويًا إن وُجد، وإلا الأصلي
+  const getUnitSdg = useCallback(
     (item: POSCartItem) =>
       item.isGift
         ? 0
-        : roundMoney(
-            usdToSdg(item.variant.sellingPrice, exchangeRate) * item.qty,
-          ),
-    [exchangeRate],
+        : item.priceSdg != null
+          ? item.priceSdg
+          : getListUnitSdg(item),
+    [getListUnitSdg],
+  );
+
+  // سطر الفاتورة بالجنيه = سعر الوحدة × الكمية — نفس معادلة complete_sales_checkout
+  const getLineTotalSdg = useCallback(
+    (item: POSCartItem) =>
+      item.isGift ? 0 : roundMoney(getUnitSdg(item) * item.qty),
+    [getUnitSdg],
   );
 
   const subtotal = useMemo(
@@ -637,7 +730,8 @@ export default function POSClient({
 
   const taxAmount = 0;
 
-  const maxDiscount = Math.floor(subtotal * 0.5 * 100 + 1e-9) / 100;
+  // بدون حد نسبة: الخصم ≥ 0 و ≤ المجموع الفرعي
+  const maxDiscount = subtotal;
 
   const discountOverLimit = discountAmount > maxDiscount + 0.001;
 
@@ -714,8 +808,24 @@ export default function POSClient({
 
     if (discountOverLimit) {
       toast.error(
-        `الخصم يتجاوز 50% من الإجمالي قبل الخصم. الحد الأقصى ${formatSDG(maxDiscount)}`,
+        `الخصم لا يمكن أن يتجاوز المجموع الفرعي (${formatSDG(maxDiscount)}).`,
       );
+      return;
+    }
+
+    // تنبيه غير مانع للأخطاء المطبعية: سعر أعلى من 1.5× السعر الأصلي
+    const suspicious = cart.filter(
+      (item) =>
+        !item.isGift &&
+        item.priceSdg != null &&
+        item.priceSdg > getListUnitSdg(item) * 1.5,
+    );
+    if (
+      suspicious.length > 0 &&
+      !window.confirm(
+        `سعر ${suspicious.map((item) => item.product.name).join("، ")} أعلى من 1.5 ضعف السعر الأصلي. هل السعر صحيح؟`,
+      )
+    ) {
       return;
     }
 
@@ -750,7 +860,11 @@ export default function POSClient({
     });
 
     if (checkoutKeyRef.current?.fingerprint !== fingerprint) {
-      checkoutKeyRef.current = { fingerprint, key: newIdempotencyKey(), uncertain: false };
+      checkoutKeyRef.current = {
+        fingerprint,
+        key: newIdempotencyKey(),
+        uncertain: false,
+      };
     }
 
     const idempotencyKey = checkoutKeyRef.current.key;
@@ -786,15 +900,19 @@ export default function POSClient({
 
           quantity: item.qty,
 
-          unitPrice: item.isGift
-            ? 0
-            : usdToSdg(item.variant.sellingPrice, exchangeRate),
+          unitPrice: getUnitSdg(item),
 
-          unitCost: Number(item.variant.purchasePrice),
+          unitCost: 0,
 
           totalPrice: getLineTotalSdg(item),
           isGift: item.isGift,
           giftNote: item.giftNote,
+          // يُرسل للأسطر المعدّلة فقط
+          ...(!item.isGift &&
+          item.priceSdg != null &&
+          Math.abs(item.priceSdg - getListUnitSdg(item)) >= 0.005
+            ? { unitPriceSdg: item.priceSdg }
+            : {}),
         })),
       };
 
@@ -803,15 +921,12 @@ export default function POSClient({
       checkoutKeyRef.current = null;
       clearPosDraft();
 
-      toast.success(
-        result.replayed
-          ? `تم تأكيد عملية البيع السابقة (لم تتكرر) - ${result.orderNumber}`
-          : `تمت المبيعة بنجاح - ${result.orderNumber}`,
-      );
-
-      const receiptUrl = `/dashboard/pos/receipt/${result.orderId}`;
-
-      window.open(receiptUrl, "_blank", "width=420,height=700");
+      setLastSale({
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        totalAmount: result.totalAmount ?? totalAmount,
+        replayed: Boolean(result.replayed),
+      });
 
       replaceCart([]);
       resetDiscount();
@@ -827,7 +942,7 @@ export default function POSClient({
       }
 
       requestAnimationFrame(() => {
-        searchInputRef.current?.focus();
+        focusSearch();
       });
     } catch (error) {
       const message =
@@ -852,7 +967,7 @@ export default function POSClient({
           checkoutKey: checkoutKeyRef.current,
         });
         toast.error(
-        `${message}
+          `${message}
 لم يتم تأكيد البيع. راجع آخر المبيعات؛ إعادة المحاولة بنفس السلة لن تكرر البيع.`,
           { duration: 10000 },
         );
@@ -866,18 +981,28 @@ export default function POSClient({
         error.details &&
         typeof error.details === "object" &&
         "currentPrices" in error.details
-          ? ((error.details as { currentPrices?: Record<string, number> }).currentPrices ?? null)
+          ? ((error.details as { currentPrices?: Record<string, number> })
+              .currentPrices ?? null)
           : null;
 
       if (currentPrices) {
         replaceCart(
           cartRef.current.map((item) =>
             currentPrices[item.variant.id] !== undefined
-              ? { ...item, variant: { ...item.variant, sellingPrice: Number(currentPrices[item.variant.id]) } }
+              ? {
+                  ...item,
+                  variant: {
+                    ...item.variant,
+                    sellingPrice: Number(currentPrices[item.variant.id]),
+                  },
+                }
               : item,
           ),
         );
-        toast("تم تحديث أسعار السلة بالأسعار الحالية. راجع الإجمالي قبل الإتمام.", { duration: 6000 });
+        toast(
+          "تم تحديث أسعار السلة بالأسعار الحالية. راجع الإجمالي قبل الإتمام.",
+          { duration: 6000 },
+        );
       }
 
       // المدير غيّر سعر الصرف أثناء البيع → نحدّث الأسعار المعروضة فورًا
@@ -892,15 +1017,15 @@ export default function POSClient({
 
   return (
     <div
-      className="max-w-[1600px] my-5 mx-auto flex flex-col lg:flex-row gap-6 p-4 overflow-hidden"
+      className="mx-auto flex md:max-w-[1800px] flex-col gap-4 overflow-x-hidden p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-[calc(6rem+env(safe-area-inset-bottom))] lg:my-5 lg:flex-row lg:gap-6 lg:pb-4"
       dir="rtl"
     >
-      <div className="flex-1 flex flex-col min-h-0 pl-2 space-y-4">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col space-y-4 lg:pl-2">
         <form
           onSubmit={handleSearchSubmit}
-          className="flex w-full flex-col gap-2 sm:flex-row"
+          className="sticky top-0 z-10 -mx-3 flex flex-wrap gap-2 bg-gray-50/95 px-3 py-2 backdrop-blur sm:-mx-4 sm:px-4 lg:static lg:mx-0 lg:flex-nowrap lg:bg-transparent lg:p-0 lg:backdrop-blur-none"
         >
-          <div className="relative flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <div className="relative basis-full overflow-hidden rounded-2xl border border-gray-200 bg-white lg:basis-auto lg:flex-1">
             <input
               ref={searchInputRef}
               type="text"
@@ -908,13 +1033,14 @@ export default function POSClient({
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="امسح الباركود أو اكتب اسم المنتج..."
               autoComplete="off"
-              className="w-full px-5 py-3.5 pl-24 text-sm text-gray-900 focus:outline-none font-medium bg-gray-50/50 focus:bg-white transition"
+              enterKeyHint="search"
+              className="w-full bg-gray-50/50 px-5 py-3.5 pl-24 text-base font-medium text-gray-900 transition focus:bg-white focus:outline-none lg:text-sm"
             />
 
             <button
               type="submit"
               disabled={isSearching}
-              className="absolute left-4 top-2.5 px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-800 disabled:opacity-50 transition"
+              className="absolute bottom-1 left-1 top-1 min-w-11 rounded-xl bg-gray-900 px-4 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
             >
               {isSearching ? "..." : "بحث"}
             </button>
@@ -922,36 +1048,28 @@ export default function POSClient({
           <CameraBarcodeScanner
             onDetected={handleCameraScan}
             disabled={isSearching}
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 lg:flex-none"
           />
           <button
             type="button"
             onClick={() => void handleClearSearchAndFilters()}
             disabled={isSearching}
-            className="shrink-0 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="min-h-11 flex-1 shrink-0 rounded-xl border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
           >
             مسح البحث والفلاتر
           </button>
         </form>
 
-        <button
-          type="button"
-          onClick={() => setIsCartOpen((current) => !current)}
-          className="lg:hidden flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-3.5 py-3 text-xs font-bold text-white shadow-sm"
-        >
-          <LuShoppingCart className="h-4 w-4" />
-          <span>{isCartOpen ? "إخفاء السلة" : `السلة (${totalItems})`}</span>
-        </button>
-
-        <div className="bg-white p-4 rounded-2xl border border-gray-200">
-          <h2 className="text-xs font-bold text-gray-400 mb-2.5">
-            الفلترة حسب النوع:
+        <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4">
+          <h2 className="mb-2.5 hidden text-xs font-bold text-gray-400 sm:block">
+            الفلترة حسب الفئة
           </h2>
 
           <div className="flex items-center gap-2 overflow-x-auto scroll-smooth pb-1 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-200">
             <button
               type="button"
               onClick={() => handleCategoryChange("all")}
-              className={`flex min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
+              className={`flex min-h-11 min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
                 selectedCategory === "all"
                   ? "border-(--primary-red) bg-(--primary-red)/10 text-(--primary-red)"
                   : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
@@ -966,7 +1084,7 @@ export default function POSClient({
                 type="button"
                 key={category.id}
                 onClick={() => handleCategoryChange(category.id)}
-                className={`flex min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
+                className={`flex min-h-11 min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
                   selectedCategory === category.id
                     ? "border-(--primary-red) bg-(--primary-red)/10 text-(--primary-red)"
                     : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
@@ -986,7 +1104,7 @@ export default function POSClient({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
           {products.map((product) => (
             <Card
               key={product.id}
@@ -1035,17 +1153,23 @@ export default function POSClient({
         )}
       </div>
 
-      <div className="w-full lg:w-100 min-h-0 flex flex-col shrink-0">
+      <div className="flex min-h-0 w-full shrink-0 flex-col lg:w-100">
+        {/* السلة: درج فوق الخلفية المعتمة على الموبايل والتابلت بالطول، وجانبية على الشاشات العريضة */}
         <div
+          role={isCartOpen ? "dialog" : undefined}
+          aria-modal={isCartOpen ? true : undefined}
           className={`
-            fixed inset-y-0 right-0
-            w-[88%] max-w-sm
+            fixed inset-y-0 right-0 z-50
+            w-full max-w-md sm:w-[420px]
             bg-white shadow-2xl
+            pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]
             transition-transform duration-200 ease-out
-            ${isCartOpen ? "translate-x-0" : "translate-x-full"}
+            ${isCartOpen ? "translate-x-0" : "pointer-events-none translate-x-full lg:pointer-events-auto"}
             lg:static
+            lg:z-auto
             lg:w-full
             lg:max-w-none
+            lg:p-0
             lg:shadow-none
             lg:translate-x-0
           `}
@@ -1072,6 +1196,7 @@ export default function POSClient({
             onPaymentSplitsChange={handlePaymentSplitsChange}
             onUpdateQty={updateQuantity}
             onSetQty={setQuantity}
+            onSetPrice={setLinePrice}
             onRemove={removeItem}
             onClear={() => {
               clearCart();
@@ -1088,10 +1213,88 @@ export default function POSClient({
             type="button"
             aria-label="إغلاق السلة"
             onClick={() => setIsCartOpen(false)}
-            className="fixed inset-0 z-30 bg-black/20 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
           />
         )}
       </div>
+
+      {/* شريط سفلي ثابت (موبايل وتابلت بالطول) */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-gray-500">
+              {totalItems.toLocaleString("en-US")} قطعة
+            </p>
+            <p className="truncate text-lg font-black text-gray-900">
+              {formatSDG(totalAmount)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsCartOpen(true)}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-(--primary-red) px-5 text-sm font-bold text-white shadow-md active:scale-[0.99]"
+          >
+            <LuShoppingCart className="h-5 w-5" />
+            {cart.length > 0 ? "إتمام البيع" : "السلة"}
+          </button>
+        </div>
+      </div>
+
+      {lastSale &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+            dir="rtl"
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="w-full max-w-sm rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-center shadow-2xl sm:rounded-3xl sm:pb-5"
+            >
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <LuCheck className="h-6 w-6" />
+              </div>
+              <h2 className="text-base font-black text-gray-900">
+                {lastSale.replayed
+                  ? "تم تأكيد عملية البيع السابقة (لم تتكرر)"
+                  : "تمت عملية البيع بنجاح"}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                فاتورة {lastSale.orderNumber} —{" "}
+                {formatSDG(lastSale.totalAmount)}
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      `/dashboard/pos/receipt/${lastSale.orderId}`,
+                      "_blank",
+                      "width=420,height=700",
+                    )
+                  }
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-gray-200 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                >
+                  <LuPrinter className="h-4 w-4" />
+                  طباعة / PDF
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => {
+                    setLastSale(null);
+                    focusSearch();
+                  }}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-(--primary-red) text-sm font-bold text-white"
+                >
+                  <LuPlus className="h-4 w-4" />
+                  بيع جديد
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

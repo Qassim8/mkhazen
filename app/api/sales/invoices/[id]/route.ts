@@ -47,7 +47,6 @@ export async function GET(
           id,
           quantity,
           unit_price,
-          unit_cost,
           total_price,
           is_gift,
           gift_note,

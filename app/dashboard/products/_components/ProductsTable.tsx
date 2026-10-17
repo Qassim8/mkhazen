@@ -1,6 +1,5 @@
 "use client";
 
-import { formatUSD } from "@/lib/currency";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -16,6 +15,7 @@ import { deleteProduct } from "../services/products.services";
 import { Category } from "../../categories/schemas/category.schemas";
 import { Supplier } from "../../suppliers/schemas/supplier.schemas";
 import { Product } from "../schemas/product.schemas";
+import VariantCostInfo from "./VariantCostInfo";
 
 const columnHelper = createColumnHelper<Product>();
 
@@ -184,14 +184,11 @@ const ProductsTable = ({
           (variant) => Number(variant.sellingPrice) || 0,
         );
 
-        const purchasePrices = variants.map(
-          (variant) => Number(variant.purchasePrice) || 0,
-        );
-
         const minSellingPrice = Math.min(...sellingPrices);
         const maxSellingPrice = Math.max(...sellingPrices);
 
-        const minPurchasePrice = Math.min(...purchasePrices);
+        // التكلفة الفعلية والهامش للمتغير الافتراضي
+        const mainVariant = variants.find((variant) => variant.isDefault) ?? variants[0];
 
         return (
           <div className="flex flex-col text-xs">
@@ -201,9 +198,12 @@ const ProductsTable = ({
                 : `${minSellingPrice.toLocaleString("en-US")} - ${maxSellingPrice.toLocaleString("en-US")} $`}
             </span>
 
-            <span className="text-[11px] text-gray-400">
-              تكلفة تبدأ من {formatUSD(minPurchasePrice)}
-            </span>
+            <VariantCostInfo
+              compact
+              sellingPrice={Number(mainVariant.sellingPrice) || 0}
+              averageCost={mainVariant.averageCost}
+              purchasePrice={mainVariant.purchasePrice}
+            />
           </div>
         );
       },

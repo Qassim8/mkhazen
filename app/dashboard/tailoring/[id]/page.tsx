@@ -5,7 +5,7 @@ import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getTailoringOrderById } from "../services/tailoring.services";
 import TailoringOrderDetail from "../_components/TailoringOrderDetail";
-import { can } from "@/lib/permissions";
+import { can, isManager } from "@/lib/permissions";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -44,6 +44,7 @@ export default async function TailoringOrderDetailPage({ params }: Props) {
     <TailoringOrderDetail
       order={data}
       canManageAll={canManageAll}
+      canSeeCosts={isManager(role)}
       canCollect={canCollect}
       canManageStatus={
         canManageAll || (role === "tailor" && data.tailorId === user.userId)

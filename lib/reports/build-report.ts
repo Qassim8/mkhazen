@@ -290,12 +290,15 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
     total_price_usd: number | null;
     unit_cost: number;
     is_gift: boolean;
+    unit_price: number;
+    list_unit_price: number | null;
+    price_overridden: boolean | null;
   }>(
     posOrders.map((o) => o.id),
     (chunk, from, to) =>
       supabaseAdmin
         .from("sales_order_items")
-        .select("id, sales_order_id, template_id, quantity, total_price, total_price_usd, unit_cost, is_gift")
+        .select("id, sales_order_id, template_id, quantity, total_price, total_price_usd, unit_cost, is_gift, unit_price, list_unit_price, price_overridden")
         .in("sales_order_id", chunk)
         .order("id")
         .range(from, to),
@@ -304,9 +307,19 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
   const productAgg = new Map<string, ProductRow & { orderSet: Set<string> }>();
   let itemsSold = 0;
 
+  let manualReductionsSdg = 0;
+  let manualIncreasesSdg = 0;
+
   for (const item of items) {
     const quantity = num(item.quantity);
     if (!item.is_gift) itemsSold += quantity;
+
+    // الأسعار المعدّلة يدويًا في الكاشير (بطلب العميل)
+    if (!item.is_gift && item.price_overridden && item.list_unit_price != null) {
+      const diff = (num(item.list_unit_price) - num(item.unit_price)) * quantity;
+      if (diff > 0) manualReductionsSdg += diff;
+      else manualIncreasesSdg += -diff;
+    }
 
     if (!matchesProductFilter(item.template_id)) continue;
 
@@ -697,6 +710,8 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       avgInvoiceSdg: posOrders.length ? r2(posTotalsSdg / posOrders.length) : 0,
       itemsSold: r2(itemsSold),
       discountsSdg: r2(discountsSdg),
+      manualReductionsSdg: r2(manualReductionsSdg),
+      manualIncreasesSdg: r2(manualIncreasesSdg),
     },
     trend,
     trendGranularity: granularity,

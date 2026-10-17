@@ -6,6 +6,7 @@ import { requireLogin } from "@/lib/permissions-server";
 import { can } from "@/lib/permissions";
 
 import { updateProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
+import { stripProductCosts } from "../_lib/strip-costs";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -56,6 +57,8 @@ async function getFullProduct(id: string) {
 export async function GET(_request: Request, { params }: RouteParams) {
   const guard = await requireLogin();
   if (!guard.ok) return guard.response;
+  // الكاشير/الخياط لا يرون التكلفة ولا سعر الشراء
+  const canSeeCosts = can(guard.session?.role, "catalog.manage");
 
   try {
     const { id } = await params;
@@ -69,7 +72,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ data }, { status: 200 });
+    return NextResponse.json(
+      { data: canSeeCosts ? data : stripProductCosts(data) },
+      { status: 200 },
+    );
   } catch (error: unknown) {
     console.error("Product GET by id error:", error);
 

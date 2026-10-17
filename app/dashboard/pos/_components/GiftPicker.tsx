@@ -172,12 +172,12 @@ export default function GiftPicker({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-90 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-90 flex items-center justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="gift-picker-title"
-        className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
+        className="flex h-full w-full max-w-4xl flex-col overflow-hidden overflow-x-hidden bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:border sm:border-gray-200 sm:p-0"
         dir="rtl"
       >
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
@@ -227,8 +227,7 @@ export default function GiftPicker({
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="ابحث عن المنتج أو امسح الباركود..."
-                autoFocus
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-10 py-2.5 pl-20 text-xs font-medium text-gray-900 outline-none transition focus:border-(--primary-red) focus:bg-white"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-10 py-2.5 pl-20 text-base font-medium lg:text-xs text-gray-900 outline-none transition focus:border-(--primary-red) focus:bg-white"
               />
               <button
                 type="submit"
@@ -402,7 +401,7 @@ export default function GiftPicker({
                               ),
                             )
                           }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
+                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50"
                           aria-label="إنقاص كمية الهدية"
                         >
                           <LuMinus className="h-3.5 w-3.5" />

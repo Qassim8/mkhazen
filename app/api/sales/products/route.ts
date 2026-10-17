@@ -43,7 +43,6 @@ export async function GET(req: NextRequest) {
         colorName,
         colorCode,
         size,
-        purchasePrice,
         sellingPrice,
         minSellingPrice,
         stockQuantity,

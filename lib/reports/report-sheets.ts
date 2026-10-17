@@ -42,6 +42,8 @@ export function buildReportSheets(report: ReportData, filterLabels: string[]): S
         ["", null, ""],
         ["المحصّل من الزبائن بالجنيه", s.collectedSdg, "ج.س"],
         ["الخصومات الممنوحة", s.discountsSdg, "ج.س"],
+        ["إجمالي التخفيضات اليدوية", s.manualReductionsSdg, "ج.س"],
+        ["إجمالي الزيادات اليدوية", s.manualIncreasesSdg, "ج.س"],
         ["عدد فواتير الكاشير", s.posInvoices, ""],
         ["طلبات تفصيل مسلّمة", s.tailoringDelivered, ""],
         ["متوسط الفاتورة", s.avgInvoiceUsd, "$"],

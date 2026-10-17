@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireLogin } from "@/lib/permissions-server";
 import { z } from "zod";
 
-import { can } from "@/lib/permissions";
+import { can, isManager } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
@@ -520,9 +520,11 @@ export async function GET(request: Request) {
         fabric_sku: fabric?.sku ?? null,
         fabric_stock_quantity: Number(fabric?.stockQuantity ?? 0),
         fabric_selling_unit: fabricTemplate?.sellingUnit ?? null,
-        fabric_cost: fabricCost,
-        production_total_cost: productionTotalCost,
-        total_cost: totalCost,
+        // التكلفة للمالك والمدير فقط
+        tailoring_fabric_cost: isManager(role) ? row.tailoring_fabric_cost : 0,
+        fabric_cost: isManager(role) ? fabricCost : 0,
+        production_total_cost: isManager(role) ? productionTotalCost : null,
+        total_cost: isManager(role) ? totalCost : 0,
         paid_amount: paid,
         remaining_amount: purpose === "CUSTOMER" && row.tailoring_status !== "CANCELLED" ? Number(Math.max(Number(row.total_amount) - paid, 0).toFixed(2)) : 0,
         tailor_paid_amount: tailorPaid,
@@ -532,7 +534,8 @@ export async function GET(request: Request) {
         produced_product_sku: producedVariant?.sku ?? null,
         produced_product_barcode: producedVariant?.barcode ?? null,
         produced_product_selling_price: Number(producedVariant?.sellingPrice ?? 0),
-        produced_product_average_cost: Number(producedVariant?.averageCost ?? 0),
+        // متوسط التكلفة للمالك والمدير فقط
+        produced_product_average_cost: isManager(role) ? Number(producedVariant?.averageCost ?? 0) : 0,
       };
     });
 

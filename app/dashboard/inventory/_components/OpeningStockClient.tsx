@@ -204,7 +204,7 @@ export default function OpeningStockClient({ candidates }: Props) {
                       الكمية
                     </th>
                     <th className="px-4 py-3 text-start font-medium text-gray-500">
-                      تكلفة الوحدة ($)
+                      التكلفة الكاملة للوحدة (شاملة الشحن) ($)
                     </th>
                     <th className="px-4 py-3 text-start font-medium text-gray-500">
                       الإجمالي

@@ -202,7 +202,9 @@ export default function TailoringOrdersTable({
             cell: ({ row }) => (
               <span className="whitespace-nowrap font-bold text-gray-800">
                 {row.original.tailoringPurpose === "PRODUCTION"
-                  ? `${formatUSD(row.original.totalCost)}` // تصنيع: تكلفة بالدولار
+                  ? row.original.totalCost > 0
+                    ? formatUSD(row.original.totalCost) // تصنيع: تكلفة بالدولار (للمالك والمدير فقط)
+                    : "—"
                   : money(row.original.totalAmount)}
               </span>
             ),

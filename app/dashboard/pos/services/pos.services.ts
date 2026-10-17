@@ -33,7 +33,6 @@ export interface PosProductVariant {
   colorName: string | null;
   colorCode: string | null;
   size: string | null;
-  purchasePrice: number;
   sellingPrice: number;
   minSellingPrice: number;
   stockQuantity: number;
@@ -173,6 +172,8 @@ export interface SalesOrderDetail {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    priceOverridden?: boolean;
+    listUnitPrice?: number | null;
     product: {
       name: string;
       sku: string | null;

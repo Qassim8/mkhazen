@@ -29,6 +29,8 @@ export type SaleItemRow = {
   total_price: number | string;
   is_gift?: boolean | null;
   gift_note?: string | null;
+  list_unit_price?: number | string | null;
+  price_overridden?: boolean | null;
   variant?: Relation<VariantRel>;
 };
 

@@ -42,6 +42,7 @@ interface CartListProps {
   onPaymentSplitsChange: (splits: PaymentSplit[]) => void;
   onUpdateQty: (variantId: string, isGift: boolean, amount: number) => void;
   onSetQty: (variantId: string, isGift: boolean, quantity: number) => void;
+  onSetPrice: (variantId: string, isGift: boolean, price: number | null) => void;
   onRemove: (variantId: string, isGift: boolean) => void;
   onClear: () => void;
   onCheckout: () => void;
@@ -113,6 +114,7 @@ export default function CartList({
   onPaymentSplitsChange,
   onUpdateQty,
   onSetQty,
+  onSetPrice,
   onRemove,
   onClear,
   onCheckout,
@@ -135,7 +137,7 @@ export default function CartList({
 
   return (
     <>
-      <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-5">
+      <div className="flex h-full flex-col overflow-hidden bg-white p-4 lg:rounded-xl lg:border lg:border-gray-200 lg:p-5">
         <div className="shrink-0 space-y-3 border-b border-gray-100 pb-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -155,7 +157,7 @@ export default function CartList({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-gray-200 p-1.5 text-gray-500 transition hover:bg-gray-50 lg:hidden"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50 lg:hidden"
                   aria-label="إغلاق السلة"
                 >
                   <LuX className="h-4 w-4" />
@@ -218,6 +220,7 @@ export default function CartList({
                   exchangeRate={exchangeRate}
                   onUpdateQty={onUpdateQty}
                   onSetQty={onSetQty}
+                  onSetPrice={onSetPrice}
                   onRemove={onRemove}
                 />
               );
@@ -279,7 +282,7 @@ export default function CartList({
                           method: event.target.value as PaymentSplit["method"],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-gray-800 outline-none focus:border-(--primary-red)"
+                      className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-(--primary-red) lg:min-h-0 lg:text-[11px]"
                     >
                       {options.map((method) => (
                         <option key={method.value} value={method.value}>
@@ -291,6 +294,7 @@ export default function CartList({
                       type="number"
                       min="0"
                       step="0.01"
+                      inputMode="decimal"
                       value={split.amount}
                       disabled={isCheckingOut}
                       onChange={(event) =>
@@ -298,7 +302,7 @@ export default function CartList({
                           amount: Number(event.target.value) || 0,
                         })
                       }
-                      className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-[11px] font-bold text-gray-900 outline-none focus:border-(--primary-red)"
+                      className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-bold text-gray-900 outline-none focus:border-(--primary-red) lg:min-h-0 lg:text-[11px]"
                     />
                   </div>
                 );
@@ -334,7 +338,7 @@ export default function CartList({
                 الخصم
               </label>
               <span className="text-[10px] text-gray-400">
-                حتى 50% = {formatSDG(maxDiscount)}
+                حتى {formatSDG(maxDiscount)}
               </span>
             </div>
             <div className="relative">
@@ -343,11 +347,12 @@ export default function CartList({
                 type="number"
                 min="0"
                 step="0.01"
+                inputMode="decimal"
                 disabled={cart.length === 0 || isCheckingOut}
                 value={discountInput}
                 onChange={onDiscountInputChange}
                 placeholder="0.00"
-                className={`w-full rounded-xl border px-3 py-2 text-xs font-bold text-gray-900 outline-none transition ${
+                className={`min-h-11 w-full rounded-xl border px-3 py-2 text-base font-bold text-gray-900 outline-none transition lg:min-h-0 lg:text-xs ${
                   isDiscountOverLimit
                     ? "border-red-400 bg-red-50"
                     : "border-gray-200 bg-gray-50/50 focus:border-(--primary-red) focus:bg-white"
@@ -360,7 +365,7 @@ export default function CartList({
             {(discountError || isDiscountOverLimit) && (
               <p className="mt-1 text-[10px] font-medium text-red-500">
                 {discountError ||
-                  `الخصم الحالي يتجاوز الحد المسموح ${formatSDG(maxDiscount)}.`}
+                  `الخصم لا يمكن أن يتجاوز المجموع الفرعي ${formatSDG(maxDiscount)}.`}
               </p>
             )}
           </div>
@@ -440,7 +445,7 @@ export default function CartList({
             {isCheckingOut
               ? "جاري إتمام المبيعة..."
               : isDiscountOverLimit
-                ? "الخصم يتجاوز 50%"
+                ? "الخصم يتجاوز المجموع الفرعي"
                 : paymentMethod === "MIXED" && !mixedPaymentValid
                   ? "أكمل تقسيم الدفعة"
                   : cart.length > 0 && cart.every((item) => item.isGift)

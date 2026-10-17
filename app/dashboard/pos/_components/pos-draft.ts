@@ -77,7 +77,7 @@ export function checkoutFingerprint(input: {
   exchangeRate: number | null;
 }): string {
   return JSON.stringify({
-    items: input.cart.map((item) => [item.variant.id, item.qty, item.isGift, item.giftNote ?? null]),
+    items: input.cart.map((item) => [item.variant.id, item.qty, item.isGift, item.giftNote ?? null, item.priceSdg ?? null]),
     discount: input.discountAmount,
     method: input.paymentMethod,
     splits: input.paymentSplits.map((split) => [split.method, split.amount]),

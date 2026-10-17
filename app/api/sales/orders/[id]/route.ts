@@ -83,6 +83,8 @@ export async function GET(
             quantity,
             unit_price,
             total_price,
+            list_unit_price,
+            price_overridden,
             created_at,
             variant:product_variants (
               id,
@@ -267,6 +269,9 @@ export async function GET(
           quantity: Number(item.quantity),
           unitPrice: Number(item.unit_price),
           totalPrice: Number(item.total_price),
+          // سعر عدّله الكاشير يدويًا + السعر الأصلي وقت البيع
+          priceOverridden: Boolean(item.price_overridden),
+          listUnitPrice: item.list_unit_price != null ? Number(item.list_unit_price) : null,
           product: {
             id: template?.id ?? null,
             name: template?.name ?? "",
