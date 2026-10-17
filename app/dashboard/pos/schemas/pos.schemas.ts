@@ -80,8 +80,24 @@ export const salesOrderItemSchema = z
     totalPrice: moneySchema("إجمالي السطر مطلوب", "إجمالي السطر غير صالح"),
     isGift: z.boolean().default(false),
     giftNote: optionalGiftNoteSchema,
+    /** سعر وحدة بالجنيه عدّله الكاشير (يُرسل للأسطر المعدّلة فقط). الشرط الوحيد > 0 */
+    unitPriceSdg: z
+      .number({ error: "سعر الوحدة غير صالح" })
+      .finite("سعر الوحدة غير صالح")
+      .positive("سعر الوحدة يجب أن يكون أكبر من صفر")
+      .refine(hasAtMostTwoDecimals, "سعر الوحدة يجب ألا يتجاوز منزلتين عشريتين")
+      .nullable()
+      .optional(),
   })
   .superRefine((item, ctx) => {
+    if (item.isGift && item.unitPriceSdg != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "لا يمكن تعديل سعر الهدية",
+        path: ["unitPriceSdg"],
+      });
+    }
+
     if (item.isGift) {
       if (item.unitPrice !== 0) {
         ctx.addIssue({
@@ -225,24 +241,12 @@ export const createSalesOrderSchema = z
     }
 
     // -------------------------------------------------------
-    // Discount
-    // Maximum discount = 50% of pre-discount subtotal.
+    // Discount: ≥ 0 و ≤ المجموع الفرعي (بدون حد نسبة)
     // -------------------------------------------------------
     if (data.discountAmount > data.subtotal) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "الخصم لا يمكن أن يتجاوز المجموع الفرعي",
-        path: ["discountAmount"],
-      });
-    }
-
-    const maxDiscount = Math.floor(data.subtotal * 0.5 * 100 + 1e-9) / 100;
-    if (data.discountAmount > maxDiscount) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          `الخصم لا يمكن أن يتجاوز 50% من الإجمالي قبل الخصم ` +
-          `(${maxDiscount.toFixed(2)} ج.س)`,
         path: ["discountAmount"],
       });
     }

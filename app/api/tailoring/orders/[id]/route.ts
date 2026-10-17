@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireLogin } from "@/lib/permissions-server";
 
-import { can } from "@/lib/permissions";
+import { can, isManager } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { isUuid } from "@/lib/api-response";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -495,10 +495,11 @@ export async function GET(
         fabric_sku: fabricResult.data?.sku ?? null,
         fabric_selling_unit: fabricTemplate?.sellingUnit ?? null,
         fabric_stock_quantity: Number(fabricResult.data?.stockQuantity ?? 0),
-        fabric_cost: fabricCost,
-        tailoring_fabric_cost: fabricCost,
-        tailoring_cost: tailoringCost,
-        total_cost: totalCost,
+        // التكلفة والربح للمالك والمدير فقط
+        fabric_cost: isManager(role) ? fabricCost : 0,
+        tailoring_fabric_cost: isManager(role) ? fabricCost : 0,
+        tailoring_cost: isManager(role) ? tailoringCost : 0,
+        total_cost: isManager(role) ? totalCost : 0,
         total_amount: totalAmount,
         paid_amount: paidAmount,
         remaining_amount: remainingAmount,
@@ -522,18 +523,19 @@ export async function GET(
         produced_product_template_id: order.produced_product_template_id,
         produced_product_variant_id: order.produced_product_variant_id,
         produced_quantity: order.produced_quantity != null ? Number(order.produced_quantity) : null,
-        production_total_cost: productionTotalCost,
+        production_total_cost: isManager(role) ? productionTotalCost : null,
         produced_product_name: producedTemplateResult.data?.name ?? null,
         produced_product_sku: producedVariantResult.data?.sku ?? null,
         produced_product_barcode: producedVariantResult.data?.barcode ?? null,
         produced_product_selling_price: Number(producedVariantResult.data?.sellingPrice ?? 0),
-        produced_product_average_cost: Number(producedVariantResult.data?.averageCost ?? 0),
+        // متوسط التكلفة للمالك والمدير فقط
+        produced_product_average_cost: isManager(role) ? Number(producedVariantResult.data?.averageCost ?? 0) : 0,
         total_amount_usd: estimatedRevenueUsd,
         exchange_rate_used: exchangeRateUsed,
         revenue_usd: purpose === "CUSTOMER" ? revenueUsd : null,
         revenue_is_final: revenueIsFinal,
         // الربح بالدولار (الإيراد بالدولار − التكلفة بالدولار)
-        gross_profit: purpose === "CUSTOMER" ? Number((revenueUsd - totalCost).toFixed(2)) : null,
+        gross_profit: purpose === "CUSTOMER" && isManager(role) ? Number((revenueUsd - totalCost).toFixed(2)) : null,
         payment_status: order.payment_status,
         payment_method: order.payment_method,
         status: order.status,

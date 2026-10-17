@@ -18,6 +18,8 @@ interface SalesOrderItemRow {
   total_price: number | string;
   is_gift: boolean;
   gift_note: string | null;
+  list_unit_price: number | string | null;
+  price_overridden: boolean | null;
 }
 
 interface TemplateRow {
@@ -122,7 +124,9 @@ export default async function SalesReceiptPage({ params }: Props) {
         unit_price,
         total_price,
         is_gift,
-        gift_note
+        gift_note,
+        list_unit_price,
+        price_overridden
       `,
     )
     .eq("sales_order_id", order.id)
@@ -293,6 +297,8 @@ export default async function SalesReceiptPage({ params }: Props) {
       totalPrice: Number(item.total_price),
       isGift: Boolean(item.is_gift),
       giftNote: item.gift_note ?? null,
+      listUnitPrice: item.list_unit_price != null ? Number(item.list_unit_price) : null,
+      priceOverridden: Boolean(item.price_overridden),
     };
   });
 

@@ -14,7 +14,53 @@ interface CartItemProps {
   exchangeRate: number | null;
   onUpdateQty: (variantId: string, isGift: boolean, amount: number) => void;
   onSetQty: (variantId: string, isGift: boolean, quantity: number) => void;
+  onSetPrice: (variantId: string, isGift: boolean, price: number | null) => void;
   onRemove: (variantId: string, isGift: boolean) => void;
+}
+
+/** حقل سعر الوحدة بالجنيه (قابل للتعديل بطلب العميل) */
+function UnitPriceInput({
+  item,
+  listPrice,
+  onSetPrice,
+}: {
+  item: POSCartItem;
+  listPrice: number;
+  onSetPrice: CartItemProps["onSetPrice"];
+}) {
+  const current = item.priceSdg ?? listPrice;
+  const [value, setValue] = useState(String(current));
+
+  function commit() {
+    const parsed = Number(value.trim().replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      toast.error("سعر الوحدة يجب أن يكون أكبر من صفر");
+      setValue(String(current));
+      return;
+    }
+    const rounded = Number(parsed.toFixed(2));
+    onSetPrice(item.variant.id, item.isGift, Math.abs(rounded - listPrice) < 0.005 ? null : rounded);
+  }
+
+  return (
+    <input
+      type="number"
+      min="0.01"
+      step="0.01"
+      inputMode="decimal"
+      value={value}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      className="h-11 w-24 rounded-md border border-gray-200 bg-white px-2 text-center text-base font-bold text-gray-800 outline-none focus:border-(--primary-red) lg:h-8 lg:text-xs"
+      aria-label={`سعر وحدة ${item.product.name} بالجنيه`}
+    />
+  );
 }
 
 function getProductImage(item: POSCartItem): string {
@@ -92,7 +138,7 @@ function ManualQuantityInput({
       onChange={(event) => setManualQty(event.target.value)}
       onBlur={commitManualQuantity}
       onKeyDown={handleQuantityKeyDown}
-      className="h-6 w-16 bg-white px-1 text-center text-[11px] font-bold text-gray-800 outline-none"
+      className="h-11 w-16 bg-white px-1 text-center text-base font-bold text-gray-800 outline-none lg:h-7 lg:text-[11px]"
       aria-label={`كمية ${item.product.name}`}
     />
   );
@@ -102,6 +148,7 @@ export default function CartItem({
   item,
   onUpdateQty,
   onSetQty,
+  onSetPrice,
   onRemove,
   maxQuantity,
   exchangeRate,
@@ -111,7 +158,9 @@ export default function CartItem({
   const isMeterProduct = isMeterBasedProduct(item);
 
   // نفس معادلة السيرفر: سعر الوحدة بالجنيه (مقرّب) × الكمية
-  const unitPriceSdg = usdToSdg(variant.sellingPrice, exchangeRate);
+  const listUnitSdg = usdToSdg(variant.sellingPrice, exchangeRate);
+  const unitPriceSdg = item.priceSdg ?? listUnitSdg;
+  const overridden = !item.isGift && item.priceSdg != null && Math.abs(item.priceSdg - listUnitSdg) >= 0.005;
   const itemTotal = item.isGift ? 0 : roundMoney(unitPriceSdg * item.qty);
 
   return (
@@ -119,7 +168,9 @@ export default function CartItem({
       className={`w-full rounded-xl border p-2.5 ${
         item.isGift
           ? "border-amber-200 bg-amber-50/40"
-          : "border-gray-200 bg-white"
+          : overridden
+            ? "border-sky-300 bg-sky-50/50"
+            : "border-gray-200 bg-white"
       }`}
     >
       <div className="flex items-start gap-3">
@@ -152,7 +203,7 @@ export default function CartItem({
             <button
               type="button"
               onClick={() => onRemove(variant.id, item.isGift)}
-              className="shrink-0 text-gray-400 transition hover:text-red-500"
+              className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center text-gray-400 transition hover:text-red-500 lg:m-0 lg:h-auto lg:w-auto"
               aria-label="حذف المنتج"
             >
               <LuTrash2 className="h-3.5 w-3.5" />
@@ -193,7 +244,7 @@ export default function CartItem({
                       isMeterProduct ? -0.01 : -1,
                     )
                   }
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-100"
+                  className="flex h-11 w-11 items-center justify-center rounded-md lg:h-7 lg:w-7 border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-100"
                   aria-label="إنقاص الكمية"
                 >
                   <LuMinus className="h-2.5 w-2.5" />
@@ -215,7 +266,7 @@ export default function CartItem({
                   type="button"
                   disabled={item.qty >= maxQuantity}
                   onClick={() => onUpdateQty(variant.id, item.isGift, 0.01)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="flex h-11 w-11 items-center justify-center rounded-md lg:h-7 lg:w-7 border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
                   aria-label="زيادة الكمية"
                 >
                   <LuPlus className="h-2.5 w-2.5" />
@@ -226,7 +277,7 @@ export default function CartItem({
                 <button
                   type="button"
                   onClick={() => onUpdateQty(variant.id, item.isGift, -1)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100"
+                  className="flex h-11 w-11 items-center justify-center rounded-md lg:h-7 lg:w-7 border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100"
                   aria-label="إنقاص الكمية"
                 >
                   <LuMinus className="h-2.5 w-2.5" />
@@ -238,7 +289,7 @@ export default function CartItem({
                   type="button"
                   disabled={item.qty >= maxQuantity}
                   onClick={() => onUpdateQty(variant.id, item.isGift, 1)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="flex h-11 w-11 items-center justify-center rounded-md lg:h-7 lg:w-7 border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
                   aria-label="زيادة الكمية"
                 >
                   <LuPlus className="h-2.5 w-2.5" />
@@ -246,6 +297,36 @@ export default function CartItem({
               </div>
             )}
           </div>
+
+          {!item.isGift && (
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px]">
+              <span className="font-bold text-gray-500">سعر الوحدة</span>
+              <UnitPriceInput
+                key={`${item.priceSdg ?? "list"}-${listUnitSdg}`}
+                item={item}
+                listPrice={listUnitSdg}
+                onSetPrice={onSetPrice}
+              />
+              {overridden && (
+                <>
+                  {unitPriceSdg < listUnitSdg ? (
+                    <span className="text-gray-400 line-through">{formatSDG(listUnitSdg)}</span>
+                  ) : (
+                    <span className="font-black text-sky-700" title={`السعر الأصلي ${formatSDG(listUnitSdg)}`}>
+                      ↑ {formatSDG(listUnitSdg)}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onSetPrice(variant.id, item.isGift, null)}
+                    className="min-h-11 rounded-md border border-sky-200 lg:min-h-8 bg-white px-2 font-bold text-sky-700 hover:bg-sky-50"
+                  >
+                    السعر الأصلي
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-2 text-[9px] text-gray-400">
             <span>المتاح: {formatQuantity(maxQuantity)}</span>

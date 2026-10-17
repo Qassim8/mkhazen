@@ -141,6 +141,8 @@ function SummaryTab({ report }: { report: ReportData }) {
         <Kpi title="متوسط الفاتورة بالجنيه" value={formatSDG(s.avgInvoiceSdg)} />
         <Kpi title="طلبات تفصيل مسلّمة" value={qty(s.tailoringDelivered)} />
         <Kpi title="الخصومات الممنوحة" value={formatSDG(s.discountsSdg)} hint={`الكميات المباعة ${qty(s.itemsSold)}`} />
+        <Kpi title="إجمالي التخفيضات اليدوية" value={formatSDG(s.manualReductionsSdg)} hint="أسعار خُفّضت في الكاشير" />
+        <Kpi title="إجمالي الزيادات اليدوية" value={formatSDG(s.manualIncreasesSdg)} hint="أسعار رُفعت في الكاشير" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr] print:grid-cols-1">

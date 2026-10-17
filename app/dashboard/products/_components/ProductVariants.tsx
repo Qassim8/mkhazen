@@ -320,7 +320,7 @@ export default function ProductVariantsSection({
               <div className="grid gap-4 md:grid-cols-3 border-t border-gray-200/60 pt-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    سعر الشراء ($) *
+                    سعر الشراء (مرجعي) ($) *
                   </label>
                   <input
                     type="number"
@@ -330,6 +330,9 @@ export default function ProductVariantsSection({
                     })}
                     className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold focus:border-(--primary-red) outline-hidden"
                   />
+                  <p className="mt-1 text-[10px] text-gray-400">
+                    التكلفة الفعلية تُحسب تلقائيًا من أوامر الشراء
+                  </p>
                   {variantErrors?.purchasePrice && (
                     <p className="text-[11px] text-red-500 mt-1">
                       {variantErrors.purchasePrice.message}

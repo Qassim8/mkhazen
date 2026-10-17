@@ -16,6 +16,9 @@ interface ReceiptItem {
   totalPrice: number;
   isGift: boolean;
   giftNote?: string | null;
+  /** السعر الأصلي للوحدة وقت البيع */
+  listUnitPrice?: number | null;
+  priceOverridden?: boolean;
 }
 
 interface ReceiptData {
@@ -83,6 +86,14 @@ export default function ReceiptPrintClient({ receipt }: Props) {
   const { date, time } = formatDateTime(receipt.createdAt);
   const giftOnly =
     receipt.items.length > 0 && receipt.items.every((item) => item.isGift);
+
+  // وفّرت اليوم = تخفيضات الأسعار المعدّلة + خصم الفاتورة
+  const savedToday =
+    receipt.items.reduce((sum, item) => {
+      if (item.isGift || !item.priceOverridden || item.listUnitPrice == null) return sum;
+      const diff = item.listUnitPrice - item.unitPrice;
+      return diff > 0 ? sum + diff * item.quantity : sum;
+    }, 0) + receipt.discountAmount;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -195,7 +206,16 @@ export default function ReceiptPrintClient({ receipt }: Props) {
                   )}
 
                   <div className="mt-1 grid grid-cols-[1fr_auto_auto] gap-2 text-[10px]">
-                    <span>{formatMoney(item.unitPrice)}</span>
+                    <span>
+                      {item.priceOverridden &&
+                        item.listUnitPrice != null &&
+                        item.listUnitPrice > item.unitPrice && (
+                          <span className="ml-1 text-gray-500 line-through">
+                            {formatMoney(item.listUnitPrice)}
+                          </span>
+                        )}
+                      {formatMoney(item.unitPrice)}
+                    </span>
                     <span className="text-center">
                       {formatQuantity(item.quantity)}
                     </span>
@@ -238,6 +258,13 @@ export default function ReceiptPrintClient({ receipt }: Props) {
               <span>الإجمالي</span>
               <span>{formatMoney(receipt.totalAmount)}</span>
             </div>
+
+            {savedToday >= 0.01 && (
+              <div className="flex justify-between text-[11px] font-bold">
+                <span>وفّرت اليوم</span>
+                <span>{formatMoney(Math.round(savedToday * 100) / 100)}</span>
+              </div>
+            )}
           </div>
 
           <footer className="border-t border-dashed border-black pt-4 text-center text-[10px]">

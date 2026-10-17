@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
           quantity: item.quantity,
           isGift: item.isGift,
           giftNote: item.giftNote ?? null,
+          unitPriceSdg: item.isGift ? null : item.unitPriceSdg ?? null,
         })),
         expectedExchangeRate: payload.exchangeRate,
       });

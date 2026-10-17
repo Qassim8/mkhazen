@@ -148,6 +148,10 @@ export interface ReportSummary {
   avgInvoiceSdg: number;
   itemsSold: number;
   discountsSdg: number;
+  /** Σ(السعر الأصلي − الفعلي) × الكمية للأسطر المخفّضة يدويًا (ج.س) */
+  manualReductionsSdg: number;
+  /** Σ(الفعلي − الأصلي) × الكمية للأسطر المرفوعة يدويًا (ج.س) */
+  manualIncreasesSdg: number;
 }
 
 export interface TrendPoint {

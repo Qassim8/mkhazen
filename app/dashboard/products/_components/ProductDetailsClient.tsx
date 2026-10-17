@@ -17,6 +17,7 @@ import {
 import { Product, ProductVariant } from "../schemas/product.schemas";
 
 import { ProductBarcode } from "./ProductBarcodeCard";
+import VariantCostInfo from "./VariantCostInfo";
 
 type ProductDetails = Product & {
   category?: {
@@ -509,7 +510,7 @@ export default function ProductDetailsClient({
                     </div>
 
                     {/* Price + stock */}
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-2 gap-2 text-center">
                       <div className="rounded-xl bg-gray-50 p-2">
                         <span className="block text-[10px] text-gray-400">
                           المخزون
@@ -517,16 +518,6 @@ export default function ProductDetailsClient({
 
                         <span className="text-xs font-black text-gray-800">
                           {status.stock}
-                        </span>
-                      </div>
-
-                      <div className="rounded-xl bg-gray-50 p-2">
-                        <span className="block text-[10px] text-gray-400">
-                          الشراء
-                        </span>
-
-                        <span className="text-xs font-bold text-gray-700">
-                          {formatPrice(Number(variant.purchasePrice))}
                         </span>
                       </div>
 
@@ -539,6 +530,16 @@ export default function ProductDetailsClient({
                           {formatPrice(Number(variant.sellingPrice))}
                         </span>
                       </div>
+                    </div>
+
+                    {/* التكلفة الفعلية + الهامش */}
+                    <div className="mt-2 rounded-xl bg-gray-50 p-2">
+                      <VariantCostInfo
+                        compact
+                        sellingPrice={Number(variant.sellingPrice ?? 0)}
+                        averageCost={variant.averageCost}
+                        purchasePrice={variant.purchasePrice}
+                      />
                     </div>
 
                     {/* Barcode */}
@@ -676,23 +677,18 @@ function SingleVariantDetails({
       />
 
       <DetailCard
-        label="سعر الشراء"
-        value={`${formatPrice(Number(variant.purchasePrice))} $`}
-      />
-
-      <DetailCard
         label="سعر البيع"
         value={`${formatPrice(Number(variant.sellingPrice))} $`}
         valueClassName="text-emerald-600"
       />
 
-      {variant.minSellingPrice !== null &&
-        variant.minSellingPrice !== undefined && (
-          <DetailCard
-            label="متوسط التكلفة بعد الشراء"
-            value={`${formatPrice(Number(variant.averageCost))} $`}
-          />
-        )}
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+        <VariantCostInfo
+          sellingPrice={Number(variant.sellingPrice ?? 0)}
+          averageCost={variant.averageCost}
+          purchasePrice={variant.purchasePrice}
+        />
+      </div>
 
       {variant.colorName && (
         <DetailCard label="اللون" value={variant.colorName} />

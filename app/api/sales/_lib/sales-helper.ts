@@ -15,6 +15,8 @@ export interface CheckoutItemInput {
   quantity: number;
   isGift: boolean;
   giftNote?: string | null;
+  /** سعر وحدة بالجنيه عدّله الكاشير */
+  unitPriceSdg?: number | null;
 }
 
 export interface CheckoutPaymentSplit {
@@ -91,6 +93,7 @@ export async function completeSalesCheckout(
       quantity: item.quantity,
       isGift: item.isGift,
       giftNote: item.giftNote ?? null,
+      ...(item.unitPriceSdg != null && !item.isGift ? { unitPriceSdg: item.unitPriceSdg } : {}),
     })),
     p_expected_exchange_rate: input.expectedExchangeRate ?? null,
   });

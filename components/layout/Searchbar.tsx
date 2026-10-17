@@ -13,7 +13,7 @@ const Searchbar = () => {
         name="search"
         placeholder="ابحث عن منتج......"
         aria-label="ابحث عن منتج"
-        className="w-48 rounded-lg border border-gray-300 bg-gray-50 py-2 pe-3 ps-9 text-sm text-gray-700 placeholder-gray-600 focus:border-(--primary-red)/70 focus:bg-white focus:outline-none focus:ring focus:ring-red-200 md:w-72 md:rounded-xl"
+        className="w-40 rounded-lg border border-gray-300 bg-gray-50 py-2 pe-3 ps-9 text-sm text-gray-700 placeholder-gray-600 focus:border-(--primary-red)/70 focus:bg-white focus:outline-none focus:ring focus:ring-red-200 md:w-72 md:rounded-xl"
       />
       <button
         type="submit"

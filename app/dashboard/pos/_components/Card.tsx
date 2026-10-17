@@ -165,8 +165,8 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
 
   return (
     <>
-      <div className="group flex min-h-[305px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-3 transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md">
-        <div className="relative h-36 w-full overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+      <div className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:min-h-[305px] sm:p-3">
+        <div className="relative h-28 w-full overflow-hidden rounded-xl border border-gray-100 bg-gray-50 sm:h-36">
           <Image
             src={
               product.images?.[0] ??
@@ -201,7 +201,7 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
             </h3>
 
             {product.description && (
-              <p className="mt-1 line-clamp-1 text-[10px] text-gray-400">
+              <p className="mt-1 hidden text-[10px] text-gray-400 sm:line-clamp-1">
                 {product.description}
               </p>
             )}
@@ -241,22 +241,22 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
               type="button"
               disabled={productOutOfStock}
               onClick={handleMainAction}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-35"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-2 py-2.5 text-sm font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-35 sm:text-xs"
             >
-              <LuPlus className="h-4 w-4" />
-              {hasMultipleVariants ? "اختيار المتغير وإضافة" : "إضافة للسلة"}
+              <LuPlus className="h-5 w-5 sm:h-4 sm:w-4" />
+              {hasMultipleVariants ? "اختر وأضف" : "إضافة"}
             </button>
           </div>
         </div>
       </div>
 
       {isVariantPickerOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:p-4">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby={`variant-picker-${product.id}`}
-            className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
+            className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl sm:h-auto sm:max-h-[88vh] sm:rounded-3xl sm:border sm:border-gray-200"
           >
             <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
               <div className="min-w-0">
@@ -275,7 +275,7 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
               <button
                 type="button"
                 onClick={closeVariantPicker}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 transition hover:bg-gray-50"
                 aria-label="إغلاق اختيار المتغير"
               >
                 <LuX className="h-4 w-4" />
@@ -290,8 +290,7 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
                   value={variantSearch}
                   onChange={(event) => setVariantSearch(event.target.value)}
                   placeholder="ابحث داخل المتغيرات..."
-                  autoFocus
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-10 py-2.5 text-xs font-medium text-gray-900 outline-none transition focus:border-(--primary-red) focus:bg-white"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-10 py-2.5 text-base font-medium lg:text-xs text-gray-900 outline-none transition focus:border-(--primary-red) focus:bg-white"
                 />
               </div>
             </div>

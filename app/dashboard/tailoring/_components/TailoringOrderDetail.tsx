@@ -56,6 +56,8 @@ interface CategoryOption {
 interface Props {
   order: TailoringOrder;
   canManageAll: boolean;
+  /** التكلفة والربح للمالك والمدير فقط */
+  canSeeCosts: boolean;
   canCollect: boolean;
   canManageStatus: boolean;
   categories: CategoryOption[];
@@ -140,6 +142,7 @@ function ModalShell({ children }: { children: ReactNode }) {
 export default function TailoringOrderDetail({
   order,
   canManageAll,
+  canSeeCosts,
   canCollect,
   canManageStatus,
   categories,
@@ -794,7 +797,7 @@ export default function TailoringOrderDetail({
                     : ""}
                   الكمية: {formatQuantity(order.fabricQuantity ?? 0)} متر
                 </p>
-                {canManageAll && (
+                {canSeeCosts && (
                   <p className="mt-2 text-xs font-bold text-gray-700">
                     تكلفة الخامة المسجلة: {usd(order.fabricCost)}
                   </p>
@@ -851,24 +854,30 @@ export default function TailoringOrderDetail({
                 <span className="text-gray-500">قيمة الطلب</span>
                 <strong>
                   {isProduction
-                    ? usd(order.totalCost)
+                    ? canSeeCosts
+                      ? usd(order.totalCost)
+                      : "—"
                     : money(order.totalAmount)}
                 </strong>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-500">تكلفة القماش</span>
-                <strong>{usd(order.fabricCost)}</strong>
-              </div>
+              {canSeeCosts && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500">تكلفة القماش</span>
+                  <strong>{usd(order.fabricCost)}</strong>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-gray-500">أجرة الخياطة</span>
                 <strong dir="ltr">
                   {formatSDG(order.tailoringCostSdg)}
-                  <span className="mr-1 text-[10px] font-semibold text-gray-400">
-                    ≈ {usd(order.tailoringCost)}
-                  </span>
+                  {canSeeCosts && (
+                    <span className="mr-1 text-[10px] font-semibold text-gray-400">
+                      ≈ {usd(order.tailoringCost)}
+                    </span>
+                  )}
                 </strong>
               </div>
-              {!isProduction && order.grossProfit != null && (
+              {canSeeCosts && !isProduction && order.grossProfit != null && (
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">
                     {order.revenueIsFinal ? "الربح الفعلي" : "الربح المتوقع"}
@@ -930,7 +939,7 @@ export default function TailoringOrderDetail({
         )}
       </div>
 
-      {canManageAll && order.convertedToProductAt && order.producedProduct && (
+      {canSeeCosts && order.convertedToProductAt && order.producedProduct && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-start gap-3">
             <LuPackage className="mt-0.5 h-5 w-5 text-emerald-700" />

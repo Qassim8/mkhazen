@@ -1,20 +1,22 @@
 /**
  * التحقق من أسعار السلة على السيرفر قبل البيع.
  *
- * دالة complete_sales_checkout بتحسب الأسعار من قاعدة البيانات (مش من المتصفح)،
- * لكن حد الخصم (50% من الإجمالي قبل الخصم) بيتفحص في الـ schema على المجموع
- * اللي المتصفح بعته. هنا بنتأكد إن المجموع ده هو نفسه اللي هيتحسب من أسعار
- * قاعدة البيانات وسعر الصرف الحالي — فما ينفعش حد يرفع المجموع في الطلب عشان
- * يعدّي خصم أكبر، وما يتمش بيع بأسعار قديمة معروضة على شاشة الكاشير.
+ * دالة complete_sales_checkout تحسب الأسعار من قاعدة البيانات، إلا السطر الذي
+ * أرسل له الكاشير سعرًا معدّلًا (unitPriceSdg). هنا نتأكد أن المجموع المرسل هو
+ * نفسه المحسوب من أسعار قاعدة البيانات وسعر الصرف الحالي (أو السعر المعدّل)،
+ * حتى لا يتم بيع بأسعار قديمة معروضة على شاشة الكاشير.
  *
  * المعادلة (نفس POSClient و complete_sales_checkout):
- *   سطر = round2( round2(سعر البيع بالدولار × سعر الصرف) × الكمية ) — والهدية = 0
+ *   سطر = round2( سعر الوحدة بالجنيه × الكمية ) — والهدية = 0
+ *   سعر الوحدة = unitPriceSdg إن أُرسل، وإلا round2(سعر البيع بالدولار × سعر الصرف)
  */
 
 export interface PricingItem {
   variantId: string;
   quantity: number;
   isGift: boolean;
+  /** سعر معدّل بالجنيه من الكاشير */
+  unitPriceSdg?: number | null;
 }
 
 export interface PricingVariant {
@@ -50,7 +52,8 @@ export function verifyCheckoutSubtotal(params: {
 
     if (item.isGift) continue;
 
-    const unitSdg = round2(variant.sellingPrice * rate);
+    const unitSdg =
+      item.unitPriceSdg != null ? round2(item.unitPriceSdg) : round2(variant.sellingPrice * rate);
     subtotal = round2(subtotal + round2(unitSdg * item.quantity));
   }
 
