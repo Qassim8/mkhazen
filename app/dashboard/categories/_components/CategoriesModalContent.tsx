@@ -5,8 +5,8 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import Image from "next/image";
 import { LuUpload, LuLoader, LuImage } from "react-icons/lu";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 import {
   categorySchema,
@@ -134,17 +134,13 @@ export default function ModalContent({
           </label>
           <div className="flex items-center gap-4">
             <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
-              {previewImage ? (
-                <Image
-                  src={previewImage}
-                  alt="Preview"
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className="object-cover"
-                />
-              ) : (
-                <LuImage className="h-8 w-8 text-gray-400" />
-              )}
+              <ImageWithFallback
+                src={previewImage}
+                alt="Preview"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover"
+              />
               {isUploading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                   <LuLoader className="h-6 w-6 animate-spin text-white" />

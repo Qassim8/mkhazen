@@ -2,15 +2,14 @@
 
 import { formatUSD } from "@/lib/currency";
 import { useState } from "react";
-import Image from "next/image";
 import {
   LuPlus,
   LuSearch,
   LuTrash2,
   LuX,
   LuLink2,
-  LuPackage,
 } from "react-icons/lu";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 // واجهة المنتج المرتبط
 export interface RelatedProductItem {
@@ -97,16 +96,12 @@ export default function RelatedProducts({
               {/* صورة المنتج والاسم والكلية */}
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative h-10 w-10 shrink-0 rounded-lg overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <LuPackage className="h-5 w-5 text-gray-500" />
-                  )}
+                  <ImageWithFallback
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-xs font-bold truncate text-gray-700">
@@ -189,16 +184,12 @@ export default function RelatedProducts({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative h-9 w-9 shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
-                        {product.image ? (
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            fill
-                            className="object-cover"
-                          />
-                        ) : (
-                          <LuPackage className="h-4 w-4 text-gray-400" />
-                        )}
+                        <ImageWithFallback
+                          src={product.image}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                        />
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-gray-800 group-hover:text-(--primary-red) truncate">

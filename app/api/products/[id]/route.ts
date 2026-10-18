@@ -6,7 +6,7 @@ import { requireLogin } from "@/lib/permissions-server";
 import { can } from "@/lib/permissions";
 
 import { updateProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
-import { stripProductCosts } from "../_lib/strip-costs";
+import { stripProductCosts, stripPurchasePriceOnly } from "../_lib/strip-costs";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -57,8 +57,12 @@ async function getFullProduct(id: string) {
 export async function GET(_request: Request, { params }: RouteParams) {
   const guard = await requireLogin();
   if (!guard.ok) return guard.response;
-  // الكاشير/الخياط لا يرون التكلفة ولا سعر الشراء
+  // الخياط لا يرى أي تكلفة. الكاشير يرى سعر التكلفة (averageCost) بس، لا آخر سعر شراء
   const canSeeCosts = can(guard.session?.role, "catalog.manage");
+  const canSeeCostPrice =
+    canSeeCosts ||
+    can(guard.session?.role, "sales.pos") ||
+    can(guard.session?.role, "tailoring.operate");
 
   try {
     const { id } = await params;
@@ -73,7 +77,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     return NextResponse.json(
-      { data: canSeeCosts ? data : stripProductCosts(data) },
+      { data: canSeeCosts ? data : canSeeCostPrice ? stripPurchasePriceOnly(data) : stripProductCosts(data) },
       { status: 200 },
     );
   } catch (error: unknown) {

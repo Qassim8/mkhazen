@@ -11,10 +11,12 @@ import type { PGliteInterface } from "@electric-sql/pglite";
 import { BRANCH_ID, RELEASE_SEQUENCE, asRole, createLiveDb, createProduct, num, releaseTemplate, rpcError, seedBase, sql, type Users } from "./db-harness";
 
 const DIR = join(__dirname, "..", "migrations");
+// الملفان قابلان لتعديل القيم من المالك نفسه قبل التطبيق الحقيقي (تبقى كما هي)،
+// فالاستبدال هنا بالموضع (v_total_shipping / v_mode) لا بالقيمة الحالية.
 const withSettings = (file: string, total: number, mode: string) =>
   sql(join(DIR, file))
-    .replace("0.00::numeric", `${total}::numeric`)
-    .replace("'PER_UNIT'::text", `'${mode}'::text`);
+    .replace(/[\d.]+(::numeric\s+AS v_total_shipping)/, `${total}$1`)
+    .replace(/'[A-Z_]+'(::text\s+AS v_mode)/, `'${mode}'$1`);
 
 after(releaseTemplate);
 

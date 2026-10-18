@@ -18,6 +18,7 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 import { formatQuantity, formatSDG } from "@/lib/currency";
 import { STORE_INFO } from "@/lib/store";
 
@@ -78,12 +79,14 @@ function Row({
 function Header({ title }: { title: string }) {
   return (
     <div className="border-b border-dashed border-black pb-2 text-center">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <ImageWithFallback
         src={STORE_INFO.logo}
         alt={STORE_INFO.name}
-        loading="eager"
-        className="mx-auto mb-1 h-12 w-auto object-contain"
+        width={48}
+        height={48}
+        unoptimized
+        priority
+        className="mx-auto mb-1 h-12 w-12 object-contain"
       />
       <p className="text-base font-bold">{STORE_INFO.name}</p>
       <p className="mt-1 inline-block rounded border border-black px-2 text-[11px] font-black">

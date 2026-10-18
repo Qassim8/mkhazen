@@ -10,6 +10,7 @@ type FabricVariant = {
   stockQuantity?: number;
   colorName?: string | null;
   size?: string | null;
+  averageCost?: number | null;
 };
 
 type FabricProduct = {
@@ -26,6 +27,8 @@ interface SelectedFabric {
   colorName: string | null;
   stockQuantity: number;
   sellingUnit: string | null;
+  /** تكلفة المتر بالدولار (averageCost) — null لو غير محسوبة بعد */
+  costPerMeterUsd: number | null;
 }
 
 interface Props {
@@ -88,6 +91,7 @@ export default function FabricSearch({ value, onChange, disabled, initialSelecti
       colorName: variant.colorName ?? null,
       stockQuantity: Number(variant.stockQuantity ?? 0),
       sellingUnit: product.sellingUnit ?? null,
+      costPerMeterUsd: Number(variant.averageCost ?? 0) > 0 ? Number(variant.averageCost) : null,
     };
 
     setSelected(fabric);
@@ -180,6 +184,11 @@ export default function FabricSearch({ value, onChange, disabled, initialSelecti
                             {variant.colorName ?? "متغير"}
                             {variant.size ? ` · ${variant.size}` : ""}
                             {variant.sku ? ` · ${variant.sku}` : ""}
+                            {Number(variant.averageCost ?? 0) > 0 && (
+                              <span className="mr-1.5 font-bold text-amber-600">
+                                تكلفة المتر: {Number(variant.averageCost).toFixed(2)} $
+                              </span>
+                            )}
                           </span>
                           <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-emerald-600">
                             <LuCheck className="h-3 w-3" />

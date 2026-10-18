@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 import {
   LuCheck,
@@ -22,6 +22,8 @@ interface CardProps {
   onAdd: (product: Product, variant: ProductVariant) => void;
   /** سعر الصرف الحالي (ج.س لكل 1$) — أسعار المنتجات مخزنة بالدولار */
   exchangeRate: number | null;
+  /** إظهار سعر التكلفة بالجنيه للكاشير — مفتاح عام من شاشة الكاشير */
+  showCost?: boolean;
 }
 
 function getVariantImage(product: Product, variant: ProductVariant): string {
@@ -87,7 +89,29 @@ function formatPriceRange(
   return `${format(min)} – ${format(max)}`;
 }
 
-export default function Card({ product, onAdd, exchangeRate }: CardProps) {
+/** نطاق سعر التكلفة بالجنيه (averageCost × سعر الصرف الحالي) — null لو مفيش تكلفة محسوبة */
+function formatCostRange(
+  variants: ProductVariant[],
+  exchangeRate: number | null,
+): string | null {
+  const costs = variants
+    .map((variant) => Number(variant.averageCost ?? 0))
+    .filter((cost) => cost > 0)
+    .map((cost) => usdToSdg(cost, exchangeRate));
+
+  if (costs.length === 0 || !exchangeRate) {
+    return null;
+  }
+
+  const min = Math.min(...costs);
+  const max = Math.max(...costs);
+  const format = (value: number) =>
+    new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+
+  return Math.abs(min - max) < 0.001 ? format(min) : `${format(min)} – ${format(max)}`;
+}
+
+export default function Card({ product, onAdd, exchangeRate, showCost = false }: CardProps) {
   const [isVariantPickerOpen, setIsVariantPickerOpen] = useState(false);
   const [variantSearch, setVariantSearch] = useState("");
 
@@ -167,7 +191,7 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
     <>
       <div className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 transition duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md sm:min-h-[305px] sm:p-3">
         <div className="relative h-28 w-full overflow-hidden rounded-xl border border-gray-100 bg-gray-50 sm:h-36">
-          <Image
+          <ImageWithFallback
             src={
               product.images?.[0] ??
               activeVariants[0]?.images?.[0] ??
@@ -228,6 +252,14 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
                     ج.س
                   </span>
                 </div>
+                {showCost && formatCostRange(activeVariants, exchangeRate) && (
+                  <div className="text-[11px] font-bold text-amber-600">
+                    التكلفة: {formatCostRange(activeVariants, exchangeRate)}
+                    <span className="mr-1 text-[9px] font-semibold text-amber-400">
+                      ج.س
+                    </span>
+                  </div>
+                )}
               </div>
 
               {hasMultipleVariants && !productOutOfStock && (
@@ -319,7 +351,7 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
                         }`}
                       >
                         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                          <Image
+                          <ImageWithFallback
                             src={getVariantImage(product, variant)}
                             alt={`${product.name} - ${label}`}
                             fill
@@ -339,12 +371,17 @@ export default function Card({ product, onAdd, exchangeRate }: CardProps) {
                             </div>
                           )}
 
-                          <div className="mt-1.5 flex items-center gap-2">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2">
                             <span className="text-[11px] font-black text-emerald-600">
                               {exchangeRate
                                 ? formatSDG(usdToSdg(variant.sellingPrice, exchangeRate))
                                 : formatUSD(variant.sellingPrice)}
                             </span>
+                            {showCost && Number(variant.averageCost ?? 0) > 0 && exchangeRate && (
+                              <span className="text-[10px] font-bold text-amber-600">
+                                تكلفة: {formatSDG(usdToSdg(Number(variant.averageCost), exchangeRate))}
+                              </span>
+                            )}
                             <span
                               className={`text-[9px] font-semibold ${
                                 outOfStock ? "text-red-500" : "text-gray-400"

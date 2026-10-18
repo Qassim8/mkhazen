@@ -92,7 +92,7 @@ export default function Navbar() {
             <LuMenu className="h-5 w-5" />
           </button>
 
-          <Searchbar />
+          {["owner", "admin"].includes(user?.role ?? "") && <Searchbar />}
 
           {["owner", "admin", "cashier", "tailor"].includes(
             user?.role ?? "",

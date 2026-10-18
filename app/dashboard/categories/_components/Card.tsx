@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
-import { LuTrash2, LuPackage, LuSquarePen } from "react-icons/lu";
+import { LuTrash2, LuSquarePen } from "react-icons/lu";
 
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 import { deleteCategory } from "../services/categories.services";
 import { useModalStore } from "@/store/useModalStore";
 import ModalContent from "./CategoriesModalContent";
@@ -19,16 +19,12 @@ const Card = ({ category }: CardProps) => {
     <div className="frame space-y-2 p-4 bg-white rounded-xl border border-gray-100 hover:shadow-md transition">
       <div className="flex justify-between items-center gap-4">
         <div className="relative h-20 w-20 flex justify-center items-center bg-amber-50 rounded-2xl overflow-hidden shrink-0">
-          {category.imageUrl ? (
-            <Image
-              fill
-              src={category.imageUrl}
-              alt={category.name ?? "Category image"}
-              className="object-cover"
-            />
-          ) : (
-            <LuPackage className="h-8 w-8 text-amber-600" />
-          )}
+          <ImageWithFallback
+            fill
+            src={category.imageUrl}
+            alt={category.name ?? "Category image"}
+            className="object-cover"
+          />
         </div>
         <div className="flex-1 text-right">
           <h2 className="font-semibold text-xl text-gray-900">

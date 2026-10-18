@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createColumnHelper } from "@tanstack/react-table";
 import { LuEye, LuLayers, LuSquarePen, LuTrash2 } from "react-icons/lu";
 
 import Table from "@/components/shared/Table";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 
 import { useModalStore } from "@/store/useModalStore";
@@ -60,7 +60,7 @@ const ProductsTable = ({
         return (
           <div className="flex items-center gap-3">
             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-              <Image
+              <ImageWithFallback
                 src={image}
                 alt={info.getValue()}
                 fill

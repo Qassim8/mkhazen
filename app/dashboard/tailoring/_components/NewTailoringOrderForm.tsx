@@ -17,7 +17,7 @@ import {
 } from "../schemas/tailoring.schemas";
 import { createTailoringOrder } from "../services/tailoring.services";
 import { useIdempotencyKey } from "@/lib/use-idempotency-key";
-import { formatQuantity, formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
+import { formatQuantity, formatSDG, formatUSD, sdgToUsd, usdToSdg } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import ExchangeRateBadge from "@/components/shared/ExchangeRateBadge";
 import CustomerPicker from "@/app/dashboard/customers/_components/CustomerPicker";
@@ -54,6 +54,7 @@ interface SelectedFabric {
   colorName: string | null;
   stockQuantity: number;
   sellingUnit: string | null;
+  costPerMeterUsd: number | null;
 }
 
 function todayISO() {
@@ -761,6 +762,19 @@ export default function NewTailoringOrderForm({
                         المتوفر حاليًا:{" "}
                         {formatQuantity(selectedFabric.stockQuantity)}{" "}
                         {selectedFabric.sellingUnit ?? "وحدة"}
+                      </p>
+                    )}
+                    {selectedFabric?.costPerMeterUsd != null && (
+                      <p className="mt-1 text-[11px] font-bold text-amber-600">
+                        تكلفة المتر:{" "}
+                        {exchangeRate
+                          ? formatSDG(usdToSdg(selectedFabric.costPerMeterUsd, exchangeRate))
+                          : formatUSD(selectedFabric.costPerMeterUsd)}
+                        {exchangeRate && (
+                          <span className="mr-1 text-[10px] font-semibold text-amber-400">
+                            ≈ {formatUSD(selectedFabric.costPerMeterUsd)}
+                          </span>
+                        )}
                       </p>
                     )}
                   </div>
