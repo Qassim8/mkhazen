@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 import {
   LuBarcode,
   LuBox,
@@ -202,7 +202,7 @@ export default function ProductDetailsClient({
         {/* Images */}
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
           <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
-            <Image
+            <ImageWithFallback
               src={selectedImage || "/images/placeholder.png"}
               alt={product.name}
               fill
@@ -225,7 +225,7 @@ export default function ProductDetailsClient({
                       : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
-                  <Image
+                  <ImageWithFallback
                     src={image}
                     alt={`${product.name} ${index + 1}`}
                     fill
@@ -411,21 +411,15 @@ export default function ProductDetailsClient({
                     {/* Variant header */}
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        {variant.images?.[0] ? (
-                          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
-                            <Image
-                              src={variant.images[0]}
-                              alt={`${product.name} ${index + 1}`}
-                              fill
-                              sizes="48px"
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-400">
-                            <LuPackage className="h-5 w-5" />
-                          </div>
-                        )}
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                          <ImageWithFallback
+                            src={variant.images?.[0]}
+                            alt={`${product.name} ${index + 1}`}
+                            fill
+                            sizes="48px"
+                            className="object-cover"
+                          />
+                        </div>
 
                         <div className="min-w-0">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-red-500">

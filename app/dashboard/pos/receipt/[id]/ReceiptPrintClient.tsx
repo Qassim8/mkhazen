@@ -3,6 +3,7 @@
 import BackLink from "@/components/shared/BackLink";
 import { useEffect } from "react";
 import { LuGift, LuPrinter } from "react-icons/lu";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 import { STORE_INFO } from "@/lib/store";
 import { formatPercent, formatQuantity, formatSDG } from "@/lib/currency";
 
@@ -123,11 +124,13 @@ export default function ReceiptPrintClient({ receipt }: Props) {
           dir="rtl"
         >
           <div className="border-b border-dashed border-black pb-3 text-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <ImageWithFallback
               src={STORE_INFO.logo}
               alt={STORE_INFO.name}
-              className="mx-auto mb-1 h-12 w-auto object-contain"
+              width={48}
+              height={48}
+              unoptimized
+              className="mx-auto mb-1 h-12 w-12 object-contain"
             />
             <h1 className="font-semibold text-sm">{STORE_INFO.name}</h1>
             <p className="mt-1 text-xs">

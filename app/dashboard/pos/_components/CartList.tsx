@@ -12,7 +12,13 @@ import {
 import CartItem from "./CartItem";
 import GiftPicker from "./GiftPicker";
 import type { POSCartItem } from "./POSClient";
-import { formatNumber, formatRate, formatSDG, formatUSD, sdgToUsd } from "@/lib/currency";
+import {
+  formatNumber,
+  formatRate,
+  formatSDG,
+  formatUSD,
+  sdgToUsd,
+} from "@/lib/currency";
 import type { PaymentMethod, PaymentSplit } from "../schemas/pos.schemas";
 import type {
   Product,
@@ -24,6 +30,8 @@ interface CartListProps {
   giftProducts: Product[];
   /** سعر الصرف الحالي (ج.س لكل 1$) */
   exchangeRate: number | null;
+  /** إظهار سعر التكلفة بالجنيه للكاشير — مفتاح عام من شاشة الكاشير */
+  showCost?: boolean;
   paymentMethod: PaymentMethod;
   paymentSplits: PaymentSplit[];
   subtotal: number;
@@ -42,7 +50,11 @@ interface CartListProps {
   onPaymentSplitsChange: (splits: PaymentSplit[]) => void;
   onUpdateQty: (variantId: string, isGift: boolean, amount: number) => void;
   onSetQty: (variantId: string, isGift: boolean, quantity: number) => void;
-  onSetPrice: (variantId: string, isGift: boolean, price: number | null) => void;
+  onSetPrice: (
+    variantId: string,
+    isGift: boolean,
+    price: number | null,
+  ) => void;
   onRemove: (variantId: string, isGift: boolean) => void;
   onClear: () => void;
   onCheckout: () => void;
@@ -96,6 +108,7 @@ export default function CartList({
   cart,
   giftProducts,
   exchangeRate,
+  showCost = false,
   paymentMethod,
   paymentSplits,
   subtotal,
@@ -218,6 +231,7 @@ export default function CartList({
                   item={item}
                   maxQuantity={maxQuantity}
                   exchangeRate={exchangeRate}
+                  showCost={showCost}
                   onUpdateQty={onUpdateQty}
                   onSetQty={onSetQty}
                   onSetPrice={onSetPrice}
@@ -383,7 +397,9 @@ export default function CartList({
               <div className="flex items-center justify-between text-xs font-semibold text-red-600">
                 <span>
                   الخصم (
-                  {formatNumber(subtotal > 0 ? (discountAmount / subtotal) * 100 : 0)}
+                  {formatNumber(
+                    subtotal > 0 ? (discountAmount / subtotal) * 100 : 0,
+                  )}
                   %)
                 </span>
                 <span>- {formatSDG(discountAmount)}</span>
@@ -409,7 +425,9 @@ export default function CartList({
             {exchangeRate ? (
               <div className="flex items-center justify-between text-[10px] font-semibold text-gray-400">
                 <span dir="ltr">{formatRate(exchangeRate)}</span>
-                <span dir="ltr">≈ {formatUSD(sdgToUsd(totalAmount, exchangeRate))}</span>
+                <span dir="ltr">
+                  ≈ {formatUSD(sdgToUsd(totalAmount, exchangeRate))}
+                </span>
               </div>
             ) : (
               <p className="text-[10px] font-bold text-red-600">
@@ -450,7 +468,7 @@ export default function CartList({
                   ? "أكمل تقسيم الدفعة"
                   : cart.length > 0 && cart.every((item) => item.isGift)
                     ? "إصدار فاتورة هدايا"
-                    : "تأكيد المبيعة وإصدار الفاتورة"}
+                    : "تأكيد البيع وإصدار الفاتورة"}
           </button>
         </div>
       </div>

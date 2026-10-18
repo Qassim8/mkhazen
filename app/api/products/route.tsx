@@ -8,7 +8,7 @@ import { fetchAll, pageByAllowedIds } from "@/lib/supabase-fetch-all";
 import { sanitizeSearchTerm } from "@/lib/postgrest";
 import { can } from "@/lib/permissions";
 import { createProductSchema } from "@/app/dashboard/products/schemas/product.schemas";
-import { stripProductCosts } from "./_lib/strip-costs";
+import { stripProductCosts, stripPurchasePriceOnly } from "./_lib/strip-costs";
 
 const querySchema = z.object({
   search: z.string().trim().max(100).optional(),
@@ -91,8 +91,12 @@ const productListSelect = `
 export async function GET(request: Request) {
   const guard = await requireLogin();
   if (!guard.ok) return guard.response;
-  // الكاشير/الخياط لا يرون التكلفة ولا سعر الشراء
+  // الخياط لا يرى أي تكلفة. الكاشير يرى سعر التكلفة (averageCost) بس، لا آخر سعر شراء
   const canSeeCosts = can(guard.session?.role, "catalog.manage");
+  const canSeeCostPrice =
+    canSeeCosts ||
+    can(guard.session?.role, "sales.pos") ||
+    can(guard.session?.role, "tailoring.operate");
 
   try {
     const { searchParams } = new URL(request.url);
@@ -320,7 +324,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        data: canSeeCosts ? data : stripProductCosts(data),
+        data: canSeeCosts ? data : canSeeCostPrice ? stripPurchasePriceOnly(data) : stripProductCosts(data),
         meta: {
           total,
           page,

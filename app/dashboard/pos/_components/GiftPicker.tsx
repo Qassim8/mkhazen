@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import Image from "next/image";
 import {
   LuCheck,
   LuGift,
@@ -17,6 +16,7 @@ import type {
 } from "../../products/schemas/product.schemas";
 import { createPortal } from "react-dom";
 import { getProducts } from "@/app/dashboard/products/services/products.services";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 const subscribeToNothing = () => () => {};
 const getClientSnapshot = () => true;
@@ -262,7 +262,7 @@ export default function GiftPicker({
                     }`}
                   >
                     <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                      <Image
+                      <ImageWithFallback
                         src={getVariantImage(product, product.variants[0])}
                         alt={product.name}
                         fill
@@ -315,7 +315,7 @@ export default function GiftPicker({
                 <div className="rounded-2xl border border-gray-200 bg-white p-3">
                   <div className="flex items-center gap-3">
                     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
-                      <Image
+                      <ImageWithFallback
                         src={
                           selectedVariant
                             ? getVariantImage(selectedProduct, selectedVariant)

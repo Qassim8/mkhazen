@@ -1,6 +1,7 @@
 "use client";
 
-import { formatQuantity } from "@/lib/currency";
+import { formatQuantity, formatSDG, formatUSD, usdToSdg } from "@/lib/currency";
+import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import BackLink from "@/components/shared/BackLink";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -37,6 +38,7 @@ interface SelectedFabric {
   colorName: string | null;
   stockQuantity: number;
   sellingUnit: string | null;
+  costPerMeterUsd: number | null;
 }
 
 function InlineError({ message }: { message?: string }) {
@@ -67,6 +69,7 @@ const NO_MEASUREMENTS: never[] = [];
 
 export default function EditTailoringOrderForm({ order, tailors }: Props) {
   const router = useRouter();
+  const { rate: exchangeRate } = useExchangeRate();
   const [selectedFabric, setSelectedFabric] = useState<SelectedFabric | null>(
     order.fabric
       ? {
@@ -76,6 +79,8 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
           colorName: null,
           stockQuantity: order.fabric.stockQuantity,
           sellingUnit: order.fabric.sellingUnit,
+          // غير متاحة من الطلب المحفوظ؛ تظهر فقط عند اختيار قماش جديد من البحث
+          costPerMeterUsd: null,
         }
       : null,
   );
@@ -329,6 +334,19 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
                   <div className="rounded-xl bg-gray-50 p-3">
                     <p className="text-[11px] font-bold text-gray-400">الحد المسموح</p>
                     <p className="mt-1 text-sm font-black text-gray-900">{formatQuantity(maxFabricQuantity)} متر</p>
+                    {selectedFabric?.costPerMeterUsd != null && (
+                      <p className="mt-2 text-[11px] font-bold text-amber-600">
+                        تكلفة المتر:{" "}
+                        {exchangeRate
+                          ? formatSDG(usdToSdg(selectedFabric.costPerMeterUsd, exchangeRate))
+                          : formatUSD(selectedFabric.costPerMeterUsd)}
+                        {exchangeRate && (
+                          <span className="mr-1 text-[10px] font-semibold text-amber-400">
+                            ≈ {formatUSD(selectedFabric.costPerMeterUsd)}
+                          </span>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

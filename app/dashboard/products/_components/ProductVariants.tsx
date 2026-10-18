@@ -19,7 +19,7 @@ import {
   LuLock,
   LuUpload,
 } from "react-icons/lu";
-import Image from "next/image";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 interface Category {
   id: string;
@@ -168,7 +168,7 @@ export default function ProductVariantsSection({
                         key={imgIdx}
                         className="relative h-16 w-16 rounded-xl border border-gray-200 overflow-hidden group bg-white"
                       >
-                        <Image
+                        <ImageWithFallback
                           src={imgUrl}
                           alt="variant"
                           className="h-full w-full object-cover"

@@ -10,11 +10,12 @@ import {
   useState,
 } from "react";
 
-import Image from "next/image";
 import {
   LuCheck,
   LuChevronLeft,
   LuChevronRight,
+  LuEye,
+  LuEyeOff,
   LuList,
   LuPlus,
   LuPrinter,
@@ -25,6 +26,7 @@ import toast from "react-hot-toast";
 import Card from "./Card";
 import CartList from "./CartList";
 import CameraBarcodeScanner from "@/components/shared/CameraBarcodeScanner";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 import type {
   Product,
@@ -116,6 +118,21 @@ export default function POSClient({
 
   const [paymentSplits, setPaymentSplits] = useState<PaymentSplit[]>([]);
 
+  // إظهار/إخفاء سعر التكلفة بالجنيه — مفتاح الكاشير نفسه، يُحفظ على هذا الجهاز فقط
+  const [showCost, setShowCost] = useState(false);
+
+  function toggleShowCost() {
+    setShowCost((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("mkhazen:pos:show-cost", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // التركيز التلقائي على البحث فقط مع مؤشر دقيق (ماوس) حتى لا تظهر لوحة المفاتيح على اللمس
@@ -173,6 +190,14 @@ export default function POSClient({
     // الاستعادة بعد أول رسم (مش في الـ render) عشان السيرفر بيرسم سلة فاضية
     // ولازم الـ hydration يطابق؛ وبعد كده نحدّث الحالة مرة واحدة.
     const timer = window.setTimeout(() => {
+      try {
+        setShowCost(
+          window.localStorage.getItem("mkhazen:pos:show-cost") === "1",
+        );
+      } catch {
+        // التخزين ممكن يكون مقفول (وضع خاص) — يبدأ مخفيًا
+      }
+
       const draft = loadPosDraft();
 
       if (draft && draft.cart.length > 0) {
@@ -1061,22 +1086,40 @@ export default function POSClient({
         </form>
 
         <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4">
-          <h2 className="mb-2.5 hidden text-xs font-bold text-gray-400 sm:block">
-            الفلترة حسب الفئة
-          </h2>
+          <div className="mb-2.5 flex items-center justify-between">
+            <h2 className="hidden text-xs font-bold text-gray-400 sm:block">
+              الفلترة حسب الفئة
+            </h2>
+            <button
+              type="button"
+              onClick={toggleShowCost}
+              className={`flex min-h-9 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition ${
+                showCost
+                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
+              }`}
+            >
+              {showCost ? (
+                <LuEye className="h-3.5 w-3.5" />
+              ) : (
+                <LuEyeOff className="h-3.5 w-3.5" />
+              )}
+              {showCost ? "إخفاء سعر التكلفة" : "إظهار سعر التكلفة"}
+            </button>
+          </div>
 
           <div className="flex items-center gap-2 overflow-x-auto scroll-smooth pb-1 [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-200">
             <button
               type="button"
               onClick={() => handleCategoryChange("all")}
-              className={`flex min-h-11 min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
+              className={`flex min-h-11 min-w-max items-center gap-2 rounded-xl border px-3 py-1 text-xs font-bold transition-all ${
                 selectedCategory === "all"
                   ? "border-(--primary-red) bg-(--primary-red)/10 text-(--primary-red)"
                   : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
               }`}
             >
               <LuList className="text-sm" />
-              كل المعروض
+              كل المنتجات
             </button>
 
             {categories?.map((category) => (
@@ -1084,20 +1127,18 @@ export default function POSClient({
                 type="button"
                 key={category.id}
                 onClick={() => handleCategoryChange(category.id)}
-                className={`flex min-h-11 min-w-max items-center gap-2 rounded-xl border px-4 py-2 text-xs font-bold transition-all ${
+                className={`flex min-h-11 min-w-max items-center gap-2 rounded-xl border px-3 py-1 text-xs font-bold transition-all ${
                   selectedCategory === category.id
                     ? "border-(--primary-red) bg-(--primary-red)/10 text-(--primary-red)"
                     : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
                 }`}
               >
-                {category.imageUrl && (
-                  <Image
-                    src={category.imageUrl}
-                    alt={category.name}
-                    width={20}
-                    height={20}
-                  />
-                )}
+                <ImageWithFallback
+                  src={category.imageUrl}
+                  alt={category.name}
+                  width={20}
+                  height={20}
+                />
                 {category.name}
               </button>
             ))}
@@ -1111,6 +1152,7 @@ export default function POSClient({
               product={product}
               onAdd={addProductToCart}
               exchangeRate={exchangeRate}
+              showCost={showCost}
             />
           ))}
 
@@ -1176,6 +1218,7 @@ export default function POSClient({
         >
           <CartList
             exchangeRate={exchangeRate}
+            showCost={showCost}
             cart={cart}
             giftProducts={products}
             paymentMethod={paymentMethod}

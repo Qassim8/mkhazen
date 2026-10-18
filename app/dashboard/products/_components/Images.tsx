@@ -1,6 +1,6 @@
-import Image from "next/image";
 import React from "react";
 import { LuImagePlus, LuX } from "react-icons/lu";
+import ImageWithFallback from "@/components/shared/ImageWithFallback";
 
 interface ImagesProps {
   images: string[];
@@ -46,7 +46,7 @@ const Images = ({ images, onImageChange, onRemoveImage }: ImagesProps) => {
                   key={index}
                   className="relative group aspect-square rounded-xl border border-gray-100 overflow-hidden bg-gray-50"
                 >
-                  <Image
+                  <ImageWithFallback
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     src={src}
