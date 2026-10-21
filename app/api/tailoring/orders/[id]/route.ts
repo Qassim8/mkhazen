@@ -488,7 +488,6 @@ export async function GET(
         expected_delivery_date: order.expected_delivery_date,
         measurements: order.measurements ?? [],
         measurement_meters: measurementTotal,
-        max_fabric_quantity: Number((measurementTotal + 1).toFixed(2)),
         fabric_variant_id: order.fabric_variant_id,
         fabric_quantity: order.fabric_quantity != null ? Number(order.fabric_quantity) : null,
         fabric_name: fabricTemplate?.name ?? null,

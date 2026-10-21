@@ -442,7 +442,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       data: enrichedOrders,
       cashiers: ((sellers ?? []) as { id: string; name: string | null; role: string | null }[])
-        .filter((user) => ["owner", "admin", "cashier"].includes(String(user.role ?? "").toLowerCase()))
+        .filter((user) => String(user.role ?? "").toLowerCase() === "cashier")
         .map((user) => ({ id: user.id, name: user.name ?? "—" })),
       pagination: {
         total,

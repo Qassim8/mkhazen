@@ -138,7 +138,6 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
     () => calculateMeasurementMeters(numericMeasurements),
     [numericMeasurements],
   );
-  const maxFabricQuantity = Number((measurementMeters + 1).toFixed(2));
 
   function handleFabricToggle(checked: boolean) {
     if (purpose === "PRODUCTION" && !checked) {
@@ -328,12 +327,12 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-bold text-gray-600">كمية القماش بالمتر</span>
-                    <input {...register("fabricQuantity")} disabled={!selectedFabricId || isSubmitting} type="number" min={measurementMeters > 0 ? measurementMeters : 0.01} max={maxFabricQuantity} step="0.01" className={inputClass(Boolean(errors.fabricQuantity))} />
+                    <input {...register("fabricQuantity")} disabled={!selectedFabricId || isSubmitting} type="number" min={0.01} step="0.01" className={inputClass(Boolean(errors.fabricQuantity))} />
                     <InlineError message={errors.fabricQuantity?.message} />
                   </label>
                   <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-[11px] font-bold text-gray-400">الحد المسموح</p>
-                    <p className="mt-1 text-sm font-black text-gray-900">{formatQuantity(maxFabricQuantity)} متر</p>
+                    <p className="text-[11px] font-bold text-gray-400">الحد الأعلى</p>
+                    <p className="mt-1 text-sm font-black text-gray-900">المتوفر في المخزون</p>
                     {selectedFabric?.costPerMeterUsd != null && (
                       <p className="mt-2 text-[11px] font-bold text-amber-600">
                         تكلفة المتر:{" "}

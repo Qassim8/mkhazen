@@ -81,8 +81,6 @@ function validateFabric(
 ) {
   const hasFabric = data.fabricVariantId !== null;
   const hasQuantity = data.fabricQuantity !== null;
-  const measurementMeters = calculateMeasurementMeters(data.measurements);
-  const maxFabricQuantity = Number((measurementMeters + 1).toFixed(2));
 
   if (data.tailoringPurpose === "PRODUCTION" && !hasFabric) {
     ctx.addIssue({
@@ -99,24 +97,6 @@ function validateFabric(
       path: [hasFabric ? "fabricQuantity" : "fabricVariantId"],
     });
     return;
-  }
-
-  if (!hasFabric || !hasQuantity) return;
-
-  if (data.fabricQuantity! < measurementMeters) {
-    ctx.addIssue({
-      code: "custom",
-      message: `كمية القماش لا تقل عن ${measurementMeters.toFixed(2)} متر حسب المقاسات`,
-      path: ["fabricQuantity"],
-    });
-  }
-
-  if (data.fabricQuantity! > maxFabricQuantity) {
-    ctx.addIssue({
-      code: "custom",
-      message: `كمية القماش لا يمكن أن تتجاوز ${maxFabricQuantity.toFixed(2)} متر`,
-      path: ["fabricQuantity"],
-    });
   }
 }
 
@@ -472,14 +452,6 @@ export const tailoringOrderFormSchema = z
       }
     }
 
-    const numericMeasurements = data.measurements.map((measurement) => ({
-      label: measurement.label,
-      value: Number(measurement.value),
-      unit: measurement.unit,
-    }));
-    const measurementMeters = calculateMeasurementMeters(numericMeasurements);
-    const max = Number((measurementMeters + 1).toFixed(2));
-
     if (data.tailoringPurpose === "PRODUCTION" && !data.useStoreFabric) {
       ctx.addIssue({
         code: "custom",
@@ -510,21 +482,6 @@ export const tailoringOrderFormSchema = z
             message: "كمية القماش غير صالحة",
             path: ["fabricQuantity"],
           });
-        } else {
-          if (quantity < measurementMeters) {
-            ctx.addIssue({
-              code: "custom",
-              message: `كمية القماش لا تقل عن ${measurementMeters.toFixed(2)} متر حسب المقاسات`,
-              path: ["fabricQuantity"],
-            });
-          }
-          if (quantity > max) {
-            ctx.addIssue({
-              code: "custom",
-              message: `كمية القماش لا يمكن أن تتجاوز ${max.toFixed(2)} متر`,
-              path: ["fabricQuantity"],
-            });
-          }
         }
       }
     } else {
@@ -617,14 +574,6 @@ export const updateTailoringOrderFormSchema = z
       });
     }
 
-    const numericMeasurements = data.measurements.map((measurement) => ({
-      label: measurement.label,
-      value: Number(measurement.value),
-      unit: measurement.unit,
-    }));
-    const measurementMeters = calculateMeasurementMeters(numericMeasurements);
-    const max = Number((measurementMeters + 1).toFixed(2));
-
     if (data.tailoringPurpose === "PRODUCTION") {
       if (!data.useStoreFabric) {
         ctx.addIssue({
@@ -697,21 +646,6 @@ export const updateTailoringOrderFormSchema = z
           message: "كمية القماش غير صالحة",
           path: ["fabricQuantity"],
         });
-      } else {
-        if (quantity < measurementMeters) {
-          ctx.addIssue({
-            code: "custom",
-            message: `كمية القماش لا تقل عن ${measurementMeters.toFixed(2)} متر حسب المقاسات`,
-            path: ["fabricQuantity"],
-          });
-        }
-        if (quantity > max) {
-          ctx.addIssue({
-            code: "custom",
-            message: `كمية القماش لا يمكن أن تتجاوز ${max.toFixed(2)} متر`,
-            path: ["fabricQuantity"],
-          });
-        }
       }
     } else {
       if (data.fabricVariantId || data.fabricQuantity.trim()) {
@@ -769,8 +703,6 @@ export const updateTailoringOrderApiSchema = z
       });
     }
 
-    const meters = calculateMeasurementMeters(data.measurements);
-    const max = Number((meters + 1).toFixed(2));
     if (data.fabricVariantId === null && data.fabricQuantity !== null) {
       ctx.addIssue({
         code: "custom",
@@ -782,16 +714,6 @@ export const updateTailoringOrderApiSchema = z
       ctx.addIssue({
         code: "custom",
         message: "كمية القماش مطلوبة",
-        path: ["fabricQuantity"],
-      });
-    }
-    if (
-      data.fabricQuantity !== null &&
-      (data.fabricQuantity < meters || data.fabricQuantity > max)
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        message: `كمية القماش يجب أن تكون بين ${meters.toFixed(2)} و ${max.toFixed(2)} متر`,
         path: ["fabricQuantity"],
       });
     }
@@ -1066,7 +988,6 @@ export interface TailoringOrder {
   expectedDeliveryDate: string;
   measurements: MeasurementEntry[];
   measurementMeters: number;
-  maxFabricQuantity: number;
   fabricVariantId: string | null;
   fabricQuantity: number | null;
   fabric?: FabricSummary | null;

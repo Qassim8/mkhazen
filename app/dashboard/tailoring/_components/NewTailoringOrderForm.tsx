@@ -222,7 +222,6 @@ export default function NewTailoringOrderForm({
     [numericMeasurements],
   );
 
-  const maxFabricQuantity = Number((measurementMeters + 1).toFixed(2));
   const totalAmount = Number(totalAmountValue || 0);
   // الطلب البديل: كامل الرصيد المنقول + عربون إضافي اختياري
   const transferredDeposit = advanceSource?.customerAdvanceAvailable ?? 0;
@@ -674,14 +673,6 @@ export default function NewTailoringOrderForm({
                   {formatQuantity(measurementMeters)} متر
                 </p>
               </div>
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-[11px] font-bold text-gray-400">
-                  أقصى كمية قماش مسموحة
-                </p>
-                <p className="mt-1 text-lg font-black text-gray-900">
-                  {formatQuantity(maxFabricQuantity)} متر
-                </p>
-              </div>
             </div>
           </section>
         </div>
@@ -736,8 +727,8 @@ export default function NewTailoringOrderForm({
                       {...register("fabricQuantity")}
                       disabled={!selectedFabricId || isSubmitting}
                       type="number"
-                      min={measurementMeters > 0 ? measurementMeters : 0.01}
-                      max={maxFabricQuantity}
+                      min={0.01}
+                      max={selectedFabric?.stockQuantity}
                       step="0.01"
                       inputMode="decimal"
                       className={inputClass(Boolean(errors.fabricQuantity))}
@@ -746,17 +737,11 @@ export default function NewTailoringOrderForm({
                     {selectedFabricId && !errors.fabricQuantity && (
                       <p className="mt-1 text-[11px] text-gray-400">
                         الافتراضي {formatQuantity(measurementMeters)} متر، والحد
-                        الأعلى مجموع المقاسات + 1 متر.
+                        الأعلى المتوفر في المخزون.
                       </p>
                     )}
                   </label>
                   <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-[11px] font-bold text-gray-400">
-                      الحد المسموح
-                    </p>
-                    <p className="mt-1 text-sm font-black text-gray-900">
-                      {formatQuantity(maxFabricQuantity)} متر
-                    </p>
                     {selectedFabric && (
                       <p className="mt-2 text-[11px] text-gray-500">
                         المتوفر حاليًا:{" "}

@@ -173,9 +173,6 @@ function mapTailoringOrder(raw: RawTailoringOrder): TailoringOrder {
     expectedDeliveryDate: String(raw.expected_delivery_date ?? ""),
     measurements,
     measurementMeters,
-    maxFabricQuantity: Number(
-      Number(raw.max_fabric_quantity ?? measurementMeters + 1).toFixed(2),
-    ),
     fabricVariantId: raw.fabric_variant_id
       ? String(raw.fabric_variant_id)
       : null,
@@ -333,7 +330,6 @@ export async function createTailoringOrder(
       payment_method: "CASH" | "BANK_TRANSFER" | null;
       tailoring_status: "NEW";
       measurement_meters: number;
-      max_fabric_quantity: number;
     };
   }>(`${API_BASE_URL}/orders`, {
     method: "POST",

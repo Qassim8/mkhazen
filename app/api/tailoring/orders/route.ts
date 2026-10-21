@@ -529,7 +529,6 @@ export async function GET(request: Request) {
         remaining_amount: purpose === "CUSTOMER" && row.tailoring_status !== "CANCELLED" ? Number(Math.max(Number(row.total_amount) - paid, 0).toFixed(2)) : 0,
         tailor_paid_amount: tailorPaid,
         measurement_meters: measurementTotal,
-        max_fabric_quantity: Number((measurementTotal + 1).toFixed(2)),
         produced_product_name: producedTemplate?.name ?? null,
         produced_product_sku: producedVariant?.sku ?? null,
         produced_product_barcode: producedVariant?.barcode ?? null,
@@ -632,7 +631,6 @@ export async function POST(request: Request) {
                   tailoring_cost: Number(data.tailoring_cost ?? 0),
                   tailoring_fabric_cost: Number(data.tailoring_fabric_cost ?? 0),
                   measurement_meters: Number(data.measurement_meters ?? 0),
-                  max_fabric_quantity: Number(data.max_fabric_quantity ?? 0),
                 }
               : { id: data.id, order_number: data.order_number },
           },
