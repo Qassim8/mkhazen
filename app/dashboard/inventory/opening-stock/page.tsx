@@ -5,8 +5,14 @@ import { can } from "@/lib/permissions";
 import BackLink from "@/components/shared/BackLink";
 
 import OpeningStockClient from "../_components/OpeningStockClient";
-import { getOpeningStockCandidates } from "../services/inventory.services";
-import type { OpeningStockCandidate } from "../schema/inventory.schemas";
+import {
+  getOpeningStockCandidates,
+  getOpeningStockCorrections,
+} from "../services/inventory.services";
+import type {
+  OpeningStockCandidate,
+  OpeningStockCorrectionCandidate,
+} from "../schema/inventory.schemas";
 
 export default async function OpeningStockPage() {
   const user = await getSession();
@@ -16,11 +22,16 @@ export default async function OpeningStockPage() {
   }
 
   let candidates: OpeningStockCandidate[] = [];
+  let corrections: OpeningStockCorrectionCandidate[] = [];
   let loadError: string | null = null;
 
   try {
-    const { data } = await getOpeningStockCandidates();
-    candidates = data;
+    const [candidatesResult, correctionsResult] = await Promise.all([
+      getOpeningStockCandidates(),
+      getOpeningStockCorrections(),
+    ]);
+    candidates = candidatesResult.data;
+    corrections = correctionsResult.data;
   } catch (error) {
     // أشهر سبب: ملف SQL الخاص بالمخزون الافتتاحي لم يُطبَّق بعد على قاعدة البيانات
     loadError =
@@ -55,5 +66,5 @@ export default async function OpeningStockPage() {
     );
   }
 
-  return <OpeningStockClient candidates={candidates} />;
+  return <OpeningStockClient candidates={candidates} corrections={corrections} />;
 }

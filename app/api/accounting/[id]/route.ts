@@ -57,6 +57,8 @@ export async function GET(request: Request, { params }: Props) {
           exchange_rate_used,
           amount_usd,
           created_at,
+          correction_of_id,
+          is_correction_reversal,
 
           users:created_by (
             id,

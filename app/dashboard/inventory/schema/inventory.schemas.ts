@@ -126,3 +126,62 @@ export interface OpeningStockResult {
   itemsCount: number;
   totalCostUsd: number;
 }
+
+/* =========================================================
+   OPENING STOCK — تصحيح الكمية/التكلفة
+   متاح فقط للصنف الذي لم تحدث عليه أي حركة أخرى منذ تسجيل
+   مخزونه الافتتاحي (حركة واحدة فقط).
+========================================================= */
+
+export const correctOpeningStockSchema = z.object({
+  variantId: z.string().uuid("معرف الصنف غير صالح"),
+
+  quantity: z
+    .number({ message: "الكمية مطلوبة" })
+    .finite("الكمية غير صالحة")
+    .positive("الكمية يجب أن تكون أكبر من صفر")
+    .max(1_000_000, "الكمية كبيرة جدًا"),
+
+  unitCost: z
+    .number({ message: "تكلفة الوحدة مطلوبة" })
+    .finite("تكلفة الوحدة غير صالحة")
+    .positive("تكلفة الوحدة يجب أن تكون أكبر من صفر")
+    .max(1_000_000, "تكلفة الوحدة كبيرة جدًا"),
+
+  notes: z
+    .string()
+    .trim()
+    .max(500, "الملاحظة طويلة جدًا")
+    .nullable()
+    .optional(),
+});
+
+export type CorrectOpeningStockInput = z.infer<typeof correctOpeningStockSchema>;
+
+export interface OpeningStockCorrectionCandidate {
+  variantId: string;
+  templateId: string;
+  productName: string;
+  sku: string | null;
+  barcode: string | null;
+  colorName: string | null;
+  size: string | null;
+  sellingUnit: string | null;
+  quantity: number;
+  unitCost: number;
+  movementId: string;
+  movementCreatedAt: string;
+  reference: string | null;
+}
+
+export interface OpeningStockCorrectionResult {
+  variantId: string;
+  oldQuantity: number;
+  newQuantity: number;
+  oldUnitCost: number;
+  newUnitCost: number;
+  deltaValueUsd: number;
+  movementId: string | null;
+  journalEntryId: string | null;
+  entryNumber: string;
+}

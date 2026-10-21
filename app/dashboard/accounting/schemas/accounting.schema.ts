@@ -220,6 +220,60 @@ export const createManualJournalEntrySchema = z
   });
 
 /* =========================================================
+   CORRECT MANUAL JOURNAL ENTRY
+   (عكس القيد الأصل رياضيًا + قيد جديد بالقيمة الصحيحة — بدون
+   تعديل أو حذف أي قيد قديم. متاح فقط للقيود اليدوية: رأس مال/
+   مصروف/إيراد آخر)
+========================================================= */
+
+export const correctManualJournalEntrySchema = z
+  .object({
+    amount: positiveAmount,
+
+    currency: currencyEnum,
+
+    paymentMethod: accountingPaymentMethodEnum.nullable().optional(),
+
+    account: accountingAccountEnum.nullable().optional(),
+
+    reference: nullableOptionalString.refine(
+      (value) => value === null || value === undefined || value.length <= 100,
+      {
+        message: "المرجع طويل جدًا",
+      },
+    ),
+
+    description: requiredString("البيان مطلوب").max(500, "البيان طويل جدًا"),
+
+    notes: z
+      .string()
+      .trim()
+      .max(500, "سبب التصحيح طويل جدًا")
+      .nullable()
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.paymentMethod) {
+      ctx.addIssue({
+        code: "custom",
+        message: "يجب تحديد طريقة الدفع",
+        path: ["paymentMethod"],
+      });
+    }
+  });
+
+export type CorrectManualJournalEntryInput = z.infer<
+  typeof correctManualJournalEntrySchema
+>;
+
+export interface CorrectManualJournalEntryResult {
+  reversalEntryId: string;
+  reversalEntryNumber: string;
+  newEntryId: string;
+  newEntryNumber: string;
+}
+
+/* =========================================================
    PURCHASE PAYMENT
 ========================================================= */
 
