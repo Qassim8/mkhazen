@@ -30,6 +30,8 @@ DECLARE
     'get_opening_balances_status', 'record_opening_balances',
     'get_tailor_dues', 'get_tailor_dues_orders', 'pay_tailor_dues',
     'list_opening_stock_candidates', 'record_opening_stock',
+    'correct_manual_journal_entry', 'correct_opening_stock_entry',
+    'list_opening_stock_corrections',
     'get_payroll', 'pay_employee', 'get_tailor_month_summary',
     'get_current_exchange_rate', 'ledger_period_totals',
     'maintain_notifications', 'process_inventory_adjustment',

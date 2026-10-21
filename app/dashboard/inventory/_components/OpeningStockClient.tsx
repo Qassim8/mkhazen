@@ -7,6 +7,7 @@ import {
   LuInfo,
   LuLoader,
   LuPackagePlus,
+  LuPencil,
   LuSave,
   LuSearch,
   LuTriangleAlert,
@@ -16,15 +17,20 @@ import BackLink from "@/components/shared/BackLink";
 import { formatSDG, formatUSD } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import { recordOpeningStock } from "../services/inventory.services";
-import type { OpeningStockCandidate } from "../schema/inventory.schemas";
+import type {
+  OpeningStockCandidate,
+  OpeningStockCorrectionCandidate,
+} from "../schema/inventory.schemas";
+import EditOpeningStockModal from "./EditOpeningStockModal";
 
 interface Props {
   candidates: OpeningStockCandidate[];
+  corrections: OpeningStockCorrectionCandidate[];
 }
 
 type Draft = { quantity: string; unitCost: string };
 
-function variantLabel(item: OpeningStockCandidate) {
+function variantLabel(item: { colorName: string | null; size: string | null; sku: string | null }) {
   return [item.colorName, item.size, item.sku].filter(Boolean).join(" · ");
 }
 
@@ -34,7 +40,7 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-export default function OpeningStockClient({ candidates }: Props) {
+export default function OpeningStockClient({ candidates, corrections }: Props) {
   const router = useRouter();
   const { rate } = useExchangeRate();
 
@@ -42,6 +48,8 @@ export default function OpeningStockClient({ candidates }: Props) {
   const [search, setSearch] = useState("");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [editingCorrection, setEditingCorrection] =
+    useState<OpeningStockCorrectionCandidate | null>(null);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -169,6 +177,73 @@ export default function OpeningStockClient({ candidates }: Props) {
           </p>
         </div>
       </div>
+
+      {corrections.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <div className="border-b border-gray-100 bg-gray-50/50 p-4">
+            <h3 className="text-xs font-black text-gray-900">
+              تصحيح مخزون افتتاحي مُسجَّل
+            </h3>
+            <p className="mt-1 text-xs text-gray-500">
+              أصناف سُجِّل مخزونها الافتتاحي ولم تحدث عليها أي حركة أخرى بعد —
+              يمكن تصحيح الكمية أو التكلفة المُدخلة لها
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-100/50 text-start">
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">
+                    المنتج
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">
+                    الكمية المسجَّلة
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500">
+                    تكلفة الوحدة ($)
+                  </th>
+                  <th className="px-4 py-3 text-start font-medium text-gray-500" />
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-100">
+                {corrections.map((item) => (
+                  <tr key={item.variantId} className="hover:bg-gray-50/60">
+                    <td className="px-4 py-3">
+                      <p className="font-bold text-gray-900">
+                        {item.productName}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {variantLabel(item) || "—"}
+                      </p>
+                    </td>
+
+                    <td className="px-4 py-3 font-mono text-gray-700">
+                      {item.quantity} {item.sellingUnit ?? ""}
+                    </td>
+
+                    <td className="px-4 py-3 font-mono text-gray-700">
+                      {formatUSD(item.unitCost)}
+                    </td>
+
+                    <td className="px-4 py-3 text-left">
+                      <button
+                        type="button"
+                        onClick={() => setEditingCorrection(item)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        <LuPencil className="h-3.5 w-3.5" />
+                        تعديل
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {candidates.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
@@ -371,6 +446,17 @@ export default function OpeningStockClient({ candidates }: Props) {
             </div>
           </div>
         </>
+      )}
+
+      {editingCorrection && (
+        <EditOpeningStockModal
+          item={editingCorrection}
+          onClose={() => setEditingCorrection(null)}
+          onCorrected={() => {
+            setEditingCorrection(null);
+            router.refresh();
+          }}
+        />
       )}
     </main>
   );

@@ -10,11 +10,26 @@ import { ResetFilters } from "@/components/shared/ResetFilters";
 
 import AccountingTable from "./AccountingTable";
 import NewJournalEntryModal from "./NewJournalModal";
+import EditJournalModal from "./EditJournalModal";
 
 import {
+  AccountingAccount,
   JournalEntryInput,
+  JournalEntryType,
 } from "../schemas/accounting.schema";
 import PageHeader from "@/components/shared/PageHeader";
+
+interface EditableEntry {
+  id: string;
+  entryNumber: string;
+  entryType: JournalEntryType;
+  amount: number;
+  currency: "USD" | "SDG";
+  debitAccount: AccountingAccount;
+  creditAccount: AccountingAccount;
+  description: string | null;
+  reference: string | null;
+}
 
 interface Meta {
   total: number;
@@ -49,9 +64,29 @@ export default function AccountingEntriesClient({
   const YEAR_OPTIONS = years.map((y) => ({ label: String(y), value: String(y) }));
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<EditableEntry | null>(null);
 
   function handleCreated() {
     setShowModal(false);
+    router.refresh();
+  }
+
+  function handleEdit(row: Record<string, unknown>) {
+    setEditingEntry({
+      id: row.id as string,
+      entryNumber: row.entry_number as string,
+      entryType: row.entry_type as JournalEntryType,
+      amount: Number(row.amount ?? 0),
+      currency: (row.currency as "USD" | "SDG") ?? "USD",
+      debitAccount: row.debit_account as AccountingAccount,
+      creditAccount: row.credit_account as AccountingAccount,
+      description: (row.description as string | null) ?? null,
+      reference: (row.reference as string | null) ?? null,
+    });
+  }
+
+  function handleCorrected() {
+    setEditingEntry(null);
     router.refresh();
   }
 
@@ -84,7 +119,7 @@ export default function AccountingEntriesClient({
         </div>
       </Suspense>
 
-      <AccountingTable data={initialData} />
+      <AccountingTable data={initialData} onEdit={handleEdit} />
       <Suspense fallback={<div className="h-16 animate-pulse bg-gray-50" />}>
         <Pagination meta={initialMeta} />
       </Suspense>
@@ -93,6 +128,14 @@ export default function AccountingEntriesClient({
         <NewJournalEntryModal
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {editingEntry && (
+        <EditJournalModal
+          entry={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onCorrected={handleCorrected}
         />
       )}
     </div>

@@ -8,7 +8,10 @@ import { InventoryAdjustmentInput } from "../schema/inventory.schemas";
 ========================================================= */
 
 import type {
+  CorrectOpeningStockInput,
   OpeningStockCandidate,
+  OpeningStockCorrectionCandidate,
+  OpeningStockCorrectionResult,
   OpeningStockInput,
   OpeningStockResult,
 } from "../schema/inventory.schemas";
@@ -383,6 +386,31 @@ export async function recordOpeningStock(payload: OpeningStockInput): Promise<{
 }> {
   return serverFetch<{ message: string; data: OpeningStockResult }>(
     `${API_BASE_URL}/opening-stock`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+/** الأصناف المؤهلة لتصحيح كميتها الافتتاحية (ما حدثت عليها أي حركة أخرى) */
+export async function getOpeningStockCorrections(): Promise<{
+  data: OpeningStockCorrectionCandidate[];
+}> {
+  return serverFetch<{ data: OpeningStockCorrectionCandidate[] }>(
+    `${API_BASE_URL}/opening-stock/correct`,
+    { method: "GET" },
+  );
+}
+
+export async function correctOpeningStock(
+  payload: CorrectOpeningStockInput,
+): Promise<{
+  message: string;
+  data: OpeningStockCorrectionResult;
+}> {
+  return serverFetch<{ message: string; data: OpeningStockCorrectionResult }>(
+    `${API_BASE_URL}/opening-stock/correct`,
     {
       method: "POST",
       body: JSON.stringify(payload),

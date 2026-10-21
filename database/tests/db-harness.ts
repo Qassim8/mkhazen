@@ -38,10 +38,11 @@ export const M = {
   guard: join(MIGRATIONS_DIR, "20261010_07_acl_guard_event_trigger.sql"),
   dupTrigger: join(MIGRATIONS_DIR, "20261010_08_drop_duplicate_users_trigger.sql"),
   verify: join(MIGRATIONS_DIR, "20261010_verify.sql"),
+  corrections: join(MIGRATIONS_DIR, "20261020_01_manual_and_opening_stock_corrections.sql"),
 } as const;
 
 /** The mandatory release sequence, in filename order (07/08 are optional). */
-export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert];
+export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections];
 
 const ROLES_SQL = `
 DO $$ BEGIN

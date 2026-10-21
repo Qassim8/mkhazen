@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { LuArrowDownLeft, LuArrowUpRight } from "react-icons/lu";
+import { LuArrowDownLeft, LuArrowUpRight, LuPencil, LuUndo2 } from "react-icons/lu";
 
 import Table from "@/components/shared/Table";
 
@@ -11,8 +11,12 @@ import {
   JournalEntryType,
 } from "../schemas/accounting.schema";
 
+/** الأنواع القابلة للتصحيح عبر الواجهة (قيد عكسي + قيد جديد) */
+const CORRECTABLE_TYPES: JournalEntryType[] = ["CAPITAL", "EXPENSE", "OTHER"];
+
 interface AccountingTableProps {
   data: JournalEntry[];
+  onEdit?: (row: Record<string, unknown>) => void;
 }
 
 const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
@@ -93,7 +97,10 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-const columns: ColumnDef<JournalEntry, unknown>[] = [
+function getColumns(
+  onEdit?: (row: Record<string, unknown>) => void,
+): ColumnDef<JournalEntry, unknown>[] {
+  return [
   {
     accessorKey: "created_at",
     header: "التاريخ",
@@ -115,13 +122,31 @@ const columns: ColumnDef<JournalEntry, unknown>[] = [
   {
     accessorKey: "entry_type",
     header: "النوع",
-    cell: ({ getValue }) => {
+    cell: ({ row, getValue }) => {
       const type = getValue() as JournalEntryType;
+      const raw = row.original as unknown as Record<string, unknown>;
+      const isReversal = raw.is_correction_reversal === true;
+      const correctionOfId = raw.correction_of_id as string | null;
 
       return (
-        <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
-          {ENTRY_TYPE_LABELS[type] ?? type}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+            {ENTRY_TYPE_LABELS[type] ?? type}
+          </span>
+
+          {isReversal && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600">
+              <LuUndo2 className="h-3 w-3" />
+              عكس تصحيحي
+            </span>
+          )}
+
+          {!isReversal && correctionOfId && (
+            <span className="text-[10px] font-bold text-emerald-600">
+              تصحيح قيد سابق
+            </span>
+          )}
+        </div>
       );
     },
   },
@@ -216,9 +241,36 @@ const columns: ColumnDef<JournalEntry, unknown>[] = [
       );
     },
   },
-];
+  {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => {
+      const raw = row.original as unknown as Record<string, unknown>;
+      const type = raw.entry_type as JournalEntryType;
+      const isReversal = raw.is_correction_reversal === true;
 
-export default function AccountingTable({ data }: AccountingTableProps) {
+      if (!onEdit || isReversal || !CORRECTABLE_TYPES.includes(type)) {
+        return null;
+      }
+
+      return (
+        <button
+          type="button"
+          onClick={() => onEdit(raw)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+        >
+          <LuPencil className="h-3.5 w-3.5" />
+          تعديل
+        </button>
+      );
+    },
+  },
+  ];
+}
+
+export default function AccountingTable({ data, onEdit }: AccountingTableProps) {
+  const columns = getColumns(onEdit);
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div className="border-b border-gray-100 bg-gray-50/50 p-4">

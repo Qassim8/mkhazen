@@ -5,6 +5,8 @@ import {
   AccountingQueryInput,
   Asset,
   AssetInput,
+  CorrectManualJournalEntryInput,
+  CorrectManualJournalEntryResult,
   CreateManualJournalEntryInput,
   CurrencyExchangeInput,
   JournalEntry,
@@ -131,6 +133,26 @@ export async function createManualJournalEntry(
     body: JSON.stringify(payload),
     headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
   });
+}
+
+export interface CorrectManualJournalEntryResponse {
+  message?: string;
+  data?: CorrectManualJournalEntryResult;
+}
+
+export async function correctManualJournalEntry(
+  entryId: string,
+  payload: CorrectManualJournalEntryInput,
+  options: { idempotencyKey?: string } = {},
+): Promise<CorrectManualJournalEntryResponse> {
+  return serverFetch<CorrectManualJournalEntryResponse>(
+    `${API_BASE_URL}/manual/${entryId}/correct`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
+    },
+  );
 }
 
 /* =========================================================
