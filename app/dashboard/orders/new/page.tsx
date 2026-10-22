@@ -20,7 +20,7 @@ export default async function CreatePurchaseOrderPage({
   const [{ data: products = [] }, { data: suppliers = [] }] = await Promise.all(
     [
       // كل المنتجات (مش أول 100 بس) عشان أي منتج يتطلب في الشراء
-      getProductOptions(),
+      getProductOptions({ purchaseForm: true }),
 
       getSupplierOptions(),
     ],

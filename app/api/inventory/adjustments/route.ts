@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { runIdempotentRpc } from "@/lib/idempotency";
+import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 import { inventoryAdjustmentSchema } from "@/app/dashboard/inventory/schema/inventory.schemas";
 
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     if (!guard.ok) return guard.response;
     const user = guard.session;
 
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || !can(user.role, "inventory.adjust")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
       payload: validation.data,
       context: "process_inventory_adjustment",
       fallbackMessage: "تعذر إجراء التسوية المخزنية",
+      hideBalances: !can(user.role, "accounting.view"),
       rpc: () =>
         supabaseAdmin.rpc("process_inventory_adjustment", {
           p_variant_id: variantId,
@@ -85,7 +87,34 @@ export async function POST(request: Request) {
           p_payment_method: paymentMethod ?? null,
           p_branch_id: MAIN_BRANCH_ID,
         }),
-      onSuccess: (result) => {
+      onSuccess: async (result) => {
+        const { data: variant } = await supabaseAdmin
+          .from("product_variants")
+          .select('sku, product_templates ( name )')
+          .eq("id", variantId)
+          .maybeSingle();
+        const templates = (variant as { product_templates?: { name?: string } | { name?: string }[] | null } | null)
+          ?.product_templates;
+        const productName = (Array.isArray(templates) ? templates[0]?.name : templates?.name) ?? "صنف";
+        const hasAmount = Number(amount) !== 0;
+
+        await notifyOwnerOfCashierAction({
+          actor: user,
+          kind: "INVENTORY_ADJUSTMENT",
+          title: hasAmount ? "تسوية مخزنية بمبلغ مالي من الكاشير" : "تسوية مخزنية من الكاشير",
+          details:
+            `${adjustmentType === "IN" ? "إدخال" : "إخراج"} ${Math.abs(quantity)} من ${productName}` +
+            (hasAmount
+              ? ` بمبلغ ${money(Math.abs(amount), adjustmentType === "IN" ? "SDG" : "USD")}` +
+                (adjustmentType === "IN" ? " (استرجاع من عميل)" : " (إرجاع لمورد)")
+              : "") +
+            (notes ? ` — ${notes}` : ""),
+          link: "/dashboard/inventory",
+          amount: hasAmount ? Math.abs(amount) : 0,
+          currency: adjustmentType === "IN" ? "SDG" : "USD",
+          metadata: { variant_id: variantId, adjustment_type: adjustmentType, quantity },
+        });
+
         revalidateTag("products-list", "default");
         revalidateTag("purchases-list", "default");
         revalidateTag("inventory-list", "default");

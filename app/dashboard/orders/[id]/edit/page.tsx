@@ -16,7 +16,7 @@ export default async function EditPurchaseOrderPage({ params }: Props) {
 
   const [orderRes, productsRes, suppliersRes] = await Promise.all([
     getPurchaseOrderById(id).catch(() => null),
-    getProductOptions().catch(() => ({
+    getProductOptions({ purchaseForm: true }).catch(() => ({
       data: [],
     })),
     getSupplierOptions().catch(() => ({

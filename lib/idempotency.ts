@@ -175,6 +175,15 @@ export function readIdempotencyKey(request: Request): string | null {
 }
 
 /**
+ * رسائل نقص الرصيد من قاعدة البيانات فيها رصيد الخزينة/البنك الحالي؛
+ * الكاشير ما يشوفش أرصدة الحسابات فبنستبدلها برسالة عامة.
+ */
+export function maskBalanceError<E extends { code?: string; message?: string } | null>(error: E): E {
+  if (!error || !/الرصيد/.test(error.message ?? "")) return error;
+  return { ...error, message: "الرصيد المتاح غير كافٍ لإتمام هذه العملية." };
+}
+
+/**
  * النمط المتكرر: (تحقق → دالة قاعدة بيانات ذرّية → رد) مع منع التكرار.
  * • قاعدة البيانات رفضت (كود SQLSTATE) → المعاملة اترجعت → المفتاح بيتحرر.
  * • نتيجة غير معروفة (شبكة) → المفتاح بيفضل محجوز → إعادة الإرسال بتترفض بدل تكرار العملية.
@@ -186,6 +195,8 @@ export async function runIdempotentRpc<TData>(params: {
   payload: unknown;
   context: string;
   fallbackMessage: string;
+  /** يخفي أرصدة الحسابات من رسائل الخطأ (للكاشير) */
+  hideBalances?: boolean;
   rpc: () => PromiseLike<{ data: TData | null; error: { code?: string; message?: string } | null }>;
   onSuccess: (data: TData) => Promise<{ status?: number; body: Record<string, unknown> }> | { status?: number; body: Record<string, unknown> };
 }): Promise<NextResponse> {
@@ -213,7 +224,11 @@ export async function runIdempotentRpc<TData>(params: {
     if (isDefiniteDbRejection(result.error)) {
       await idempotency.abandon();
     }
-    return dbErrorResponse(result.error, params.context, params.fallbackMessage);
+    return dbErrorResponse(
+      params.hideBalances ? maskBalanceError(result.error) : result.error,
+      params.context,
+      params.fallbackMessage,
+    );
   }
 
   const { status = 200, body } = await params.onSuccess(result.data as TData);

@@ -250,7 +250,7 @@ describe("E2E: الجلسات والصلاحيات والكاشير (next start 
 
   it("جلسة سليمة لكن من غير صلاحية → 403 FORBIDDEN (مش 401)", async () => {
     const cashier = await token(users.cashier);
-    for (const path of ["/api/accounting", "/api/users", "/api/purchases", "/api/reports"]) {
+    for (const path of ["/api/accounting", "/api/accounting/summary", "/api/users", "/api/reports", "/api/inventory/opening-stock"]) {
       const res = await call(path, { cookie: cashier });
       assert.equal(res.status, 403, path);
       assert.equal((await res.json()).code, "FORBIDDEN", path);
@@ -486,27 +486,20 @@ describe("E2E: الجلسات والصلاحيات والكاشير (next start 
     const id = randomUUID();
     // forbidden for cashier AND tailor (owner/admin only)
     const MANAGER_ONLY: [string, string][] = [
-      ["POST", "/api/accounting/assets"],
       ["POST", "/api/accounting/exchange"],
-      ["POST", "/api/accounting/manual"],
       ["POST", "/api/categories"],
       ["PUT", `/api/categories/${id}`],
       ["DELETE", `/api/categories/${id}`],
-      ["POST", "/api/exchange-rates"],
-      ["POST", "/api/inventory/adjustments"],
       ["POST", "/api/inventory/opening-stock"],
       ["POST", "/api/products"],
       ["PUT", `/api/products/${id}`],
       ["DELETE", `/api/products/${id}`],
-      ["POST", "/api/purchases"],
-      ["PATCH", `/api/purchases/${id}`],
-      ["DELETE", `/api/purchases/${id}`],
-      ["PATCH", `/api/purchases/${id}/status`],
-      ["POST", `/api/purchases/${id}/payments`],
       ["POST", "/api/suppliers"],
       ["PUT", `/api/suppliers/${id}`],
       ["DELETE", `/api/suppliers/${id}`],
       ["POST", "/api/accounting/tailor-dues"],
+      ["POST", "/api/accounting/manual/" + id + "/correct"],
+      ["POST", "/api/inventory/opening-stock/correct"],
       ["POST", "/api/users"],
       ["PUT", `/api/users/${id}`],
       ["DELETE", `/api/users/${id}`],
@@ -514,6 +507,16 @@ describe("E2E: الجلسات والصلاحيات والكاشير (next start 
     ];
     // allowed for cashier (sales.pos / tailoring.operate / tailoring.manage) but forbidden for tailor
     const NOT_FOR_TAILOR: [string, string][] = [
+      // الكاشير المشغّل (20261023): مخزون، تسويات، مشتريات، أصول، مصروف، سعر الصرف
+      ["POST", "/api/accounting/assets"],
+      ["POST", "/api/accounting/manual"],
+      ["POST", "/api/exchange-rates"],
+      ["POST", "/api/inventory/adjustments"],
+      ["POST", "/api/purchases"],
+      ["PATCH", `/api/purchases/${id}`],
+      ["DELETE", `/api/purchases/${id}`],
+      ["PATCH", `/api/purchases/${id}/status`],
+      ["POST", `/api/purchases/${id}/payments`],
       ["POST", "/api/sales/checkout"],
       ["POST", "/api/sales"],
       ["POST", `/api/sales/orders/${id}/cancel`],

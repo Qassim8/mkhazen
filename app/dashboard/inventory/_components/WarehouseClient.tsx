@@ -41,12 +41,14 @@ interface Props {
   movements: InventoryMovement[];
   movementMeta: Meta;
   inventory: InventoryVariant[];
+  canOpeningStock?: boolean;
 }
 
 export default function WarehouseClient({
   movements,
   movementMeta,
   inventory,
+  canOpeningStock = false,
 }: Props) {
   const router = useRouter();
 
@@ -94,13 +96,15 @@ export default function WarehouseClient({
             <span className="text-xs md:text-sm">تسوية مخزنية</span>
             <LuRefreshCcw />
           </button>
-          <Link
-            href="/dashboard/inventory/opening-stock"
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-          >
-            <LuPackagePlus className="h-4 w-4" />
-            المخزون الافتتاحي
-          </Link>
+          {canOpeningStock && (
+            <Link
+              href="/dashboard/inventory/opening-stock"
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+            >
+              <LuPackagePlus className="h-4 w-4" />
+              المخزون الافتتاحي
+            </Link>
+          )}
         </div>
       </header>
 

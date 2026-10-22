@@ -218,6 +218,13 @@ const menuItems: MenuItem[] = [
         exact: true,
       },
       {
+        href: "/dashboard/expenses",
+        label: "المصروفات",
+        icon: LuHandCoins,
+        roles: ["admin", "cashier"],
+        exact: true,
+      },
+      {
         href: "/dashboard/accounting/assets",
         label: "الأصول",
         icon: LuPackageCheck,

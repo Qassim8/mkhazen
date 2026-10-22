@@ -24,8 +24,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const PERMISSIONS = {
   /** اعتماد طلبات الشراء (تحويل المسودة لمعتمد) */
   "purchases.approve": ["owner"],
-  /** إنشاء/تعديل/إلغاء مسودة، الاستلام، الدفع للمورد */
-  "purchases.manage": ["owner", "admin"],
+  /** إنشاء/تعديل/إلغاء مسودة، الاستلام، الدفع للمورد (الكاشير هو المشغّل الفعلي؛ الاعتماد للمالك فقط) */
+  "purchases.manage": ["owner", "admin", "cashier"],
 
   /** قيود رأس المال */
   "accounting.capital": ["owner", "admin"],
@@ -39,8 +39,17 @@ export const PERMISSIONS = {
   "payroll.manage": ["owner", "admin"],
   /** المخزون الافتتاحي (يزيد الرصيد + قيد مدين المخزون / دائن رأس المال) */
   "inventory.openingStock": ["owner", "admin"],
-  /** تسجيل سعر الصرف */
-  "exchangeRate.manage": ["owner", "admin"],
+  /** تسجيل سعر الصرف (تبويب سعر الصرف في الإعدادات فقط) */
+  "exchangeRate.manage": ["owner", "admin", "cashier"],
+
+  /** عرض المخزون والكميات وحركاته (التكلفة ظاهرة في هذه الشاشة) */
+  "inventory.view": ["owner", "admin", "cashier"],
+  /** التسويات المخزنية بكل أنواعها */
+  "inventory.adjust": ["owner", "admin", "cashier"],
+  /** تسجيل أصل جديد (شراء) فقط — بدون قائمة الأصول ولا قيمتها */
+  "assets.create": ["owner", "admin", "cashier"],
+  /** تسجيل مصروف يدوي وعرض مصروفات المستخدم نفسه فقط */
+  "expenses.record": ["owner", "admin", "cashier"],
 
   "reports.view": ["owner", "admin"],
   "dashboard.view": ["owner", "admin"],
@@ -116,6 +125,8 @@ export function homePageFor(role: unknown) {
 const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permission }[] = [
   { prefix: "/dashboard", exact: true, permission: "dashboard.view" },
   { prefix: "/dashboard/accounting/opening-balances", permission: "accounting.openingBalances" },
+  { prefix: "/dashboard/accounting/assets", permission: "assets.create" },
+  { prefix: "/dashboard/expenses", permission: "expenses.record" },
   { prefix: "/dashboard/employees/payroll", permission: "payroll.manage" },
   { prefix: "/dashboard/accounting", permission: "accounting.view" },
   { prefix: "/dashboard/reports", permission: "reports.view" },
@@ -125,7 +136,7 @@ const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permissi
   { prefix: "/dashboard/categories", permission: "catalog.manage" },
   { prefix: "/dashboard/suppliers", permission: "catalog.manage" },
   { prefix: "/dashboard/inventory/opening-stock", permission: "inventory.openingStock" },
-  { prefix: "/dashboard/inventory", permission: "catalog.manage" },
+  { prefix: "/dashboard/inventory", permission: "inventory.view" },
   { prefix: "/dashboard/employees", permission: "users.manageStaff" },
   { prefix: "/dashboard/admin", permission: "users.manageStaff" },
   { prefix: "/dashboard/pos", permission: "sales.pos" },

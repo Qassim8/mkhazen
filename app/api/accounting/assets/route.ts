@@ -8,6 +8,7 @@ import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { sanitizeSearchTerm } from "@/lib/postgrest";
 import { runIdempotentRpc } from "@/lib/idempotency";
+import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 import { createAssetSchema } from "@/app/dashboard/accounting/schemas/accounting.schema";
 
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
     if (!guard.ok) return guard.response;
     const user = guard.session;
 
-    if (!user || !can(user.role, "accounting.manage")) {
+    if (!user || !can(user.role, "assets.create")) {
       return NextResponse.json(
         { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },
@@ -186,6 +187,7 @@ export async function POST(request: Request) {
       payload: { ...validation.data, purchaseDate: formattedDate },
       context: "create_asset_with_journal_entry",
       fallbackMessage: "تعذر تسجيل الأصل والقيد المحاسبي",
+      hideBalances: !can(user.role, "accounting.view"),
       rpc: () =>
         supabaseAdmin.rpc("create_asset_with_journal_entry", {
           p_branch_id: MAIN_BRANCH_ID,
@@ -200,7 +202,18 @@ export async function POST(request: Request) {
           p_entry_number: entryNumber,
           p_currency: currency,
         }),
-      onSuccess: (assetData) => {
+      onSuccess: async (assetData) => {
+        await notifyOwnerOfCashierAction({
+          actor: user,
+          kind: "ASSET",
+          title: "تسجيل أصل جديد من الكاشير",
+          details: `سجّل أصلًا «${name}» بقيمة ${money(purchaseValue, currency)} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"})`,
+          link: "/dashboard/accounting/assets",
+          amount: purchaseValue,
+          currency,
+          metadata: { asset_name: name, category, payment_method: paymentMethod },
+        });
+
         revalidateTag("accounting-assets", "default");
         revalidateTag("accounting-entries", "default");
         revalidateTag("accounting-summary", "default");

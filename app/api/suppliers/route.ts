@@ -11,7 +11,8 @@ export async function GET(request: Request) {
     const guard = await requireLogin();
     if (!guard.ok) return guard.response;
     const user = guard.session;
-    if (!user || !can(user.role, "catalog.manage")) {
+    // قائمة الموردين تُقرأ أيضًا من شاشات المشتريات (اختيار المورد)
+    if (!user || !(can(user.role, "catalog.manage") || can(user.role, "purchases.manage"))) {
       return NextResponse.json(
         { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
         { status: 403 },

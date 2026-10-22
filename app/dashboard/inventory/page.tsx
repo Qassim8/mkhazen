@@ -1,3 +1,6 @@
+import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
+
 import {
   getAllInventory,
   getInventoryMovements,
@@ -15,6 +18,7 @@ interface Props {
 
 export default async function InventoryPage({ searchParams }: Props) {
   const query = await searchParams;
+  const session = await getSession();
 
   const validTypes = [
     "ALL",
@@ -60,6 +64,7 @@ export default async function InventoryPage({ searchParams }: Props) {
         }
       }
       inventory={inventoryResponse?.data || []}
+      canOpeningStock={can(session?.role, "inventory.openingStock")}
     />
   );
 }

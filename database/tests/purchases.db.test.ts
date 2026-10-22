@@ -210,14 +210,20 @@ describe("receive_purchase_order (live schema, service_role)", () => {
     assert.match(await rpcError(receive(draft.orderId, users.owner)), /حالته الحالية/);
     assert.match(await rpcError(receive(cancelled.orderId, users.owner)), /حالته الحالية/);
     assert.match(await rpcError(receive("00000000-0000-4000-8000-0000000000aa", users.owner)), /طلب الشراء غير موجود/);
-    assert.match(await rpcError(receive(approved.orderId, users.cashier)), /للمالك أو المدير فقط/);
-    assert.match(await rpcError(receive(approved.orderId, users.tailor)), /للمالك أو المدير فقط/);
+    assert.match(await rpcError(receive(approved.orderId, users.tailor)), /للمالك أو المدير أو الكاشير فقط/);
     assert.match(await rpcError(receive(approved.orderId, users.inactiveAdmin)), /غير صالح لهذا الفرع/);
     assert.match(await rpcError(receive(approved.orderId, users.otherBranchAdmin)), /غير صالح لهذا الفرع/);
     assert.match(await rpcError(receive(approved.orderId, "00000000-0000-4000-8000-0000000000bb")), /غير صالح لهذا الفرع/);
 
     // legacy upper-case enum value ADMIN is accepted (live "Role" enum has both spellings)
     const ok = await receive(approved.orderId, users.legacyUpperAdmin);
+    assert.equal(ok.rows[0].result.status, "RECEIVED");
+  });
+
+  it("20261023_01: the cashier can receive an approved order", async () => {
+    const product = await createProduct(db);
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 5 }] });
+    const ok = await receive(orderId, users.cashier);
     assert.equal(ok.rows[0].result.status, "RECEIVED");
   });
 });
@@ -298,9 +304,18 @@ describe("record_purchase_payment (live schema, service_role)", () => {
     assert.match(await rpcError(pay(approved.orderId, 0)), /أكبر من صفر/);
     assert.match(await rpcError(pay(approved.orderId, -5)), /أكبر من صفر/);
     assert.match(await rpcError(pay(approved.orderId, 5, "CARD")), /خزينة أو بنك/);
-    assert.match(await rpcError(pay(approved.orderId, 5, "CASH", users.cashier)), /للمالك أو المدير فقط/);
+    assert.match(await rpcError(pay(approved.orderId, 5, "CASH", users.tailor)), /للمالك أو المدير أو الكاشير فقط/);
     assert.match(await rpcError(pay(approved.orderId, 5, "CASH", users.inactiveAdmin)), /غير صالح لهذا الفرع/);
     assert.match(await rpcError(pay(approved.orderId, 5, "CASH", users.otherBranchAdmin)), /غير صالح لهذا الفرع/);
+  });
+
+  it("20261023_01: the cashier can record a supplier payment", async () => {
+    await fundAccount(db, "CASH", 100);
+    const product = await createProduct(db);
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 10 }] });
+    await pay(orderId, 4, "CASH", users.cashier);
+    const paid = await db.query<{ s: string }>(`SELECT COALESCE(sum(amount), 0) AS s FROM public.purchase_order_payments WHERE purchase_order_id = $1`, [orderId]);
+    assert.equal(num(paid.rows[0].s), 4);
   });
 
   it("accepts payment after receipt (RECEIVED)", async () => {

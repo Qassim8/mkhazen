@@ -33,10 +33,11 @@ describe("الصلاحيات (lib/permissions)", () => {
   });
 
   it("الصفحات: الكاشير والخياط ما يفتحوش المحاسبة/المشتريات/التقارير", () => {
-    for (const path of ["/dashboard", "/dashboard/accounting", "/dashboard/orders/new", "/dashboard/reports", "/dashboard/employees", "/dashboard/unknown-page"]) {
+    for (const path of ["/dashboard", "/dashboard/accounting", "/dashboard/reports", "/dashboard/employees", "/dashboard/unknown-page"]) {
       assert.equal(canAccessPath("cashier", path), false, `cashier ${path}`);
       assert.equal(canAccessPath("tailor", path), false, `tailor ${path}`);
     }
+    assert.equal(canAccessPath("tailor", "/dashboard/orders/new"), false);
     assert.equal(canAccessPath("cashier", "/dashboard/pos"), true);
     assert.equal(canAccessPath("cashier", "/dashboard/pos/receipt/x"), true);
     assert.equal(canAccessPath("tailor", "/dashboard/pos"), false);
@@ -49,6 +50,70 @@ describe("الصلاحيات (lib/permissions)", () => {
     assert.equal(canAccessPath("cashier", "/dashboard/posx"), false);
     // الإعدادات للكل (تغيير كلمة السر)
     assert.equal(canAccessPath("tailor", "/dashboard/settings"), true);
+  });
+
+  it("الكاشير المشغّل: صلاحيات أوسع محددة، وما يبقى ممنوعًا يظل ممنوعًا", () => {
+    for (const permission of [
+      "inventory.view",
+      "inventory.adjust",
+      "purchases.manage",
+      "assets.create",
+      "expenses.record",
+      "exchangeRate.manage",
+    ] as const) {
+      assert.equal(can("cashier", permission), true, permission);
+      assert.equal(can("tailor", permission), false, `tailor ${permission}`);
+    }
+
+    // اعتماد أمر الشراء للمالك فقط
+    assert.equal(can("cashier", "purchases.approve"), false);
+    assert.equal(can("admin", "purchases.approve"), false);
+
+    for (const permission of [
+      "accounting.view",
+      "accounting.manage",
+      "accounting.capital",
+      "accounting.openingBalances",
+      "payroll.manage",
+      "inventory.openingStock",
+      "reports.view",
+      "dashboard.view",
+      "catalog.manage",
+      "users.manageStaff",
+      "sales.view",
+    ] as const) {
+      assert.equal(can("cashier", permission), false, permission);
+    }
+
+    for (const path of [
+      "/dashboard/inventory",
+      "/dashboard/orders",
+      "/dashboard/orders/new",
+      "/dashboard/orders/abc",
+      "/dashboard/orders/abc/edit",
+      "/dashboard/accounting/assets",
+      "/dashboard/expenses",
+      "/dashboard/settings",
+    ]) {
+      assert.equal(canAccessPath("cashier", path), true, `cashier ${path}`);
+      assert.equal(canAccessPath("tailor", path), path === "/dashboard/settings", `tailor ${path}`);
+    }
+
+    for (const path of [
+      "/dashboard/accounting",
+      "/dashboard/accounting/journals",
+      "/dashboard/accounting/opening-balances",
+      "/dashboard/inventory/opening-stock",
+      "/dashboard/reports",
+      "/dashboard/sales",
+      "/dashboard/employees",
+      "/dashboard/employees/payroll",
+      "/dashboard/products",
+      "/dashboard/suppliers",
+      "/dashboard/admin",
+    ]) {
+      assert.equal(canAccessPath("cashier", path), false, `cashier ${path}`);
+    }
   });
 
   it("الصفحة الرئيسية لكل دور متاحة له (مفيش حلقة تحويل)", () => {

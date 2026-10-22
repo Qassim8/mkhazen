@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     if (!guard.ok) return guard.response;
     const user = guard.session;
 
-    if (!user || !can(user.role, "catalog.manage")) {
+    if (!user || !can(user.role, "inventory.view")) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",

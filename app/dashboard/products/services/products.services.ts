@@ -36,6 +36,9 @@ export interface GetProductsParams {
 
   page?: number;
   limit?: number;
+
+  /** شاشات المشتريات: يرجّع آخر سعر شراء لمن يملك purchases.manage */
+  purchaseForm?: boolean;
 }
 
 export async function getProducts(
@@ -71,6 +74,10 @@ export async function getProducts(
     queryParams.limit = params.limit;
   }
 
+  if (params?.purchaseForm) {
+    queryParams.purchaseForm = "1";
+  }
+
   return serverFetch<ProductsResponse>("/api/products", {
     method: "GET",
     params: queryParams,
@@ -84,12 +91,14 @@ export async function getProducts(
  * كل المنتجات لقوائم الاختيار (طلبات الشراء).
  * الـ API أقصى حد للصفحة 100، فبنلف على الصفحات لحد ما نجيب الكل.
  */
-export async function getProductOptions(): Promise<ProductsResponse> {
-  const first = await getProducts({ page: 1, limit: 100 });
+export async function getProductOptions(
+  options: { purchaseForm?: boolean } = {},
+): Promise<ProductsResponse> {
+  const first = await getProducts({ page: 1, limit: 100, ...options });
   const data = [...first.data];
 
   for (let page = 2; page <= (first.meta?.totalPages ?? 1); page++) {
-    const next = await getProducts({ page, limit: 100 });
+    const next = await getProducts({ page, limit: 100, ...options });
     data.push(...next.data);
   }
 

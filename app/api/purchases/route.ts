@@ -21,6 +21,7 @@ import {
   PURCHASE_ORDER_SELECT,
 } from "./_lib/purchase-order";
 import { apiError, dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
+import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 /* =========================================================
    HELPERS
@@ -582,7 +583,18 @@ export async function POST(request: Request) {
 
     if (isDirect) {
       try {
-        await processPurchaseReceipt(newOrder.id, user.userId);
+        const receipt = await processPurchaseReceipt(newOrder.id, user.userId);
+
+        await notifyOwnerOfCashierAction({
+          actor: user,
+          kind: "PURCHASE_RECEIPT",
+          title: "استلام أمر شراء من الكاشير",
+          details: `سجّل شراءً مباشرًا واستلمه ${receipt.order_number} (${receipt.items_count} صنف) بقيمة ${money(Number(receipt.total_amount), "USD")}`,
+          link: `/dashboard/orders/${newOrder.id}`,
+          amount: Number(receipt.total_amount),
+          currency: "USD",
+          metadata: { purchase_order_id: newOrder.id, order_number: receipt.order_number, direct: true },
+        });
       } catch (receiptError) {
         console.error("Direct purchase receipt error:", receiptError);
 

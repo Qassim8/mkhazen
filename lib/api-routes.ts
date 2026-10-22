@@ -12,6 +12,7 @@ export const API_ROUTES: { pattern: string; load: () => Promise<RouteModule> }[]
   { pattern: "/api/accounting/[id]", load: () => import("@/app/api/accounting/[id]/route") },
   { pattern: "/api/accounting/assets/[id]", load: () => import("@/app/api/accounting/assets/[id]/route") },
   { pattern: "/api/accounting/assets", load: () => import("@/app/api/accounting/assets/route") },
+  { pattern: "/api/accounting/expenses", load: () => import("@/app/api/accounting/expenses/route") },
   { pattern: "/api/accounting/exchange", load: () => import("@/app/api/accounting/exchange/route") },
   { pattern: "/api/accounting/manual/[id]/correct", load: () => import("@/app/api/accounting/manual/[id]/correct/route") },
   { pattern: "/api/accounting/manual", load: () => import("@/app/api/accounting/manual/route") },

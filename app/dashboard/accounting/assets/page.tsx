@@ -1,4 +1,8 @@
+import { getSession } from "@/lib/auth";
+import { can } from "@/lib/permissions";
+
 import AssetsClient from "../_components/AssetsClient";
+import CashierAssetEntry from "../_components/CashierAssetEntry";
 
 import { getAssets } from "../services/accounting.services";
 
@@ -13,6 +17,12 @@ interface AssetsPageProps {
 
 const AssetsPage = async ({ searchParams }: AssetsPageProps) => {
   const params = await searchParams;
+  const session = await getSession();
+
+  // من لا يملك accounting.view (الكاشير) يسجّل أصلًا جديدًا فقط بدون رؤية القائمة
+  if (!can(session?.role, "accounting.view")) {
+    return <CashierAssetEntry />;
+  }
 
   const { data, meta, totalValue } = await getAssets({
     search: params.search,

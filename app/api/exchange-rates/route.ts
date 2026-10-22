@@ -4,6 +4,7 @@ import { requireLogin } from "@/lib/permissions-server";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyOwnerOfCashierAction, rateChange } from "@/app/api/_lib/cashier-audit";
 
 import {
   createExchangeRateSchema,
@@ -139,6 +140,16 @@ export async function POST(request: Request) {
 
     const { rate, notes } = validation.data;
 
+    // السعر القديم لإشعار المالك عند التغيير من الكاشير
+    const { data: previous } = await supabaseAdmin
+      .from("exchange_rates")
+      .select("rate")
+      .eq("branch_id", MAIN_BRANCH_ID)
+      .lte("effective_at", new Date().toISOString())
+      .order("effective_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const { data, error } = await supabaseAdmin
       .from("exchange_rates")
       .insert({
@@ -157,6 +168,19 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
+
+    const oldRate = previous?.rate == null ? null : Number(previous.rate);
+
+    await notifyOwnerOfCashierAction({
+      actor: user,
+      kind: "EXCHANGE_RATE",
+      title: "تغيير سعر الصرف من الكاشير",
+      details: `غيّر سعر الصرف (ج.س لكل 1$): ${rateChange(oldRate, rate)}`,
+      link: "/dashboard/settings?tab=exchange-rate",
+      amount: rate,
+      currency: "SDG",
+      metadata: { old_rate: oldRate, new_rate: rate },
+    });
 
     return NextResponse.json(
       {

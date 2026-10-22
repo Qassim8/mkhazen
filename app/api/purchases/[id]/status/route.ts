@@ -19,6 +19,8 @@ import {
   PurchaseRpcError,
 } from "../../_lib/purchase-order";
 import { apiError, dbErrorResponse } from "@/lib/api-response";
+import { maskBalanceError } from "@/lib/idempotency";
+import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 export async function PATCH(
   request: Request,
@@ -30,6 +32,9 @@ export async function PATCH(
     }>;
   },
 ) {
+  // الكاشير لا يرى أرصدة الخزينة/البنك في رسائل الخطأ
+  let hideBalances = false;
+
   try {
     const guard = await requireLogin();
     if (!guard.ok) return guard.response;
@@ -44,6 +49,8 @@ export async function PATCH(
         { status: 403 },
       );
     }
+
+    hideBalances = !can(user.role, "accounting.view");
 
     const { id } = await params;
 
@@ -181,14 +188,27 @@ export async function PATCH(
     ===================================================== */
 
     if (newStatus === "RECEIVED") {
+      let receipt: Awaited<ReturnType<typeof processPurchaseReceipt>>;
+
       try {
-        await processPurchaseReceipt(id, user.userId);
+        receipt = await processPurchaseReceipt(id, user.userId);
       } catch (receiptError) {
         if (receiptError instanceof PurchaseRpcError) {
           return dbErrorResponse(receiptError.dbError, "receive_purchase_order", "تعذر استلام طلب الشراء.");
         }
         throw receiptError;
       }
+
+      await notifyOwnerOfCashierAction({
+        actor: user,
+        kind: "PURCHASE_RECEIPT",
+        title: "استلام أمر شراء من الكاشير",
+        details: `استلم أمر الشراء ${receipt.order_number} (${receipt.items_count} صنف) بقيمة ${money(Number(receipt.total_amount), "USD")}`,
+        link: `/dashboard/orders/${id}`,
+        amount: Number(receipt.total_amount),
+        currency: "USD",
+        metadata: { purchase_order_id: id, order_number: receipt.order_number },
+      });
 
       /* ===================================================
          OPTIONAL PAYMENT AFTER RECEIPT
@@ -211,6 +231,17 @@ export async function PATCH(
 
             createdBy: user.userId,
           });
+
+          await notifyOwnerOfCashierAction({
+            actor: user,
+            kind: "SUPPLIER_PAYMENT",
+            title: "دفعة مورد من الكاشير",
+            details: `سجّل دفعة بقيمة ${money(payment.amount, "USD")} (${payment.paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) على طلب الشراء ${existingOrder.order_number}`,
+            link: `/dashboard/orders/${id}`,
+            amount: payment.amount,
+            currency: "USD",
+            metadata: { purchase_order_id: id, payment_method: payment.paymentMethod },
+          });
         } catch (paymentError) {
           console.error("Receive payment error:", paymentError);
 
@@ -226,7 +257,11 @@ export async function PATCH(
             {
               message:
                 paymentError instanceof Error
-                  ? `تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة: ${paymentError.message}`
+                  ? `تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة: ${
+                      hideBalances
+                        ? maskBalanceError({ message: paymentError.message }).message
+                        : paymentError.message
+                    }`
                   : "تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة.",
               warning: true,
               data: (await fetchPurchaseOrderById(id)).data,

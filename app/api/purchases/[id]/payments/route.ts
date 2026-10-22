@@ -12,7 +12,8 @@ import {
   PurchaseRpcError,
 } from "../../_lib/purchase-order";
 import { dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
-import { beginIdempotentOperation, readIdempotencyKey } from "@/lib/idempotency";
+import { beginIdempotentOperation, maskBalanceError, readIdempotencyKey } from "@/lib/idempotency";
+import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 export async function GET(
   _request: Request,
@@ -85,6 +86,9 @@ export async function POST(
     }>;
   },
 ) {
+  // الكاشير لا يرى أرصدة الخزينة/البنك في رسائل الخطأ
+  let hideBalances = false;
+
   try {
     const guard = await requireLogin();
     if (!guard.ok) return guard.response;
@@ -99,6 +103,8 @@ export async function POST(
         { status: 403 },
       );
     }
+
+    hideBalances = !can(user.role, "accounting.view");
 
     const { id } = await params;
 
@@ -208,6 +214,17 @@ export async function POST(
 
     revalidatePath("/dashboard/accounting/overview");
 
+    await notifyOwnerOfCashierAction({
+      actor: user,
+      kind: "SUPPLIER_PAYMENT",
+      title: "دفعة مورد من الكاشير",
+      details: `سجّل دفعة بقيمة ${money(amount, "USD")} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) على طلب الشراء ${order.orderNumber ?? ""}`,
+      link: `/dashboard/orders/${id}`,
+      amount,
+      currency: "USD",
+      metadata: { purchase_order_id: id, payment_method: paymentMethod },
+    });
+
     const { data: updatedOrder } = await fetchPurchaseOrderById(id);
 
     const responseBody = {
@@ -223,7 +240,11 @@ export async function POST(
     return NextResponse.json(responseBody, { status: 201 });
   } catch (error: unknown) {
     if (error instanceof PurchaseRpcError) {
-      return dbErrorResponse(error.dbError, "record_purchase_payment", "تعذر تسجيل الدفعة.");
+      return dbErrorResponse(
+        hideBalances ? maskBalanceError(error.dbError as { code?: string; message?: string } | null) : error.dbError,
+        "record_purchase_payment",
+        "تعذر تسجيل الدفعة.",
+      );
     }
 
     return dbErrorResponse(error, "Purchase payment POST", "تعذر تسجيل الدفعة.");

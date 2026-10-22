@@ -92,7 +92,11 @@ export async function GET(request: Request) {
   const guard = await requireLogin();
   if (!guard.ok) return guard.response;
   // الخياط لا يرى أي تكلفة. الكاشير يرى سعر التكلفة (averageCost) بس، لا آخر سعر شراء
-  const canSeeCosts = can(guard.session?.role, "catalog.manage");
+  // شاشات المشتريات (purchases.manage) تحتاج آخر سعر شراء؛ تُطلب بـ ?purchaseForm=1 فقط
+  const wantsPurchaseForm =
+    new URL(request.url).searchParams.get("purchaseForm") === "1" &&
+    can(guard.session?.role, "purchases.manage");
+  const canSeeCosts = can(guard.session?.role, "catalog.manage") || wantsPurchaseForm;
   const canSeeCostPrice =
     canSeeCosts ||
     can(guard.session?.role, "sales.pos") ||

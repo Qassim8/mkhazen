@@ -6,6 +6,7 @@ import { createManualJournalEntrySchema } from "@/app/dashboard/accounting/schem
 import { can } from "@/lib/permissions";
 import { dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
 import { beginIdempotentOperation, readIdempotencyKey } from "@/lib/idempotency";
+import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 import {
   createJournalEntry,
@@ -23,7 +24,10 @@ export async function POST(request: Request) {
     if (!guard.ok) return guard.response;
     const user = guard.session;
 
-    if (!user || !can(user.role, "accounting.manage")) {
+    // الكاشير يسجّل مصروفًا فقط (expenses.record)؛ باقي الأنواع تتطلب accounting.manage
+    const canManage = !!user && can(user.role, "accounting.manage");
+
+    if (!user || !(canManage || can(user.role, "expenses.record"))) {
       return NextResponse.json(
         {
           message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك",
@@ -56,6 +60,13 @@ export async function POST(request: Request) {
       description,
       currency,
     } = validation.data;
+
+    if (!canManage && entryType !== "EXPENSE") {
+      return NextResponse.json(
+        { message: "عذراً، هذه الصلاحية غير متاحة لصلاحياتك", code: "FORBIDDEN" },
+        { status: 403 },
+      );
+    }
 
     /* =====================================================
        CAPITAL
@@ -145,18 +156,12 @@ export async function POST(request: Request) {
         });
       }
 
-      const allowedExpenseAccounts = [
-        "UTILITIES",
-        "RENTS",
-        "MAINTENANCE",
-        "OTHER_EXPENSE",
-      ] as const;
+      // الكاشير: كهرباء/ماء/إنترنت، صيانة، أخرى (بدون إيجارات)
+      const allowedExpenseAccounts: readonly string[] = canManage
+        ? ["UTILITIES", "RENTS", "MAINTENANCE", "OTHER_EXPENSE"]
+        : ["UTILITIES", "MAINTENANCE", "OTHER_EXPENSE"];
 
-      if (
-        !allowedExpenseAccounts.includes(
-          account as (typeof allowedExpenseAccounts)[number],
-        )
-      ) {
+      if (!allowedExpenseAccounts.includes(account)) {
         return respond(422, {
             message: "حساب المصروف غير صالح",
           });
@@ -171,7 +176,12 @@ export async function POST(request: Request) {
       const currentBalance = await getAccountBalance(creditAccount, currency);
 
       if (amount > currentBalance) {
-        return respond(400, { message: formatBalanceMessage(creditAccount, currency, currentBalance) });
+        // الكاشير لا يرى أرصدة الخزينة/البنك
+        return respond(400, {
+          message: canManage
+            ? formatBalanceMessage(creditAccount, currency, currentBalance)
+            : "الرصيد المتاح غير كافٍ لتسجيل هذا المصروف.",
+        });
       }
 
       const entry = await createEntry({
@@ -183,6 +193,17 @@ export async function POST(request: Request) {
         reference,
         createdBy: user.userId ?? null,
         currency,
+      });
+
+      await notifyOwnerOfCashierAction({
+        actor: user,
+        kind: "EXPENSE",
+        title: "مصروف جديد من الكاشير",
+        details: `سجّل مصروفًا بقيمة ${money(amount, currency)} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) — ${description}`,
+        link: "/dashboard/accounting/journals",
+        amount,
+        currency,
+        metadata: { journal_entry_id: entry.id, expense_account: account },
       });
 
       return respond(201, {
