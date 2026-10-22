@@ -24,6 +24,7 @@ const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   BANK: "البنك",
   INVENTORY: "المخزون",
   WORK_IN_PROGRESS: "إنتاج تحت التشغيل",
+  DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   SUPPLIERS: "الموردون",
   CAPITAL: "رأس المال",
   SALES: "المبيعات",

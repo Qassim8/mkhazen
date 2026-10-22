@@ -119,6 +119,8 @@ export function computeBalances(allEntries: LedgerEntry[], currentRate: number |
     assets: round2(Math.max(0, debitBalanceUsd(allEntries, "ASSETS"))),
     inventory: round2(Math.max(0, debitBalanceUsd(allEntries, "INVENTORY"))),
     workInProgress: round2(Math.max(0, debitBalanceUsd(allEntries, "WORK_IN_PROGRESS"))),
+    // تكلفة بضاعة مباعة بالآجل (أصل) — تُحرَّر إلى COGS مع التحصيل أو تُحوَّل لمصروف عند الدين المعدوم
+    deferredCogs: round2(Math.max(0, debitBalanceUsd(allEntries, "DEFERRED_COGS"))),
     // دفعات اتدفعت للخياط قبل ما تكلفة الطلب تتثبت (أصل لحين التسوية)
     tailorAdvances: round2(Math.max(0, debitBalanceUsd(allEntries, "TAILOR_ADVANCES"))),
   };

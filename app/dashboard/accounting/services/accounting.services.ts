@@ -292,6 +292,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   CAPITAL: "رأس المال",
   INVENTORY: "المخزون",
   WORK_IN_PROGRESS: "أعمال قيد التنفيذ",
+  DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   SUPPLIERS: "الموردون",
   CUSTOMER_ADVANCES: "عربون العملاء",
   TAILOR_ADVANCES: "سلف الخياطين",
@@ -356,6 +357,8 @@ export interface AccountingOverviewCards {
   assets: number;
   inventory: number;
   workInProgress: number;
+  /** رصيد DEFERRED_COGS: تكلفة بضاعة مباعة بالآجل لم يُحصَّل ثمنها بعد (أصل) */
+  deferredCogs?: number;
   tailorAdvances: number;
 }
 

@@ -25,6 +25,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   TAILOR_ADVANCES: "دفعات مقدمة للخياطين",
   COGS: "تكلفة المنتجات المباعة",
   WORK_IN_PROGRESS: "انتاج تحت التشغيل",
+  DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   UTILITIES: "الفواتير والخدمات",
   RENTS: "الايجار",
   OTHER_EXPENSE: "مصروفات أخرى",

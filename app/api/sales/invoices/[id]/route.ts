@@ -34,6 +34,12 @@ export async function GET(
         notes,
         created_at,
         completed_at,
+        is_credit,
+        credit_customer_name,
+        credit_customer_phone,
+        due_date,
+        remaining_amount,
+        credit_closed_reason,
         branch:branches (
           id,
           name
@@ -89,9 +95,15 @@ export async function GET(
       );
     }
 
-    const paidAmount = Number(
-      (order.total_amount ?? 0),
-    );
+    // فاتورة آجلة: المدفوع = مجموع الدفعات (قد يزيد عن الإجمالي)، والمتبقي من remaining_amount
+    const isCredit = order.is_credit === true;
+    const paidAmount = isCredit
+      ? Number(
+          ((order.payments ?? []) as unknown as SalePaymentRow[])
+            .reduce((sum, payment) => sum + Number(payment.amount), 0)
+            .toFixed(2),
+        )
+      : Number(order.total_amount ?? 0);
 
     const formattedReceipt = {
       id: order.id,
@@ -113,7 +125,12 @@ export async function GET(
       taxAmount: Number(order.tax_amount),
       totalAmount: Number(order.total_amount),
       paidAmount,
-      remainingAmount: 0,
+      remainingAmount: isCredit ? Number(order.remaining_amount ?? 0) : 0,
+      isCredit,
+      creditCustomerName: isCredit ? order.credit_customer_name ?? null : null,
+      creditCustomerPhone: isCredit ? order.credit_customer_phone ?? null : null,
+      dueDate: isCredit ? order.due_date ?? null : null,
+      creditClosedReason: isCredit ? order.credit_closed_reason ?? null : null,
       paymentMethod: order.payment_method,
       paymentStatus: order.payment_status,
       status: order.status,

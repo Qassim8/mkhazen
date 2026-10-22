@@ -75,6 +75,12 @@ export async function GET(
           created_at,
           completed_at,
           updated_at,
+          is_credit,
+          credit_customer_name,
+          credit_customer_phone,
+          due_date,
+          remaining_amount,
+          credit_closed_reason,
           items:sales_order_items (
             id,
             sales_order_id,
@@ -202,9 +208,11 @@ export async function GET(
         .reduce((sum, payment) => sum + Number(payment.amount), 0)
         .toFixed(2),
     );
-    const remainingAmount = Number(
-      Math.max(totalAmount - paidAmount, 0).toFixed(2),
-    );
+    // فاتورة آجلة: المتبقي والحالة محفوظان في الفاتورة (يشمل التفاوض والدين المعدوم)
+    const isCredit = order.is_credit === true;
+    const remainingAmount = isCredit
+      ? Number(order.remaining_amount ?? 0)
+      : Number(Math.max(totalAmount - paidAmount, 0).toFixed(2));
 
     const data = {
       id: order.id,
@@ -228,8 +236,13 @@ export async function GET(
       totalAmount,
       paidAmount,
       remainingAmount,
+      isCredit,
+      creditCustomerName: isCredit ? order.credit_customer_name ?? null : null,
+      creditCustomerPhone: isCredit ? order.credit_customer_phone ?? null : null,
+      dueDate: isCredit ? order.due_date ?? null : null,
+      creditClosedReason: isCredit ? order.credit_closed_reason ?? null : null,
       paymentMethod: order.payment_method,
-      paymentStatus: calculatePaymentStatus(totalAmount, paidAmount),
+      paymentStatus: isCredit ? order.payment_status : calculatePaymentStatus(totalAmount, paidAmount),
       status: order.status,
       notes: order.notes,
       createdAt: order.created_at,

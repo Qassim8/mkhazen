@@ -87,6 +87,12 @@ export async function GET(
           notes,
           created_at,
           completed_at,
+          is_credit,
+          credit_customer_name,
+          credit_customer_phone,
+          due_date,
+          remaining_amount,
+          credit_closed_reason,
           branch:branches (
             id,
             name
@@ -185,9 +191,11 @@ export async function GET(
         .toFixed(2),
     );
 
-    const remainingAmount = Number(
-      Math.max(totalAmount - paidAmount, 0).toFixed(2),
-    );
+    // فاتورة آجلة: المتبقي والحالة محفوظان في الفاتورة (يشمل التفاوض والدين المعدوم)
+    const isCredit = order.is_credit === true;
+    const remainingAmount = isCredit
+      ? Number(order.remaining_amount ?? 0)
+      : Number(Math.max(totalAmount - paidAmount, 0).toFixed(2));
 
     const branch = getSingleRelation(order.branch);
     const cashier = getSingleRelation(order.cashier);
@@ -211,8 +219,13 @@ export async function GET(
       totalAmount,
       paidAmount,
       remainingAmount,
+      isCredit,
+      creditCustomerName: isCredit ? order.credit_customer_name ?? null : null,
+      creditCustomerPhone: isCredit ? order.credit_customer_phone ?? null : null,
+      dueDate: isCredit ? order.due_date ?? null : null,
+      creditClosedReason: isCredit ? order.credit_closed_reason ?? null : null,
       paymentMethod: order.payment_method,
-      paymentStatus: getCalculatedPaymentStatus(totalAmount, paidAmount),
+      paymentStatus: isCredit ? order.payment_status : getCalculatedPaymentStatus(totalAmount, paidAmount),
       status: order.status,
       notes: order.notes,
       items: ((order.items ?? []) as unknown as SaleItemRow[]).map((item) => {

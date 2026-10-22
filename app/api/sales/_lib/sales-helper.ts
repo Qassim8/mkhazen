@@ -40,6 +40,11 @@ export interface CheckoutTransactionInput {
   items: CheckoutItemInput[];
   /** سعر الصرف المعروض على شاشة الكاشير (حماية من تغيّر السعر أثناء البيع) */
   expectedExchangeRate?: number | null;
+  /** بيع بالتقسيط: paymentSplits هي الدفعة المقدمة (0..3) */
+  isCredit?: boolean;
+  creditName?: string | null;
+  creditPhone?: string | null;
+  dueDate?: string | null;
 }
 
 export interface CheckoutTransactionResult {
@@ -52,9 +57,11 @@ export interface CheckoutTransactionResult {
   totalAmountUsd: number;
   exchangeRateUsed: number;
   paidAmount: number;
-  paymentStatus: "PAID";
+  paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   status: "COMPLETED";
   paymentMethod: "CASH" | "CARD" | "BANK_TRANSFER" | "MIXED";
+  isCredit: boolean;
+  remainingAmount: number;
   createdAt: string;
 }
 
@@ -71,6 +78,8 @@ interface CheckoutRpcResult {
   payment_status?: unknown;
   status?: unknown;
   payment_method?: unknown;
+  is_credit?: unknown;
+  remaining_amount?: unknown;
   created_at?: unknown;
 }
 
@@ -96,6 +105,10 @@ export async function completeSalesCheckout(
       ...(item.unitPriceSdg != null && !item.isGift ? { unitPriceSdg: item.unitPriceSdg } : {}),
     })),
     p_expected_exchange_rate: input.expectedExchangeRate ?? null,
+    p_is_credit: input.isCredit ?? false,
+    p_credit_name: input.isCredit ? input.creditName ?? null : null,
+    p_credit_phone: input.isCredit ? input.creditPhone ?? null : null,
+    p_due_date: input.isCredit ? input.dueDate ?? null : null,
   });
 
   if (error) {
@@ -116,7 +129,14 @@ export async function completeSalesCheckout(
     throw new Error("استجابة عملية البيع غير مكتملة.");
   }
 
-  if (result.payment_status !== "PAID" || result.status !== "COMPLETED") {
+  const isCredit = result.is_credit === true;
+  const expectedStatuses = isCredit ? ["PARTIAL", "UNPAID"] : ["PAID"];
+
+  if (
+    typeof result.payment_status !== "string" ||
+    !expectedStatuses.includes(result.payment_status) ||
+    result.status !== "COMPLETED"
+  ) {
     throw new Error("عملية البيع لم تكتمل بالحالة المتوقعة.");
   }
 
@@ -130,8 +150,10 @@ export async function completeSalesCheckout(
     totalAmountUsd: Number(result.total_amount_usd ?? 0),
     exchangeRateUsed: Number(result.exchange_rate_used ?? 0),
     paidAmount: Number(result.paid_amount ?? 0),
-    paymentStatus: "PAID",
+    paymentStatus: result.payment_status as "PAID" | "PARTIAL" | "UNPAID",
     status: "COMPLETED",
+    isCredit,
+    remainingAmount: isCredit ? Number(result.remaining_amount ?? 0) : 0,
     paymentMethod:
       result.payment_method === "MIXED" ||
       result.payment_method === "CASH" ||

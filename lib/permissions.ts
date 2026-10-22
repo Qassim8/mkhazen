@@ -67,6 +67,8 @@ export const PERMISSIONS = {
   "sales.pos": ["owner", "admin", "cashier"],
   /** سجل المبيعات والفواتير */
   "sales.view": ["owner", "admin"],
+  /** الفواتير الآجلة: تعديل المتبقي (تفاوض) وإغلاقه كدين معدوم (البيع والتحصيل = sales.pos) */
+  "sales.creditManage": ["owner", "admin"],
 
   /** إنشاء الطلبات وتحصيل الرصيد من العملاء */
   "tailoring.operate": ["owner", "admin", "cashier"],

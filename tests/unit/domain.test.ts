@@ -65,6 +65,13 @@ describe("الصلاحيات (lib/permissions)", () => {
       assert.equal(can("tailor", permission), false, `tailor ${permission}`);
     }
 
+    // البيع بالتقسيط وتحصيل الدفعات للكاشير؛ تعديل المتبقي وإغلاق الدين للمالك والمدير فقط
+    assert.equal(can("cashier", "sales.pos"), true);
+    assert.equal(can("cashier", "sales.creditManage"), false);
+    assert.equal(can("admin", "sales.creditManage"), true);
+    assert.equal(can("owner", "sales.creditManage"), true);
+    assert.equal(can("tailor", "sales.creditManage"), false);
+
     // اعتماد أمر الشراء للمالك فقط
     assert.equal(can("cashier", "purchases.approve"), false);
     assert.equal(can("admin", "purchases.approve"), false);

@@ -89,7 +89,10 @@ export default async function SalesReceiptPage({ params }: Props) {
         payment_status,
         exchange_rate_used,
         status,
-        notes
+        notes,
+        is_credit,
+        paid_amount,
+        remaining_amount
       `,
     )
     .eq("id", id)
@@ -270,8 +273,9 @@ export default async function SalesReceiptPage({ params }: Props) {
       : 0;
 
   // POS checkout is always PAID.
-  const paidAmount = totalAmount;
-  const remainingAmount = 0;
+  // فاتورة آجلة: المدفوع والمتبقي محفوظان في الفاتورة (غير الآجلة مدفوعة بالكامل دائمًا)
+  const paidAmount = order.is_credit ? Number(order.paid_amount ?? 0) : totalAmount;
+  const remainingAmount = order.is_credit ? Number(order.remaining_amount ?? 0) : 0;
 
   // ---------------------------------------------------------
   // 8. Receipt items

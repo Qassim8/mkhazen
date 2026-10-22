@@ -31,6 +31,9 @@ export const accountingAccountEnum = z.enum([
 
   "WORK_IN_PROGRESS",
 
+  // تكلفة بضاعة مباعة بالآجل (أصل، دولار): تُحرَّر إلى COGS مع تحصيل كل دفعة
+  "DEFERRED_COGS",
+
   "SUPPLIERS",
 
   "CUSTOMER_ADVANCES",

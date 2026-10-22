@@ -214,6 +214,19 @@ export const createSalesOrderSchema = z
       .max(3, "لا يمكن استخدام أكثر من ثلاث طرق دفع")
       .default([]),
     /**
+     * البيع بالتقسيط: الدين مربوط بالفاتورة (بدون حساب عميل). paymentSplits هنا هي
+     * الدفعة المقدمة (0 إلى 3 طرق) ويجب أن يكون مجموعها أقل من الإجمالي.
+     */
+    // اختياري (غائب = بيع عادي) حتى لا تتأثر واجهة الكاشير الحالية
+    isCredit: z.boolean().optional(),
+    creditName: z.string().trim().max(255, "اسم العميل طويل جدًا").nullable().optional(),
+    creditPhone: z.string().trim().max(30, "رقم الهاتف طويل جدًا").nullable().optional(),
+    dueDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ الاستحقاق غير صالح")
+      .nullable()
+      .optional(),
+    /**
      * سعر الصرف اللي اتحسبت بيه المبالغ على شاشة الكاشير (ج.س لكل 1$).
      * السيرفر بيرفض العملية لو السعر اتغيّر، عشان الزبون ما يدفعش مبلغ
      * غير اللي اتعرض عليه.
@@ -297,7 +310,59 @@ export const createSalesOrderSchema = z
     // -------------------------------------------------------
     // Payment
     // -------------------------------------------------------
-    if (data.paymentMethod === "MIXED") {
+    if (data.isCredit) {
+      if (giftOnly) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "فاتورة الهدايا لا تُباع بالتقسيط",
+          path: ["isCredit"],
+        });
+      }
+
+      if (data.orderType !== "POS") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "البيع بالتقسيط متاح لفواتير الكاشير فقط",
+          path: ["isCredit"],
+        });
+      }
+
+      if (!data.creditName?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "اسم العميل مطلوب للبيع بالتقسيط",
+          path: ["creditName"],
+        });
+      }
+
+      if (!data.creditPhone?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "رقم هاتف العميل مطلوب للبيع بالتقسيط",
+          path: ["creditPhone"],
+        });
+      }
+
+      const methods = new Set(data.paymentSplits.map((split) => split.method));
+      if (methods.size !== data.paymentSplits.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "لا يجوز تكرار طريقة الدفع داخل الدفعة المقدمة",
+          path: ["paymentSplits"],
+        });
+      }
+
+      const paidNow = Number(
+        data.paymentSplits.reduce((sum, split) => sum + split.amount, 0).toFixed(2),
+      );
+      if (paidNow >= data.totalAmount) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "الدفعة المقدمة يجب أن تكون أقل من إجمالي الفاتورة في البيع بالتقسيط",
+          path: ["paymentSplits"],
+        });
+      }
+    } else if (data.paymentMethod === "MIXED") {
       if (data.paymentSplits.length < 2) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

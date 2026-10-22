@@ -201,7 +201,7 @@ describe("release sequence 01..06", () => {
       GRANT SELECT ON public.users TO anon;
       GRANT SELECT (name) ON public.customers TO authenticated;
       GRANT EXECUTE ON FUNCTION public.get_current_exchange_rate(uuid, timestamptz) TO anon;
-      GRANT EXECUTE ON FUNCTION public.complete_sales_checkout(uuid, uuid, text, uuid, uuid, numeric, numeric, text, jsonb, text, jsonb, numeric) TO PUBLIC;
+      GRANT EXECUTE ON FUNCTION public.complete_sales_checkout(uuid, uuid, text, uuid, uuid, numeric, numeric, text, jsonb, text, jsonb, numeric, boolean, text, text, date) TO PUBLIC;
       ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO anon;
       CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USING (true);
     `);

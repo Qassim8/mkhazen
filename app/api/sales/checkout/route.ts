@@ -157,6 +157,10 @@ export async function POST(req: NextRequest) {
           unitPriceSdg: item.isGift ? null : item.unitPriceSdg ?? null,
         })),
         expectedExchangeRate: payload.exchangeRate,
+        isCredit: payload.isCredit === true,
+        creditName: payload.creditName ?? null,
+        creditPhone: payload.creditPhone ?? null,
+        dueDate: payload.dueDate ?? null,
       });
     } catch (error) {
       if (error instanceof CheckoutRpcError && isDefiniteDbRejection(error.dbError)) {
@@ -186,7 +190,8 @@ export async function POST(req: NextRequest) {
       totalAmountUsd: result.totalAmountUsd,
       exchangeRateUsed: result.exchangeRateUsed,
       paidAmount: result.paidAmount,
-      remainingAmount: 0,
+      remainingAmount: result.remainingAmount,
+      isCredit: result.isCredit,
       paymentStatus: result.paymentStatus,
       paymentMethod: result.paymentMethod,
       status: result.status,

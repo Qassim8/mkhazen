@@ -64,6 +64,10 @@ describe("deposit transfer, gifts, opening balances, payroll (20261014_01)", () 
 
   it("is re-runnable and keeps the verify checks green; tailors get canLogin = false", async () => {
     await db.exec(sql(M.depositGiftsPayroll));
+    // 20261014 يعيد تعريف دوال أحدث منه: نعيد تطبيق اللاحق بترتيبه (كما في الإطلاق الفعلي)
+    await db.exec(sql(M.openingRepeatable));
+    await db.exec(sql(M.flexiblePrice));
+    await db.exec(sql(M.creditSales));
     await db.exec(sql(M.reassert));
     const { failed, raised } = await runVerify(db);
     assert.deepEqual(failed, []);

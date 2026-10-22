@@ -55,6 +55,12 @@ type SalesOrderRow = {
   created_at: string;
   completed_at: string | null;
   updated_at: string;
+  is_credit: boolean | null;
+  credit_customer_name: string | null;
+  credit_customer_phone: string | null;
+  due_date: string | null;
+  remaining_amount: number | string | null;
+  credit_closed_reason: "PAID" | "BAD_DEBT" | null;
 };
 
 type PaymentRow = {
@@ -183,7 +189,13 @@ export async function GET(req: NextRequest) {
           notes,
           created_at,
           completed_at,
-          updated_at
+          updated_at,
+          is_credit,
+          credit_customer_name,
+          credit_customer_phone,
+          due_date,
+          remaining_amount,
+          credit_closed_reason
         `,
       )
       .eq("branch_id", MAIN_BRANCH_ID)
@@ -421,9 +433,19 @@ export async function GET(req: NextRequest) {
         discountPercentage:
           subtotal > 0 ? Number(((discountAmount / subtotal) * 100).toFixed(2)) : 0,
         paidAmount: Number(paidAmount.toFixed(2)),
-        remainingAmount: Number(Math.max(totalAmount - paidAmount, 0).toFixed(2)),
+        // فاتورة آجلة: المتبقي والحالة محفوظان في الفاتورة (يشمل التفاوض والدين المعدوم)
+        remainingAmount: order.is_credit
+          ? Number(order.remaining_amount ?? 0)
+          : Number(Math.max(totalAmount - paidAmount, 0).toFixed(2)),
+        isCredit: order.is_credit === true,
+        creditCustomerName: order.is_credit ? order.credit_customer_name : null,
+        creditCustomerPhone: order.is_credit ? order.credit_customer_phone : null,
+        dueDate: order.is_credit ? order.due_date : null,
+        creditClosedReason: order.is_credit ? order.credit_closed_reason : null,
         paymentMethod: order.payment_method,
-        paymentStatus: getCalculatedPaymentStatus(totalAmount, paidAmount),
+        paymentStatus: order.is_credit
+          ? order.payment_status
+          : getCalculatedPaymentStatus(totalAmount, paidAmount),
         status: order.status,
         notes: order.notes,
         createdAt: order.created_at,

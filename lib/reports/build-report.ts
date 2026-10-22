@@ -9,6 +9,8 @@
  * • المبالغ اللي اتحصّلت من الزبون بالجنيه تظهر بجانبها للمرجعية.
  * • خصم الفاتورة بيتوزع على بنودها بنسبة قيمتها (عشان ربح المنتج يبقى صافي).
  * • الهدايا: مش إيراد، كميتها تظهر منفصلة وتكلفتها ضمن المصروفات.
+ * • الفواتير الآجلة (is_credit): الإيراد والتكلفة هنا هما المحصَّل فقط (مجموع دفعات
+ *   الفاتورة)، لا إجمالي الفاتورة؛ المتبقي غير المحصَّل ليس إيرادًا.
  * • التوقيت: السودان (Africa/Khartoum = UTC+2).
  * • كل الاستعلامات بتتجاب على صفحات (Supabase بيرجع 1000 صف كحد أقصى).
  */
@@ -148,10 +150,11 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       total_amount: number;
       total_amount_usd: number | null;
       exchange_rate_used: number | null;
+      is_credit: boolean | null;
     }>((from, to) =>
       supabaseAdmin
         .from("sales_orders")
-        .select("id, order_type, tailoring_purpose, cashier_id, tailor_id, subtotal, discount_amount, total_amount, total_amount_usd, exchange_rate_used")
+        .select("id, order_type, tailoring_purpose, cashier_id, tailor_id, subtotal, discount_amount, total_amount, total_amount_usd, exchange_rate_used, is_credit")
         .eq("branch_id", MAIN_BRANCH_ID)
         .eq("status", "COMPLETED")
         .gte("completed_at", startIso)
@@ -269,7 +272,36 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
   /* ---------------- المبيعات حسب المنتج (فواتير الكاشير) ---------------- */
 
   const posOrders = orders.filter((o) => o.order_type === "POS");
-  const orderFactor = new Map<string, { factor: number; rate: number | null }>();
+
+  // الفواتير الآجلة: المحصَّل فقط (دفعات الفاتورة)، مش إجمالي الفاتورة
+  const creditPayments = await fetchIn<{ id: string; sales_order_id: string; amount: number; amount_usd: number | null }>(
+    orders.filter((o) => o.is_credit).map((o) => o.id),
+    (chunk, from, to) =>
+      supabaseAdmin
+        .from("sales_order_payments")
+        .select("id, sales_order_id, amount, amount_usd")
+        .in("sales_order_id", chunk)
+        .order("id")
+        .range(from, to),
+  );
+  const creditCollected = new Map<string, { sdg: number; usd: number }>();
+  for (const payment of creditPayments) {
+    const current = creditCollected.get(payment.sales_order_id) ?? { sdg: 0, usd: 0 };
+    current.sdg += num(payment.amount);
+    current.usd += num(payment.amount_usd);
+    creditCollected.set(payment.sales_order_id, current);
+  }
+  const orderCollectedSdg = (o: { id: string; is_credit: boolean | null; total_amount: number }) =>
+    o.is_credit ? creditCollected.get(o.id)?.sdg ?? 0 : num(o.total_amount);
+  /** نسبة المحصَّل من إجمالي الفاتورة (1 لغير الآجل)، وتُستخدم لتوزيع الإيراد والتكلفة على المنتجات */
+  const orderCollectedShare = (o: { id: string; is_credit: boolean | null; total_amount: number }) =>
+    o.is_credit
+      ? num(o.total_amount) > 0
+        ? Math.min(1, (creditCollected.get(o.id)?.sdg ?? 0) / num(o.total_amount))
+        : 0
+      : 1;
+
+  const orderFactor = new Map<string, { factor: number; rate: number | null; share: number }>();
   let discountsSdg = 0;
 
   for (const order of posOrders) {
@@ -279,6 +311,7 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
     orderFactor.set(order.id, {
       factor: subtotal > 0 ? Math.max(0, 1 - discount / subtotal) : 1,
       rate: order.exchange_rate_used != null ? num(order.exchange_rate_used) : null,
+      share: orderCollectedShare(order),
     });
   }
 
@@ -347,7 +380,7 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
     if (item.is_gift) {
       row.giftQuantity += quantity;
     } else {
-      const meta = orderFactor.get(item.sales_order_id) ?? { factor: 1, rate: null };
+      const meta = orderFactor.get(item.sales_order_id) ?? { factor: 1, rate: null, share: 1 };
       const grossSdg = num(item.total_price);
       const grossUsd =
         item.total_price_usd != null
@@ -357,9 +390,9 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
             : 0;
 
       row.quantity += quantity;
-      row.revenueSdg += grossSdg * meta.factor;
-      row.revenueUsd += grossUsd * meta.factor;
-      row.costUsd += quantity * num(item.unit_cost);
+      row.revenueSdg += grossSdg * meta.factor * meta.share;
+      row.revenueUsd += grossUsd * meta.factor * meta.share;
+      row.costUsd += quantity * num(item.unit_cost) * meta.share;
     }
 
     productAgg.set(item.template_id, row);
@@ -471,6 +504,15 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
         ? num(o.total_amount) / num(o.exchange_rate_used)
         : 0;
 
+  /** المحصَّل بالدولار: الفاتورة الآجلة = مجموع دفعاتها (كل دفعة بسعر لحظتها) */
+  const orderCollectedUsd = (o: {
+    id: string;
+    is_credit: boolean | null;
+    total_amount: number;
+    total_amount_usd: number | null;
+    exchange_rate_used: number | null;
+  }) => (o.is_credit ? creditCollected.get(o.id)?.usd ?? 0 : orderUsd(o));
+
   // الطلبات اللي ثُبتت أجرة خياطها في الفترة
   const laborOrderIds = [
     ...new Set(
@@ -567,8 +609,8 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       };
     row.invoices += 1;
     row.quantity += itemQtyByOrder.get(order.id) ?? 0;
-    row.revenueSdg += num(order.total_amount);
-    row.revenueUsd += orderUsd(order);
+    row.revenueSdg += orderCollectedSdg(order);
+    row.revenueUsd += orderCollectedUsd(order);
     row.discountsSdg += num(order.discount_amount);
     cashierAgg.set(key, row);
   }
@@ -661,17 +703,8 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
 
   /* ---------------- النتيجة ---------------- */
 
-  const posTotalsUsd = posOrders.reduce(
-    (sum, o) =>
-      sum +
-      (o.total_amount_usd != null
-        ? num(o.total_amount_usd)
-        : o.exchange_rate_used
-          ? num(o.total_amount) / num(o.exchange_rate_used)
-          : 0),
-    0,
-  );
-  const posTotalsSdg = posOrders.reduce((sum, o) => sum + num(o.total_amount), 0);
+  const posTotalsUsd = posOrders.reduce((sum, o) => sum + orderCollectedUsd(o), 0);
+  const posTotalsSdg = posOrders.reduce((sum, o) => sum + orderCollectedSdg(o), 0);
 
   const periodLabel =
     filters.preset === "custom"
