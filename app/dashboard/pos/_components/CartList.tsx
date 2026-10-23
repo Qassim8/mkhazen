@@ -259,6 +259,46 @@ export default function CartList({
 
         <div className="shrink-0 space-y-3 border-t border-gray-100 pt-3">
           <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label
+                htmlFor="discount"
+                className="text-xs font-bold text-gray-700"
+              >
+                الخصم
+              </label>
+              <span className="text-[10px] text-gray-400">
+                حتى {formatSDG(maxDiscount)}
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                id="discount"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                disabled={cart.length === 0 || isCheckingOut}
+                value={discountInput}
+                onChange={onDiscountInputChange}
+                placeholder="0.00"
+                className={`min-h-11 w-full rounded-xl border px-3 py-2 text-base font-bold text-gray-900 outline-none transition lg:min-h-0 lg:text-xs ${
+                  isDiscountOverLimit
+                    ? "border-red-400 bg-red-50"
+                    : "border-gray-200 bg-gray-50/50 focus:border-(--primary-red) focus:bg-white"
+                } disabled:opacity-50`}
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">
+                ج.س
+              </span>
+            </div>
+            {(discountError || isDiscountOverLimit) && (
+              <p className="mt-1 text-[10px] font-medium text-red-500">
+                {discountError ||
+                  `الخصم لا يمكن أن يتجاوز المجموع الفرعي ${formatSDG(maxDiscount)}.`}
+              </p>
+            )}
+          </div>
+          <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-700">
                 طريقة الدفع
@@ -270,7 +310,8 @@ export default function CartList({
                   key={option.value}
                   type="button"
                   disabled={
-                    isCheckingOut || (credit.enabled && option.value === "MIXED")
+                    isCheckingOut ||
+                    (credit.enabled && option.value === "MIXED")
                   }
                   onClick={() => onPaymentMethodChange(option.value)}
                   className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0 ${
@@ -316,7 +357,9 @@ export default function CartList({
                 value={credit.name}
                 maxLength={255}
                 disabled={isCheckingOut}
-                onChange={(event) => onCreditChange({ name: event.target.value })}
+                onChange={(event) =>
+                  onCreditChange({ name: event.target.value })
+                }
                 placeholder="اسم العميل *"
                 className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
               />
@@ -326,7 +369,9 @@ export default function CartList({
                 value={credit.phone}
                 maxLength={30}
                 disabled={isCheckingOut}
-                onChange={(event) => onCreditChange({ phone: event.target.value })}
+                onChange={(event) =>
+                  onCreditChange({ phone: event.target.value })
+                }
                 placeholder="رقم الهاتف *"
                 className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
               />
@@ -343,7 +388,9 @@ export default function CartList({
                     inputMode="decimal"
                     value={credit.paidNow}
                     disabled={isCheckingOut}
-                    onChange={(event) => onCreditChange({ paidNow: event.target.value })}
+                    onChange={(event) =>
+                      onCreditChange({ paidNow: event.target.value })
+                    }
                     placeholder="0"
                     className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-bold text-gray-900 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
                   />
@@ -356,7 +403,9 @@ export default function CartList({
                     type="date"
                     value={credit.dueDate}
                     disabled={isCheckingOut}
-                    onChange={(event) => onCreditChange({ dueDate: event.target.value })}
+                    onChange={(event) =>
+                      onCreditChange({ dueDate: event.target.value })
+                    }
                     className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
                   />
                 </div>
@@ -377,12 +426,18 @@ export default function CartList({
                   }`}
                 >
                   <span>المتبقي (دين على العميل)</span>
-                  <span>{formatSDG(Math.max(0, creditRemaining(credit, totalAmount)))}</span>
+                  <span>
+                    {formatSDG(
+                      Math.max(0, creditRemaining(credit, totalAmount)),
+                    )}
+                  </span>
                 </div>
               </div>
 
               {creditError && cart.length > 0 && (
-                <p className="text-[10px] font-medium text-red-500">{creditError}</p>
+                <p className="text-[10px] font-medium text-red-500">
+                  {creditError}
+                </p>
               )}
             </div>
           )}
@@ -460,47 +515,6 @@ export default function CartList({
               )}
             </div>
           )}
-
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label
-                htmlFor="discount"
-                className="text-xs font-bold text-gray-700"
-              >
-                الخصم
-              </label>
-              <span className="text-[10px] text-gray-400">
-                حتى {formatSDG(maxDiscount)}
-              </span>
-            </div>
-            <div className="relative">
-              <input
-                id="discount"
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                disabled={cart.length === 0 || isCheckingOut}
-                value={discountInput}
-                onChange={onDiscountInputChange}
-                placeholder="0.00"
-                className={`min-h-11 w-full rounded-xl border px-3 py-2 text-base font-bold text-gray-900 outline-none transition lg:min-h-0 lg:text-xs ${
-                  isDiscountOverLimit
-                    ? "border-red-400 bg-red-50"
-                    : "border-gray-200 bg-gray-50/50 focus:border-(--primary-red) focus:bg-white"
-                } disabled:opacity-50`}
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">
-                ج.س
-              </span>
-            </div>
-            {(discountError || isDiscountOverLimit) && (
-              <p className="mt-1 text-[10px] font-medium text-red-500">
-                {discountError ||
-                  `الخصم لا يمكن أن يتجاوز المجموع الفرعي ${formatSDG(maxDiscount)}.`}
-              </p>
-            )}
-          </div>
 
           <div className="space-y-2.5 rounded-2xl border border-gray-200 bg-gray-50/50 p-4">
             <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
@@ -583,7 +597,9 @@ export default function CartList({
               ? "جاري إتمام المبيعة..."
               : isDiscountOverLimit
                 ? "الخصم يتجاوز المجموع الفرعي"
-                : paymentMethod === "MIXED" && !credit.enabled && !mixedPaymentValid
+                : paymentMethod === "MIXED" &&
+                    !credit.enabled &&
+                    !mixedPaymentValid
                   ? "أكمل تقسيم الدفعة"
                   : credit.enabled
                     ? creditError
