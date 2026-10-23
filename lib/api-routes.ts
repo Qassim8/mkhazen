@@ -55,6 +55,7 @@ export const API_ROUTES: { pattern: string; load: () => Promise<RouteModule> }[]
   { pattern: "/api/sales/checkout", load: () => import("@/app/api/sales/checkout/route") },
   { pattern: "/api/sales/invoices/[id]", load: () => import("@/app/api/sales/invoices/[id]/route") },
   { pattern: "/api/sales/receivables", load: () => import("@/app/api/sales/receivables/route") },
+  { pattern: "/api/sales/orders/[id]/credit-history", load: () => import("@/app/api/sales/orders/[id]/credit-history/route") },
   { pattern: "/api/sales/orders/[id]/credit-payments", load: () => import("@/app/api/sales/orders/[id]/credit-payments/route") },
   { pattern: "/api/sales/orders/[id]/credit-adjust", load: () => import("@/app/api/sales/orders/[id]/credit-adjust/route") },
   { pattern: "/api/sales/orders/[id]/close-credit", load: () => import("@/app/api/sales/orders/[id]/close-credit/route") },

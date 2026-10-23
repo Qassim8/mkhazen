@@ -10,6 +10,7 @@ import {
 } from "react-icons/lu";
 import Table from "@/components/shared/Table";
 import type { SalesOrderListItem } from "@/app/dashboard/pos/services/pos.services";
+import { SALES_PAYMENT_TONE_CLASS, salesPaymentBadge } from "@/lib/credit";
 
 export type SaleRow = SalesOrderListItem;
 
@@ -17,12 +18,6 @@ interface Props {
   rows: SaleRow[];
   loading: boolean;
 }
-
-const paymentStatusLabels = {
-  PAID: "مدفوع بالكامل",
-  PARTIAL: "مدفوع جزئيًا",
-  UNPAID: "غير مدفوع",
-} as const;
 
 const paymentMethodLabels = {
   CASH: "نقداً / الخزينة",
@@ -99,9 +94,18 @@ export default function SalesTable({ rows, loading }: Props) {
             </p>
           </div>
         ) : (
-          <p className="font-bold text-gray-700">
-            {row.original.customerName ?? "بيع مباشر"}
-          </p>
+          <div>
+            <p className="font-bold text-gray-700">
+              {row.original.isCredit
+                ? (row.original.creditCustomerName ?? "عميل")
+                : (row.original.customerName ?? "بيع مباشر")}
+            </p>
+            {row.original.isCredit && row.original.creditCustomerPhone && (
+              <p className="mt-1 text-[11px] text-gray-400" dir="ltr">
+                {row.original.creditCustomerPhone}
+              </p>
+            )}
+          </div>
         ),
     },
     {
@@ -165,17 +169,16 @@ export default function SalesTable({ rows, loading }: Props) {
             <p className="text-xs font-bold text-gray-700">
               {paymentMethodLabels[row.original.paymentMethod]}
             </p>
-            <span
-              className={`text-[11px] font-bold ${
-                row.original.paymentStatus === "PAID"
-                  ? "text-emerald-600"
-                  : row.original.paymentStatus === "PARTIAL"
-                    ? "text-orange-600"
-                    : "text-red-600"
-              }`}
-            >
-              {paymentStatusLabels[row.original.paymentStatus]}
-            </span>
+            {(() => {
+              const badge = salesPaymentBadge(row.original);
+              return (
+                <span
+                  className={`mt-0.5 inline-block rounded-md px-2 py-0.5 text-[11px] font-bold ${SALES_PAYMENT_TONE_CLASS[badge.tone]}`}
+                >
+                  {badge.label}
+                </span>
+              );
+            })()}
           </div>
         </div>
       ),

@@ -145,6 +145,36 @@ function SummaryTab({ report }: { report: ReportData }) {
         <Kpi title="إجمالي الزيادات اليدوية" value={formatSDG(s.manualIncreasesSdg)} hint="أسعار رُفعت في الكاشير" />
       </div>
 
+      <Section
+        title="ذمم العملاء (البيع بالتقسيط)"
+        subtitle="الإيراد أعلاه يعكس المحصّل فقط؛ المتبقي غير المحصّل ليس إيرادًا. المفتوح والمتأخر حاليًا، والمعدوم خلال الفترة."
+      >
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
+          <Kpi
+            title="الذمم المفتوحة"
+            value={formatSDG(s.receivables.totalRemainingSdg)}
+            hint={`${qty(s.receivables.openCount)} فاتورة — ${formatUSD(s.receivables.totalUsdAtSale)} ← ${formatUSD(s.receivables.totalUsdNow)}`}
+          />
+          <Kpi
+            title="الذمم المتأخرة"
+            value={qty(s.receivables.overdueCount)}
+            hint="فواتير تجاوزت تاريخ الاستحقاق"
+            tone={s.receivables.overdueCount > 0 ? "bad" : "default"}
+          />
+          <Kpi
+            title="خسارة انخفاض الجنيه على المتبقي"
+            value={formatUSD(s.receivables.totalLossUsd)}
+            tone={s.receivables.totalLossUsd > 0 ? "bad" : "default"}
+          />
+          <Kpi
+            title="ديون معدومة في الفترة"
+            value={formatSDG(s.receivables.badDebtSdg)}
+            hint={`${qty(s.receivables.badDebtCount)} فاتورة — تكلفة محوّلة لمصروف ${formatUSD(s.receivables.badDebtCostUsd)}`}
+            tone={s.receivables.badDebtCount > 0 ? "bad" : "default"}
+          />
+        </div>
+      </Section>
+
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr] print:grid-cols-1">
         <Section
           title={report.trendGranularity === "day" ? "الأداء اليومي" : "الأداء الشهري"}

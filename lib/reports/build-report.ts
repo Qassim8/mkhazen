@@ -16,6 +16,7 @@
  */
 
 import { fetchAll, fetchIn } from "@/lib/supabase-fetch-all";
+import { loadReceivablesSnapshot } from "@/lib/credit-server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
@@ -703,6 +704,9 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
 
   /* ---------------- النتيجة ---------------- */
 
+  // الذمم المفتوحة/المتأخرة (حاليًا) والديون المعدومة في الفترة
+  const receivables = await loadReceivablesSnapshot({ startIso, endIso });
+
   const posTotalsUsd = posOrders.reduce((sum, o) => sum + orderCollectedUsd(o), 0);
   const posTotalsSdg = posOrders.reduce((sum, o) => sum + orderCollectedSdg(o), 0);
 
@@ -745,6 +749,17 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       discountsSdg: r2(discountsSdg),
       manualReductionsSdg: r2(manualReductionsSdg),
       manualIncreasesSdg: r2(manualIncreasesSdg),
+      receivables: {
+        openCount: receivables.openCount,
+        overdueCount: receivables.overdueCount,
+        totalRemainingSdg: receivables.totalRemainingSdg,
+        totalUsdAtSale: receivables.totalUsdAtSale,
+        totalUsdNow: receivables.totalUsdNow,
+        totalLossUsd: receivables.totalLossUsd,
+        badDebtCount: receivables.badDebtCount,
+        badDebtSdg: receivables.badDebtSdg,
+        badDebtCostUsd: receivables.badDebtCostUsd,
+      },
     },
     trend,
     trendGranularity: granularity,

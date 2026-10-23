@@ -170,6 +170,64 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         ))}
       </section>
 
+      <section className="mt-6 rounded-2xl border border-amber-100 bg-white p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-gray-900">ذمم العملاء (البيع بالتقسيط)</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              الإيراد أعلاه يعكس المحصّل فقط. المفتوح والمتأخر حاليًا، والمعدوم خلال {dashboard.periodLabel}.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/receivables"
+            className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-(--primary-red) hover:text-(--primary-red-hover)"
+          >
+            فتح ذمم العملاء
+            <LuArrowLeft className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-xl bg-gray-50 p-4">
+            <p className="text-[11px] font-bold text-gray-400">الذمم المفتوحة</p>
+            <p className="mt-1 text-lg font-black text-amber-700">
+              {dashboard.summary.receivables.totalRemainingSdg.toLocaleString("ar-SA-u-nu-latn", {
+                maximumFractionDigits: 2,
+              })}{" "}
+              ج.س
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              {dashboard.summary.receivables.openCount.toLocaleString("ar-SA-u-nu-latn")} فاتورة
+            </p>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-4">
+            <p className="text-[11px] font-bold text-gray-400">المتأخرة</p>
+            <p
+              className={`mt-1 text-lg font-black ${
+                dashboard.summary.receivables.overdueCount > 0 ? "text-red-600" : "text-gray-900"
+              }`}
+            >
+              {dashboard.summary.receivables.overdueCount.toLocaleString("ar-SA-u-nu-latn")}
+            </p>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-4">
+            <p className="text-[11px] font-bold text-gray-400">ديون معدومة في الفترة</p>
+            <p
+              className={`mt-1 text-lg font-black ${
+                dashboard.summary.receivables.badDebtCount > 0 ? "text-red-600" : "text-gray-900"
+              }`}
+            >
+              {dashboard.summary.receivables.badDebtSdg.toLocaleString("ar-SA-u-nu-latn", {
+                maximumFractionDigits: 2,
+              })}{" "}
+              ج.س
+            </p>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              {dashboard.summary.receivables.badDebtCount.toLocaleString("ar-SA-u-nu-latn")} فاتورة
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <DashboardCharts
           trend={dashboard.trend}

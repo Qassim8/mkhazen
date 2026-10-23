@@ -5,7 +5,8 @@ import { useEffect } from "react";
 import { LuGift, LuPrinter } from "react-icons/lu";
 import ImageWithFallback from "@/components/shared/ImageWithFallback";
 import { STORE_INFO } from "@/lib/store";
-import { formatPercent, formatQuantity, formatSDG } from "@/lib/currency";
+import { formatPercent, formatQuantity, formatRate, formatSDG } from "@/lib/currency";
+import CreditValuationBlock from "../_components/CreditValuationBlock";
 
 interface ReceiptItem {
   id: string;
@@ -20,6 +21,18 @@ interface ReceiptItem {
   /** السعر الأصلي للوحدة وقت البيع */
   listUnitPrice?: number | null;
   priceOverridden?: boolean;
+}
+
+/** بيانات الفاتورة الآجلة (للعميل): بدون أي تكلفة أو ربح */
+interface ReceiptCredit {
+  customerName: string;
+  customerPhone: string;
+  dueDate: string | null;
+  /** سعر الصرف يوم الشراء */
+  saleRate: number | null;
+  /** سعر الصرف اليوم */
+  currentRate: number | null;
+  closedReason: "PAID" | "BAD_DEBT" | null;
 }
 
 interface ReceiptData {
@@ -44,6 +57,7 @@ interface ReceiptData {
   status: string;
   notes?: string | null;
   items: ReceiptItem[];
+  credit?: ReceiptCredit | null;
 }
 
 interface Props {
@@ -134,7 +148,11 @@ export default function ReceiptPrintClient({ receipt }: Props) {
             />
             <h1 className="font-semibold text-sm">{STORE_INFO.name}</h1>
             <p className="mt-1 text-xs">
-              {giftOnly ? "فاتورة هدايا" : "فاتورة بيع"}
+              {giftOnly
+                ? "فاتورة هدايا"
+                : receipt.credit
+                  ? "فاتورة بيع بالتقسيط"
+                  : "فاتورة بيع"}
             </p>
             {giftOnly && (
               <p className="mx-auto mt-1 inline-flex items-center gap-1 rounded border border-black px-2 py-0.5 text-xs font-black">
@@ -262,6 +280,19 @@ export default function ReceiptPrintClient({ receipt }: Props) {
               <span>{formatMoney(receipt.totalAmount)}</span>
             </div>
 
+            {receipt.credit && (
+              <>
+                <div className="flex justify-between">
+                  <span>المدفوع</span>
+                  <span>{formatMoney(receipt.paidAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-black">
+                  <span>المتبقي</span>
+                  <span>{formatMoney(receipt.remainingAmount)}</span>
+                </div>
+              </>
+            )}
+
             {savedToday >= 0.01 && (
               <div className="flex justify-between text-[11px] font-bold">
                 <span>وفّرت اليوم</span>
@@ -269,6 +300,46 @@ export default function ReceiptPrintClient({ receipt }: Props) {
               </div>
             )}
           </div>
+
+          {receipt.credit && (
+            <>
+              <div className="space-y-1 border-t border-dashed border-black py-3 text-[11px]">
+                <p className="text-[10px] font-bold">بيانات العميل</p>
+                <div className="flex justify-between gap-3">
+                  <span>الاسم</span>
+                  <span className="font-bold">{receipt.credit.customerName}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>الهاتف</span>
+                  <span dir="ltr">{receipt.credit.customerPhone}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>سعر الصرف يوم الشراء</span>
+                  <span dir="ltr">{formatRate(receipt.credit.saleRate)}</span>
+                </div>
+                {receipt.credit.dueDate && (
+                  <div className="flex justify-between gap-3 font-bold">
+                    <span>تاريخ الاستحقاق</span>
+                    <span>{receipt.credit.dueDate}</span>
+                  </div>
+                )}
+                {receipt.credit.closedReason === "BAD_DEBT" && (
+                  <p className="text-center font-bold">أُغلقت الفاتورة</p>
+                )}
+                {receipt.credit.closedReason === "PAID" && (
+                  <p className="text-center font-bold">تم سداد الفاتورة بالكامل</p>
+                )}
+              </div>
+
+              {!receipt.credit.closedReason && (
+                <CreditValuationBlock
+                  remainingSdg={receipt.remainingAmount}
+                  saleRate={receipt.credit.saleRate}
+                  currentRate={receipt.credit.currentRate}
+                />
+              )}
+            </>
+          )}
 
           <footer className="border-t border-dashed border-black pt-4 text-center text-[10px]">
             <p className="font-semibold">شكرًا لزيارتكم</p>

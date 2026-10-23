@@ -13,6 +13,7 @@ import {
 } from "../_lib/ledger";
 import { entriesBetween, loadLedgerEntries } from "../_lib/ledger-source";
 import { getFiscalYears } from "../_lib/fiscal-years";
+import { loadReceivablesSnapshot } from "@/lib/credit-server";
 
 export async function GET(request: Request) {
   try {
@@ -37,10 +38,12 @@ export async function GET(request: Request) {
     const { start: startDate, end: nextYearDate } = sudanYearRange(year);
 
     // مصدر واحد (مجاميع من قاعدة البيانات) للأرصدة حتى نهاية السنة وأداء السنة نفسها
-    const [ledger, rateResult, years] = await Promise.all([
+    const [ledger, rateResult, years, receivables] = await Promise.all([
       loadLedgerEntries({ branchId: MAIN_BRANCH_ID, before: nextYearDate }),
       supabaseAdmin.rpc("get_current_exchange_rate", { p_branch_id: MAIN_BRANCH_ID }),
       getFiscalYears(),
+      // ديون العملاء (فواتير آجلة مفتوحة) — لقطة حالية
+      loadReceivablesSnapshot(),
     ]);
 
     const currentRate = rateResult.data != null ? Number(rateResult.data) : null;
@@ -66,6 +69,14 @@ export async function GET(request: Request) {
         },
         monthly: performance.monthly,
         expenseBreakdown: performance.expenseBreakdown,
+        receivables: {
+          openCount: receivables.openCount,
+          overdueCount: receivables.overdueCount,
+          totalRemainingSdg: receivables.totalRemainingSdg,
+          totalUsdAtSale: receivables.totalUsdAtSale,
+          totalUsdNow: receivables.totalUsdNow,
+          totalLossUsd: receivables.totalLossUsd,
+        },
       },
     });
   } catch (error: unknown) {

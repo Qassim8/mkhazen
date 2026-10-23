@@ -93,6 +93,13 @@ const menuItems: MenuItem[] = [
         exact: true,
       },
       {
+        href: "/dashboard/receivables",
+        label: "ذمم العملاء",
+        icon: LuHandCoins,
+        roles: ["admin", "cashier"],
+        exact: true,
+      },
+      {
         href: "/dashboard/sales",
         label: "المبيعات",
         icon: LuBadgeDollarSign,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
@@ -265,6 +266,62 @@ export default function AccountingOverviewClient({ initialData }: Props) {
           variant="slate"
         />
       </div>
+
+      {data.receivables && (
+        <div className="rounded-2xl border border-amber-100 bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <LuHandCoins className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-gray-900">ديون العملاء</h3>
+                <p className="text-xs text-gray-500">الفواتير الآجلة المفتوحة (لقطة حالية)</p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/receivables"
+              className="inline-flex min-h-11 items-center rounded-lg border border-gray-200 px-4 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+            >
+              ذمم العملاء
+            </Link>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">إجمالي المتبقي</p>
+              <p className="mt-1 text-lg font-black text-amber-700">
+                {formatSDG(data.receivables.totalRemainingSdg)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">قيمته بالدولار (يوم البيع ← اليوم)</p>
+              <p dir="ltr" className="mt-1 text-right text-lg font-black text-gray-900">
+                {formatMoney(data.receivables.totalUsdAtSale)} ← {formatMoney(data.receivables.totalUsdNow)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">إجمالي الخسارة</p>
+              <p
+                className={`mt-1 text-lg font-black ${
+                  data.receivables.totalLossUsd > 0 ? "text-red-600" : "text-gray-900"
+                }`}
+              >
+                {formatMoney(data.receivables.totalLossUsd)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">الفواتير / المتأخرة</p>
+              <p className="mt-1 text-lg font-black text-gray-900">
+                {data.receivables.openCount} /{" "}
+                <span className={data.receivables.overdueCount > 0 ? "text-red-600" : ""}>
+                  {data.receivables.overdueCount}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Suspense fallback={<div className="h-75 rounded-lg bg-gray-100" />}>

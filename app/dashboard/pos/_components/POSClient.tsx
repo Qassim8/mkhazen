@@ -37,6 +37,13 @@ import type { Category } from "../../categories/schemas/category.schemas";
 import type { PaymentMethod, PaymentSplit } from "../schemas/pos.schemas";
 
 import { createSalesOrder } from "../services/pos.services";
+import {
+  EMPTY_CREDIT,
+  creditPaidNow,
+  creditRemaining,
+  validateCredit,
+  type CreditFormState,
+} from "./credit-form";
 import { ApiError } from "@/lib/api-client";
 import {
   type CheckoutKey,
@@ -148,7 +155,12 @@ export default function POSClient({
     orderNumber: string;
     totalAmount: number;
     replayed: boolean;
+    /** بيع بالتقسيط: المتبقي على العميل (ج.س) */
+    creditRemaining?: number;
   } | null>(null);
+
+  // بيع بالتقسيط (دين مربوط بالفاتورة)
+  const [credit, setCredit] = useState<CreditFormState>(EMPTY_CREDIT);
 
   // منع النقر المزدوج (أسرع من تحديث الـ state) + مفتاح منع التكرار للسلة الحالية
   const checkingOutRef = useRef(false);
@@ -717,6 +729,7 @@ export default function POSClient({
     resetDiscount();
     setPaymentSplits([]);
     setPaymentMethod("CASH");
+    setCredit(EMPTY_CREDIT);
   };
 
   // =====================================================
@@ -780,11 +793,32 @@ export default function POSClient({
       ) &&
       Math.abs(mixedPaymentAmount - totalAmount) < 0.01);
 
+  const allGifts = cart.length > 0 && cart.every((item) => item.isGift);
+  const creditError = credit.enabled
+    ? validateCredit(credit, totalAmount, allGifts)
+    : null;
+
+  const handleCreditToggle = () => {
+    setCredit((current) => ({ ...current, enabled: !current.enabled }));
+
+    // الدفع المختلط لا يُستخدم مع التقسيط (الدفعة المقدمة بطريقة واحدة)
+    if (!credit.enabled && paymentMethod === "MIXED") {
+      setPaymentMethod("CASH");
+      setPaymentSplits([]);
+    }
+  };
+
+  const handleCreditChange = (patch: Partial<CreditFormState>) => {
+    setCredit((current) => ({ ...current, ...patch }));
+  };
+
   // =====================================================
   // Payment method
   // =====================================================
 
   const handlePaymentMethodChange = (method: PaymentMethod) => {
+    if (credit.enabled && method === "MIXED") return;
+
     setPaymentMethod(method);
 
     if (method !== "MIXED") {
@@ -872,6 +906,21 @@ export default function POSClient({
       return;
     }
 
+    if (creditError) {
+      toast.error(creditError);
+      return;
+    }
+
+    // التقسيط: الدفعة المقدمة (إن وُجدت) بطريقة دفع واحدة
+    const creditPaid = credit.enabled ? creditPaidNow(credit) : 0;
+    const effectiveSplits: PaymentSplit[] = credit.enabled
+      ? creditPaid > 0 && paymentMethod !== "MIXED"
+        ? [{ method: paymentMethod, amount: creditPaid, reference: null, notes: null }]
+        : []
+      : paymentMethod === "MIXED"
+        ? paymentSplits
+        : [];
+
     checkingOutRef.current = true;
     setIsCheckingOut(true);
 
@@ -880,8 +929,9 @@ export default function POSClient({
       cart,
       discountAmount,
       paymentMethod,
-      paymentSplits: paymentMethod === "MIXED" ? paymentSplits : [],
+      paymentSplits: effectiveSplits,
       exchangeRate,
+      credit: credit.enabled ? credit : null,
     });
 
     if (checkoutKeyRef.current?.fingerprint !== fingerprint) {
@@ -912,7 +962,16 @@ export default function POSClient({
 
         paymentMethod,
 
-        paymentSplits: paymentMethod === "MIXED" ? paymentSplits : [],
+        paymentSplits: effectiveSplits,
+
+        ...(credit.enabled
+          ? {
+              isCredit: true,
+              creditName: credit.name.trim(),
+              creditPhone: credit.phone.trim(),
+              dueDate: credit.dueDate || null,
+            }
+          : {}),
 
         notes: null,
 
@@ -951,6 +1010,9 @@ export default function POSClient({
         orderNumber: result.orderNumber,
         totalAmount: result.totalAmount ?? totalAmount,
         replayed: Boolean(result.replayed),
+        creditRemaining: credit.enabled
+          ? (result.remainingAmount ?? creditRemaining(credit, totalAmount))
+          : undefined,
       });
 
       replaceCart([]);
@@ -959,6 +1021,7 @@ export default function POSClient({
       setActiveSearch("");
       setPaymentMethod("CASH");
       setPaymentSplits([]);
+      setCredit(EMPTY_CREDIT);
 
       await fetchProducts("", selectedCategory, 1);
 
@@ -1235,6 +1298,10 @@ export default function POSClient({
             isCheckingOut={isCheckingOut}
             discountInput={discountInput}
             discountError={discountError}
+            credit={credit}
+            creditError={creditError}
+            onCreditToggle={handleCreditToggle}
+            onCreditChange={handleCreditChange}
             onPaymentMethodChange={handlePaymentMethodChange}
             onPaymentSplitsChange={handlePaymentSplitsChange}
             onUpdateQty={updateQuantity}
@@ -1306,6 +1373,12 @@ export default function POSClient({
                 فاتورة {lastSale.orderNumber} —{" "}
                 {formatSDG(lastSale.totalAmount)}
               </p>
+              {lastSale.creditRemaining != null && (
+                <p className="mt-1 text-sm font-black text-amber-700">
+                  بيع بالتقسيط — المتبقي على العميل{" "}
+                  {formatSDG(lastSale.creditRemaining)}
+                </p>
+              )}
               <div className="mt-5 grid grid-cols-2 gap-2">
                 <button
                   type="button"

@@ -377,6 +377,16 @@ export interface AccountingOverviewExpense {
   value: number;
 }
 
+/** ديون العملاء: الفواتير الآجلة المفتوحة (لقطة حالية، المتبقي بالجنيه) */
+export interface AccountingReceivables {
+  openCount: number;
+  overdueCount: number;
+  totalRemainingSdg: number;
+  totalUsdAtSale: number;
+  totalUsdNow: number;
+  totalLossUsd: number;
+}
+
 export interface AccountingOverview {
   year: number;
   /** السنوات المالية المتاحة (الأحدث أولًا) */
@@ -384,6 +394,7 @@ export interface AccountingOverview {
   currency?: "USD";
   exchangeRate?: number | null;
   cards: AccountingOverviewCards;
+  receivables?: AccountingReceivables;
   monthly: AccountingOverviewMonth[];
   expenseBreakdown: AccountingOverviewExpense[];
 }

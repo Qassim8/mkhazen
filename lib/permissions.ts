@@ -142,6 +142,7 @@ const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permissi
   { prefix: "/dashboard/employees", permission: "users.manageStaff" },
   { prefix: "/dashboard/admin", permission: "users.manageStaff" },
   { prefix: "/dashboard/pos", permission: "sales.pos" },
+  { prefix: "/dashboard/receivables", permission: "sales.pos" },
   { prefix: "/dashboard/tailoring/new", permission: "tailoring.operate" },
   { prefix: "/dashboard/tailoring", permission: "tailoring.view" },
   { prefix: "/dashboard/customers", permission: "tailoring.operate" },

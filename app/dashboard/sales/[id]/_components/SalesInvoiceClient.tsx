@@ -12,6 +12,7 @@ import {
   getSalesOrderById,
   type SalesOrderDetail,
 } from "@/app/dashboard/pos/services/pos.services";
+import { SALES_PAYMENT_TONE_CLASS, salesPaymentBadge } from "@/lib/credit";
 
 function money(value: number) {
   return `${value.toLocaleString("ar-SA-u-nu-latn", {
@@ -159,15 +160,44 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
             <p className="mt-1 font-black text-gray-900">
               {paymentMethodLabel(sale.paymentMethod)}
             </p>
-            <p className="mt-1 text-xs font-bold text-emerald-600">
-              {sale.paymentStatus === "PAID"
-                ? "مدفوع بالكامل"
-                : sale.paymentStatus === "PARTIAL"
-                  ? "مدفوع جزئيًا"
-                  : "غير مدفوع"}
-            </p>
+            {(() => {
+              const badge = salesPaymentBadge(sale);
+              return (
+                <span
+                  className={`mt-1 inline-block rounded-md px-2 py-0.5 text-xs font-bold ${SALES_PAYMENT_TONE_CLASS[badge.tone]}`}
+                >
+                  {badge.label}
+                </span>
+              );
+            })()}
           </div>
         </section>
+
+        {sale.isCredit && (
+          <section className="grid gap-4 border-b border-gray-100 bg-amber-50/40 px-6 py-5 md:grid-cols-4 md:px-8">
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">عميل التقسيط</p>
+              <p className="mt-1 font-black text-gray-900">{sale.creditCustomerName ?? "-"}</p>
+              {sale.creditCustomerPhone && (
+                <p className="mt-1 text-xs text-gray-500" dir="ltr">
+                  {sale.creditCustomerPhone}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">المدفوع</p>
+              <p className="mt-1 font-black text-emerald-700">{money(sale.paidAmount)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">المتبقي</p>
+              <p className="mt-1 font-black text-amber-700">{money(sale.remainingAmount)}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-400">تاريخ الاستحقاق</p>
+              <p className="mt-1 font-black text-gray-900">{sale.dueDate ?? "-"}</p>
+            </div>
+          </section>
+        )}
 
         {isTailoring && (
           <section className="grid gap-4 border-b border-gray-100 px-6 py-5 md:grid-cols-3 md:px-8">
@@ -304,6 +334,9 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
                   <th className="px-4 py-3 text-right text-xs font-bold text-gray-500">
                     المسجل
                   </th>
+                  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500">
+                    ملاحظات
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -320,6 +353,9 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {payment.createdByName ?? "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {payment.notes ?? "-"}
                     </td>
                   </tr>
                 ))}

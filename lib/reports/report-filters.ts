@@ -152,6 +152,18 @@ export interface ReportSummary {
   manualReductionsSdg: number;
   /** Σ(الفعلي − الأصلي) × الكمية للأسطر المرفوعة يدويًا (ج.س) */
   manualIncreasesSdg: number;
+  /** الذمم (فواتير التقسيط): المفتوح والمتأخر لقطة حالية، والمعدوم للفترة. الإيراد أعلاه = المحصّل فقط */
+  receivables: {
+    openCount: number;
+    overdueCount: number;
+    totalRemainingSdg: number;
+    totalUsdAtSale: number;
+    totalUsdNow: number;
+    totalLossUsd: number;
+    badDebtCount: number;
+    badDebtSdg: number;
+    badDebtCostUsd: number;
+  };
 }
 
 export interface TrendPoint {

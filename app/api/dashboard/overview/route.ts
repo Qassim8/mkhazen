@@ -9,6 +9,7 @@ import {
   computePerformance,
   type LedgerEntry,
 } from "@/app/api/accounting/_lib/ledger";
+import { loadReceivablesSnapshot } from "@/lib/credit-server";
 
 const SUDAN_OFFSET_MS = 2 * 60 * 60 * 1000; // Africa/Khartoum (UTC+2)
 
@@ -550,6 +551,12 @@ export async function GET(request: NextRequest) {
         fill: categoryColors[index % categoryColors.length],
       }));
 
+    // الذمم: المفتوح والمتأخر حاليًا، والمعدوم خلال الفترة
+    const receivables = await loadReceivablesSnapshot({
+      startIso: range.start.toISOString(),
+      endIso: range.end.toISOString(),
+    });
+
     const trend = buildTrendBuckets(period, range.start, range.end);
     const trendByKey = new Map(trend.map((bucket) => [bucket.key, bucket]));
     const entriesByBucket = new Map<string, JournalEntryRow[]>();
@@ -692,6 +699,13 @@ export async function GET(request: NextRequest) {
           outOfStockItems: stockAlerts.filter(
             (item) => item.status === "OUT_OF_STOCK",
           ).length,
+          receivables: {
+            openCount: receivables.openCount,
+            overdueCount: receivables.overdueCount,
+            totalRemainingSdg: receivables.totalRemainingSdg,
+            badDebtCount: receivables.badDebtCount,
+            badDebtSdg: receivables.badDebtSdg,
+          },
         },
       },
     });

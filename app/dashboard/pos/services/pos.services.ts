@@ -135,6 +135,12 @@ export interface SalesOrderListItem {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   createdAt: string;
+  /** بيع بالتقسيط */
+  isCredit?: boolean;
+  creditCustomerName?: string | null;
+  creditCustomerPhone?: string | null;
+  dueDate?: string | null;
+  creditClosedReason?: "PAID" | "BAD_DEBT" | null;
 }
 
 export interface SalesOrderDetail {
@@ -167,6 +173,12 @@ export interface SalesOrderDetail {
   completedAt: string | null;
   intakeDate: string | null;
   expectedDeliveryDate: string | null;
+  /** بيع بالتقسيط */
+  isCredit?: boolean;
+  creditCustomerName?: string | null;
+  creditCustomerPhone?: string | null;
+  dueDate?: string | null;
+  creditClosedReason?: "PAID" | "BAD_DEBT" | null;
   items: Array<{
     id: string;
     quantity: number;
@@ -210,6 +222,7 @@ export interface SalesCheckoutResponse {
   paymentMethod: PaymentMethod;
   status: OrderStatus;
   createdAt: string;
+  isCredit?: boolean;
 }
 
 export interface SalesOrderResponse {

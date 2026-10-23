@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import {
   LuBanknote,
+  LuCalendarClock,
   LuGift,
   LuShoppingCart,
   LuTrash2,
@@ -12,6 +13,11 @@ import {
 import CartItem from "./CartItem";
 import GiftPicker from "./GiftPicker";
 import type { POSCartItem } from "./POSClient";
+import {
+  creditPaidNow,
+  creditRemaining,
+  type CreditFormState,
+} from "./credit-form";
 import {
   formatNumber,
   formatRate,
@@ -46,6 +52,11 @@ interface CartListProps {
   isCheckingOut: boolean;
   discountInput: string;
   discountError: string;
+  /** بيع بالتقسيط: النموذج وخطؤه الحالي (null = صالح) */
+  credit: CreditFormState;
+  creditError: string | null;
+  onCreditToggle: () => void;
+  onCreditChange: (patch: Partial<CreditFormState>) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onPaymentSplitsChange: (splits: PaymentSplit[]) => void;
   onUpdateQty: (variantId: string, isGift: boolean, amount: number) => void;
@@ -123,6 +134,10 @@ export default function CartList({
   isCheckingOut,
   discountInput,
   discountError,
+  credit,
+  creditError,
+  onCreditToggle,
+  onCreditChange,
   onPaymentMethodChange,
   onPaymentSplitsChange,
   onUpdateQty,
@@ -254,9 +269,11 @@ export default function CartList({
                 <button
                   key={option.value}
                   type="button"
-                  disabled={isCheckingOut}
+                  disabled={
+                    isCheckingOut || (credit.enabled && option.value === "MIXED")
+                  }
                   onClick={() => onPaymentMethodChange(option.value)}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[11px] font-bold transition ${
+                  className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-0 ${
                     paymentMethod === option.value
                       ? "border-(--primary-red) bg-(--primary-red)/10 text-(--primary-red)"
                       : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
@@ -266,10 +283,111 @@ export default function CartList({
                   {option.label}
                 </button>
               ))}
+              <button
+                type="button"
+                disabled={isCheckingOut}
+                onClick={onCreditToggle}
+                aria-pressed={credit.enabled}
+                className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[11px] font-bold transition disabled:opacity-50 lg:min-h-0 ${
+                  credit.enabled
+                    ? "border-amber-500 bg-amber-50 text-amber-700"
+                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <LuCalendarClock className="h-3.5 w-3.5" />
+                تقسيط
+              </button>
             </div>
+            {credit.enabled && (
+              <p className="mt-1.5 text-[10px] font-medium text-gray-500">
+                طريقة الدفع أعلاه تخص المبلغ المدفوع الآن فقط.
+              </p>
+            )}
           </div>
 
-          {paymentMethod === "MIXED" && (
+          {credit.enabled && (
+            <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+              <div className="text-[10px] font-bold text-amber-800">
+                بيانات البيع بالتقسيط (الدين بالجنيه ومربوط بهذه الفاتورة)
+              </div>
+
+              <input
+                type="text"
+                value={credit.name}
+                maxLength={255}
+                disabled={isCheckingOut}
+                onChange={(event) => onCreditChange({ name: event.target.value })}
+                placeholder="اسم العميل *"
+                className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
+              />
+              <input
+                type="tel"
+                inputMode="tel"
+                value={credit.phone}
+                maxLength={30}
+                disabled={isCheckingOut}
+                onChange={(event) => onCreditChange({ phone: event.target.value })}
+                placeholder="رقم الهاتف *"
+                className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
+              />
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold text-gray-600">
+                    المدفوع الآن (ج.س)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={credit.paidNow}
+                    disabled={isCheckingOut}
+                    onChange={(event) => onCreditChange({ paidNow: event.target.value })}
+                    placeholder="0"
+                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-bold text-gray-900 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold text-gray-600">
+                    تاريخ الاستحقاق (اختياري)
+                  </label>
+                  <input
+                    type="date"
+                    value={credit.dueDate}
+                    disabled={isCheckingOut}
+                    onChange={(event) => onCreditChange({ dueDate: event.target.value })}
+                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1 rounded-lg bg-white p-2.5 text-[11px] font-semibold">
+                <div className="flex items-center justify-between text-gray-500">
+                  <span>الإجمالي</span>
+                  <span>{formatSDG(totalAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between text-emerald-700">
+                  <span>المدفوع الآن</span>
+                  <span>{formatSDG(creditPaidNow(credit))}</span>
+                </div>
+                <div
+                  className={`flex items-center justify-between border-t border-gray-100 pt-1 font-black ${
+                    creditError ? "text-red-600" : "text-amber-700"
+                  }`}
+                >
+                  <span>المتبقي (دين على العميل)</span>
+                  <span>{formatSDG(Math.max(0, creditRemaining(credit, totalAmount)))}</span>
+                </div>
+              </div>
+
+              {creditError && cart.length > 0 && (
+                <p className="text-[10px] font-medium text-red-500">{creditError}</p>
+              )}
+            </div>
+          )}
+
+          {paymentMethod === "MIXED" && !credit.enabled && (
             <div className="space-y-2.5 rounded-xl border border-gray-200 bg-gray-50/60 p-3">
               <div className="text-[10px] font-bold text-gray-700">
                 تقسيم المبلغ
@@ -455,7 +573,8 @@ export default function CartList({
               isCheckingOut ||
               isDiscountOverLimit ||
               (totalAmount <= 0 && !cart.every((item) => item.isGift)) ||
-              !mixedPaymentValid
+              !mixedPaymentValid ||
+              creditError !== null
             }
             onClick={onCheckout}
             className="w-full rounded-2xl bg-(--primary-red) py-3.5 text-sm font-bold text-white shadow-md transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
@@ -464,11 +583,15 @@ export default function CartList({
               ? "جاري إتمام المبيعة..."
               : isDiscountOverLimit
                 ? "الخصم يتجاوز المجموع الفرعي"
-                : paymentMethod === "MIXED" && !mixedPaymentValid
+                : paymentMethod === "MIXED" && !credit.enabled && !mixedPaymentValid
                   ? "أكمل تقسيم الدفعة"
-                  : cart.length > 0 && cart.every((item) => item.isGift)
-                    ? "إصدار فاتورة هدايا"
-                    : "تأكيد البيع وإصدار الفاتورة"}
+                  : credit.enabled
+                    ? creditError
+                      ? "أكمل بيانات التقسيط"
+                      : "تأكيد البيع بالتقسيط"
+                    : cart.length > 0 && cart.every((item) => item.isGift)
+                      ? "إصدار فاتورة هدايا"
+                      : "تأكيد البيع وإصدار الفاتورة"}
           </button>
         </div>
       </div>

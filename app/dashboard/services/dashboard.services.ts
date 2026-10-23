@@ -72,6 +72,14 @@ export interface DashboardOverview {
     activeTailoringOrders: number;
     lowStockItems: number;
     outOfStockItems: number;
+    /** ذمم العملاء: المفتوح والمتأخر حاليًا، والمعدوم خلال الفترة */
+    receivables: {
+      openCount: number;
+      overdueCount: number;
+      totalRemainingSdg: number;
+      badDebtCount: number;
+      badDebtSdg: number;
+    };
   };
 }
 

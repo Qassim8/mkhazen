@@ -92,7 +92,11 @@ export default async function SalesReceiptPage({ params }: Props) {
         notes,
         is_credit,
         paid_amount,
-        remaining_amount
+        remaining_amount,
+        credit_customer_name,
+        credit_customer_phone,
+        due_date,
+        credit_closed_reason
       `,
     )
     .eq("id", id)
@@ -277,6 +281,15 @@ export default async function SalesReceiptPage({ params }: Props) {
   const paidAmount = order.is_credit ? Number(order.paid_amount ?? 0) : totalAmount;
   const remainingAmount = order.is_credit ? Number(order.remaining_amount ?? 0) : 0;
 
+  // فاتورة آجلة: سعر الصرف اليوم لتقييم المتبقي (لا تكلفة ولا ربح في الإيصال)
+  let currentRate: number | null = null;
+  if (order.is_credit) {
+    const { data: rateData } = await supabaseAdmin.rpc("get_current_exchange_rate", {
+      p_branch_id: order.branch_id,
+    });
+    currentRate = rateData != null ? Number(rateData) : null;
+  }
+
   // ---------------------------------------------------------
   // 8. Receipt items
   // ---------------------------------------------------------
@@ -331,6 +344,17 @@ export default async function SalesReceiptPage({ params }: Props) {
         status: order.status,
         notes: order.notes ?? null,
         items: receiptItems,
+        credit: order.is_credit
+          ? {
+              customerName: order.credit_customer_name ?? "",
+              customerPhone: order.credit_customer_phone ?? "",
+              dueDate: order.due_date ?? null,
+              saleRate:
+                order.exchange_rate_used != null ? Number(order.exchange_rate_used) : null,
+              currentRate,
+              closedReason: order.credit_closed_reason ?? null,
+            }
+          : null,
       }}
     />
   );
