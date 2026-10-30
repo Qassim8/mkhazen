@@ -17,6 +17,8 @@ const CORRECTABLE_TYPES: JournalEntryType[] = ["CAPITAL", "EXPENSE", "OTHER"];
 interface AccountingTableProps {
   data: JournalEntry[];
   onEdit?: (row: Record<string, unknown>) => void;
+  /** الضغط على الصف يفتح تفاصيل القيد */
+  onOpenDetails?: (entryId: string) => void;
 }
 
 const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
@@ -152,6 +154,23 @@ function getColumns(
     },
   },
   {
+    id: "account",
+    header: "الحساب",
+    cell: ({ row }) => {
+      // الحساب المدين، أو الدائن لو المدين خزينة/بنك (يوضح نوع المصروف/الإيراد)
+      const raw = row.original as unknown as Record<string, unknown>;
+      const debit = raw.debit_account as AccountingAccount;
+      const credit = raw.credit_account as AccountingAccount;
+      const account = debit === "CASH" || debit === "BANK" ? credit : debit;
+
+      return (
+        <span className="text-xs font-bold text-gray-800">
+          {ACCOUNT_LABELS[account] ?? account}
+        </span>
+      );
+    },
+  },
+  {
     accessorKey: "description",
     header: "البيان",
     cell: ({ getValue }) => (
@@ -257,7 +276,10 @@ function getColumns(
       return (
         <button
           type="button"
-          onClick={() => onEdit(raw)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEdit(raw);
+          }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
         >
           <LuPencil className="h-3.5 w-3.5" />
@@ -269,7 +291,7 @@ function getColumns(
   ];
 }
 
-export default function AccountingTable({ data, onEdit }: AccountingTableProps) {
+export default function AccountingTable({ data, onEdit, onOpenDetails }: AccountingTableProps) {
   const columns = getColumns(onEdit);
 
   return (
@@ -288,7 +310,15 @@ export default function AccountingTable({ data, onEdit }: AccountingTableProps) 
         </div>
       ) : (
         <div className="w-full overflow-x-auto">
-          <Table data={data} columns={columns} />
+          <Table
+            data={data}
+            columns={columns}
+            onRowClick={
+              onOpenDetails
+                ? (row) => onOpenDetails((row as unknown as { id: string }).id)
+                : undefined
+            }
+          />
         </div>
       )}
     </div>

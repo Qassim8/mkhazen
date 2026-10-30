@@ -135,6 +135,51 @@ export async function createManualJournalEntry(
   });
 }
 
+/** تفاصيل قيد (من /api/accounting/entries/[id]) — عرض فقط */
+export interface EntryDetail {
+  id: string;
+  entryNumber: string;
+  entryType: JournalEntryType;
+  description: string | null;
+  reference: string | null;
+  createdAt: string;
+  debitAccount: string;
+  debitLabel: string;
+  creditAccount: string;
+  creditLabel: string;
+  amount: number;
+  currency: "USD" | "SDG";
+  exchangeRateUsed: number | null;
+  amountUsd: number | null;
+  createdById: string | null;
+  createdByName: string | null;
+  correctionOfId: string | null;
+  isCorrectionReversal: boolean;
+}
+
+export interface EntryLinkedDocument {
+  kind: string;
+  title: string;
+  number: string | null;
+  summary: string;
+  href: string | null;
+}
+
+export interface EntryDetailResponse {
+  data: {
+    entry: EntryDetail;
+    documents: EntryLinkedDocument[];
+    relatedEntries: EntryDetail[];
+  };
+}
+
+export async function getAccountingEntryDetail(id: string): Promise<EntryDetailResponse> {
+  return serverFetch<EntryDetailResponse>(`${API_BASE_URL}/entries/${id}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+}
+
 export interface CorrectManualJournalEntryResponse {
   message?: string;
   data?: CorrectManualJournalEntryResult;

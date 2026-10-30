@@ -15,6 +15,8 @@ interface TableProps<TData extends RowData> {
   loading?: boolean;
   loadingMessage?: ReactNode;
   tableClassName?: string;
+  /** يجعل الصف قابلًا للضغط (الأزرار داخل الصف توقف الانتشار بنفسها) */
+  onRowClick?: (row: TData) => void;
 }
 
 export default function Table<TData extends RowData>({
@@ -24,6 +26,7 @@ export default function Table<TData extends RowData>({
   loading = false,
   loadingMessage = "جارٍ تحميل البيانات...",
   tableClassName = "",
+  onRowClick,
 }: TableProps<TData>) {
   const table = useReactTable({
     data,
@@ -76,7 +79,21 @@ export default function Table<TData extends RowData>({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="transition-colors duration-150 hover:bg-gray-50/60"
+                  className={`transition-colors duration-150 hover:bg-gray-50/60 ${
+                    onRowClick ? "cursor-pointer" : ""
+                  }`}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                            event.preventDefault();
+                            onRowClick(row.original);
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="whitespace-nowrap px-6 py-4">

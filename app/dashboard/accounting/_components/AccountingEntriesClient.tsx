@@ -11,6 +11,7 @@ import { ResetFilters } from "@/components/shared/ResetFilters";
 import AccountingTable from "./AccountingTable";
 import NewJournalEntryModal from "./NewJournalModal";
 import EditJournalModal from "./EditJournalModal";
+import EntryDetailsModal from "./EntryDetailsModal";
 
 import {
   AccountingAccount,
@@ -65,6 +66,7 @@ export default function AccountingEntriesClient({
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<EditableEntry | null>(null);
+  const [detailsEntryId, setDetailsEntryId] = useState<string | null>(null);
 
   function handleCreated() {
     setShowModal(false);
@@ -119,7 +121,11 @@ export default function AccountingEntriesClient({
         </div>
       </Suspense>
 
-      <AccountingTable data={initialData} onEdit={handleEdit} />
+      <AccountingTable
+        data={initialData}
+        onEdit={handleEdit}
+        onOpenDetails={setDetailsEntryId}
+      />
       <Suspense fallback={<div className="h-16 animate-pulse bg-gray-50" />}>
         <Pagination meta={initialMeta} />
       </Suspense>
@@ -128,6 +134,13 @@ export default function AccountingEntriesClient({
         <NewJournalEntryModal
           onClose={() => setShowModal(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {detailsEntryId && (
+        <EntryDetailsModal
+          entryId={detailsEntryId}
+          onClose={() => setDetailsEntryId(null)}
         />
       )}
 
