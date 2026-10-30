@@ -1,6 +1,7 @@
 "use client";
 
 import BackLink from "@/components/shared/BackLink";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -139,7 +140,16 @@ export default function SalesInvoiceClient({ orderId }: { orderId: string }) {
           <div className="rounded-xl bg-gray-50 p-4">
             <p className="text-[11px] font-bold text-gray-400">العميل</p>
             <p className="mt-1 font-black text-gray-900">
-              {sale.customer?.name ?? "بيع مباشر"}
+              {sale.customer ? (
+                <Link
+                  href={`/dashboard/customers/${sale.customer.id}`}
+                  className="underline decoration-dotted underline-offset-4 hover:text-(--primary-red)"
+                >
+                  {sale.customer.name}
+                </Link>
+              ) : (
+                "بيع مباشر"
+              )}
             </p>
             {sale.customer?.whatsappNumber && (
               <p className="mt-1 text-xs text-gray-500" dir="ltr">

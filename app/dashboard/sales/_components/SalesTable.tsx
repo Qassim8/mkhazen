@@ -52,6 +52,15 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function CustomerLink({ id, children }: { id?: string | null; children: React.ReactNode }) {
+  if (!id) return <>{children}</>;
+  return (
+    <Link href={`/dashboard/customers/${id}`} className="underline decoration-dotted underline-offset-4 hover:text-(--primary-red)">
+      {children}
+    </Link>
+  );
+}
+
 export default function SalesTable({ rows, loading }: Props) {
   const columns: ColumnDef<SaleRow, unknown>[] = [
     {
@@ -87,7 +96,9 @@ export default function SalesTable({ rows, loading }: Props) {
         row.original.orderType === "TAILORING" ? (
           <div>
             <p className="font-bold text-gray-900">
-              {row.original.customerName ?? "عميل"}
+              <CustomerLink id={row.original.customerId}>
+                {row.original.customerName ?? "عميل"}
+              </CustomerLink>
             </p>
             <p className="mt-1 text-[11px] text-gray-400">
               الخياط: {row.original.tailorName ?? "-"}
@@ -98,7 +109,11 @@ export default function SalesTable({ rows, loading }: Props) {
             <p className="font-bold text-gray-700">
               {row.original.isCredit
                 ? (row.original.creditCustomerName ?? "عميل")
-                : (row.original.customerName ?? "بيع مباشر")}
+                : (
+                    <CustomerLink id={row.original.customerId}>
+                      {row.original.customerName ?? "بيع مباشر"}
+                    </CustomerLink>
+                  )}
             </p>
             {row.original.isCredit && row.original.creditCustomerPhone && (
               <p className="mt-1 text-[11px] text-gray-400" dir="ltr">

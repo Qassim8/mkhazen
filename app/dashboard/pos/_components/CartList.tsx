@@ -12,6 +12,8 @@ import {
 } from "react-icons/lu";
 import CartItem from "./CartItem";
 import GiftPicker from "./GiftPicker";
+import CustomerPicker from "@/app/dashboard/customers/_components/CustomerPicker";
+import type { CustomerRecord } from "@/app/dashboard/customers/services/customers.services";
 import type { POSCartItem } from "./POSClient";
 import {
   creditPaidNow,
@@ -55,6 +57,9 @@ interface CartListProps {
   /** بيع بالتقسيط: النموذج وخطؤه الحالي (null = صالح) */
   credit: CreditFormState;
   creditError: string | null;
+  /** عميل مربوط اختياريًا بالفاتورة (البيع العادي فقط) */
+  linkedCustomer: CustomerRecord | null;
+  onLinkCustomer: (customer: CustomerRecord | null) => void;
   onCreditToggle: () => void;
   onCreditChange: (patch: Partial<CreditFormState>) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
@@ -136,6 +141,8 @@ export default function CartList({
   discountError,
   credit,
   creditError,
+  linkedCustomer,
+  onLinkCustomer,
   onCreditToggle,
   onCreditChange,
   onPaymentMethodChange,
@@ -298,6 +305,14 @@ export default function CartList({
               </p>
             )}
           </div>
+          {!credit.enabled && (
+            <CustomerPicker
+              key={linkedCustomer?.id ?? "none"}
+              label="ربط عميل بالفاتورة (اختياري)"
+              initialCustomer={linkedCustomer}
+              onSelect={onLinkCustomer}
+            />
+          )}
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-700">

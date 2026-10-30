@@ -77,9 +77,12 @@ export function checkoutFingerprint(input: {
   exchangeRate: number | null;
   /** بيع بالتقسيط: أي تغيير فيه = عملية جديدة */
   credit?: unknown;
+  /** العميل المربوط (اختياري) */
+  customerId?: string | null;
 }): string {
   return JSON.stringify({
     credit: input.credit ?? null,
+    customer: input.customerId ?? null,
     items: input.cart.map((item) => [item.variant.id, item.qty, item.isGift, item.giftNote ?? null, item.priceSdg ?? null]),
     discount: input.discountAmount,
     method: input.paymentMethod,

@@ -78,6 +78,15 @@ export const PERMISSIONS = {
    * (مستحقات الخياطين وسلفهم = accounting.manage للمالك والمدير فقط)
    */
   "tailoring.manage": ["owner", "admin", "cashier"],
+  /** العملاء: مركز واحد لفواتير الكاشير والتفصيل — عرض وإنشاء وتعديل */
+  "customers.view": ["owner", "admin", "cashier"],
+  "customers.create": ["owner", "admin", "cashier"],
+  "customers.update": ["owner", "admin", "cashier"],
+  /** حذف عميل بلا فواتير */
+  "customers.delete": ["owner", "admin"],
+  /** كشف المكرر ودمج عميلين */
+  "customers.merge": ["owner", "admin"],
+
   /** عرض الطلبات (الخياط: طلباته فقط) وتحديث الحالة */
   "tailoring.view": ["owner", "admin", "cashier", "tailor"],
 
@@ -145,7 +154,7 @@ const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permissi
   { prefix: "/dashboard/receivables", permission: "sales.pos" },
   { prefix: "/dashboard/tailoring/new", permission: "tailoring.operate" },
   { prefix: "/dashboard/tailoring", permission: "tailoring.view" },
-  { prefix: "/dashboard/customers", permission: "tailoring.operate" },
+  { prefix: "/dashboard/customers", permission: "customers.view" },
 ];
 
 /** هل الدور يقدر يفتح المسار ده؟ (الإعدادات مفتوحة للجميع) */

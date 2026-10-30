@@ -124,6 +124,7 @@ export interface SalesOrderListItem {
   id: string;
   orderNumber: string;
   orderType: SalesOrderType;
+  customerId?: string | null;
   customerName: string | null;
   tailorName: string | null;
   cashierName: string | null;

@@ -1,22 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LuSearch, LuUserRound, LuX } from "react-icons/lu";
+import { LuSearch, LuUserPlus, LuUserRound, LuX } from "react-icons/lu";
 
 import {
   getCustomers,
   type CustomerRecord,
 } from "../services/customers.services";
+import { CustomerFormModal } from "./CustomerModals";
 
 interface Props {
   initialCustomer?: CustomerRecord | null;
   onSelect: (customer: CustomerRecord | null) => void;
+  label?: string;
 }
 
 export default function CustomerPicker({
   initialCustomer = null,
   onSelect,
+  label = "اختيار عميل مسجل لتحميل بياناته ومقاساته",
 }: Props) {
+  const [quickAdd, setQuickAdd] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(initialCustomer);
   const [results, setResults] = useState<CustomerRecord[]>([]);
@@ -74,7 +78,7 @@ export default function CustomerPicker({
   return (
     <div className="relative">
       <label className="mb-1 block text-xs font-bold text-gray-600">
-        اختيار عميل مسجل لتحميل بياناته ومقاساته
+        {label}
       </label>
       {selected ? (
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -151,10 +155,29 @@ export default function CustomerPicker({
             search.trim().length >= 2 &&
             results.length === 0 && (
               <p className="mt-2 text-xs text-gray-500">
-                لا يوجد عميل مطابق؛ أدخل بيانات العميل يدويًا أدناه.
+                لا يوجد عميل مطابق؛ يمكنك إضافة عميل جديد.
               </p>
             )}
+          <button
+            type="button"
+            onClick={() => setQuickAdd(true)}
+            className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-xs font-bold text-gray-700 hover:bg-gray-50"
+          >
+            <LuUserPlus className="h-4 w-4" />
+            إضافة عميل جديد
+          </button>
         </>
+      )}
+
+      {quickAdd && (
+        <CustomerFormModal
+          customer={null}
+          onClose={() => setQuickAdd(false)}
+          onSaved={(saved) => {
+            setQuickAdd(false);
+            if (saved) choose(saved);
+          }}
+        />
       )}
     </div>
   );

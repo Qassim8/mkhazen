@@ -1,5 +1,6 @@
 "use client";
 
+import type { CustomerRecord } from "@/app/dashboard/customers/services/customers.services";
 import { createPortal } from "react-dom";
 import {
   type FormEvent,
@@ -161,6 +162,7 @@ export default function POSClient({
 
   // بيع بالتقسيط (دين مربوط بالفاتورة)
   const [credit, setCredit] = useState<CreditFormState>(EMPTY_CREDIT);
+  const [linkedCustomer, setLinkedCustomer] = useState<CustomerRecord | null>(null);
 
   // منع النقر المزدوج (أسرع من تحديث الـ state) + مفتاح منع التكرار للسلة الحالية
   const checkingOutRef = useRef(false);
@@ -730,6 +732,7 @@ export default function POSClient({
     setPaymentSplits([]);
     setPaymentMethod("CASH");
     setCredit(EMPTY_CREDIT);
+    setLinkedCustomer(null);
   };
 
   // =====================================================
@@ -932,6 +935,7 @@ export default function POSClient({
       paymentSplits: effectiveSplits,
       exchangeRate,
       credit: credit.enabled ? credit : null,
+      customerId: credit.enabled ? null : (linkedCustomer?.id ?? null),
     });
 
     if (checkoutKeyRef.current?.fingerprint !== fingerprint) {
@@ -948,7 +952,7 @@ export default function POSClient({
       const payload = {
         orderType: "POS" as const,
 
-        customerId: null,
+        customerId: credit.enabled ? null : (linkedCustomer?.id ?? null),
 
         tailorId: null,
 
@@ -1300,6 +1304,8 @@ export default function POSClient({
             discountError={discountError}
             credit={credit}
             creditError={creditError}
+            linkedCustomer={linkedCustomer}
+            onLinkCustomer={setLinkedCustomer}
             onCreditToggle={handleCreditToggle}
             onCreditChange={handleCreditChange}
             onPaymentMethodChange={handlePaymentMethodChange}

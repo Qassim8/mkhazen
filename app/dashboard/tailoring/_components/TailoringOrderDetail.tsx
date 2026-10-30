@@ -489,11 +489,25 @@ export default function TailoringOrderDetail({
           </h1>
           <p className="mt-1 text-sm text-gray-500">
             {order.orderNumber} ·{" "}
-            {isProduction
-              ? "تصنيع للمخزون"
-              : canContactCustomer
-                ? `${order.customer?.name ?? "-"} · ${order.customer?.whatsappNumber ?? "-"}`
-                : (order.customer?.name ?? "-")}
+            {isProduction ? (
+              "تصنيع للمخزون"
+            ) : canContactCustomer ? (
+              <>
+                {order.customer?.id ? (
+                  <Link
+                    href={`/dashboard/customers/${order.customer.id}`}
+                    className="font-bold text-gray-700 underline"
+                  >
+                    {order.customer.name}
+                  </Link>
+                ) : (
+                  (order.customer?.name ?? "-")
+                )}{" "}
+                · {order.customer?.whatsappNumber ?? "-"}
+              </>
+            ) : (
+              (order.customer?.name ?? "-")
+            )}
           </p>
           {order.tailoringItemDescription && (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">

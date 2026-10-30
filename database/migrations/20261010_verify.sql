@@ -34,6 +34,7 @@ DECLARE
     'list_opening_stock_corrections',
     'record_credit_payment', 'adjust_credit_remaining', 'close_credit_bad_debt',
     'get_credit_valuation', 'get_receivables_summary',
+    'merge_customers', 'find_duplicate_customers',
     'get_payroll', 'pay_employee', 'get_tailor_month_summary',
     'get_current_exchange_rate', 'ledger_period_totals',
     'maintain_notifications', 'process_inventory_adjustment',

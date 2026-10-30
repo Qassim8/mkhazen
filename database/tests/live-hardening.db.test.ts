@@ -159,7 +159,7 @@ describe("release sequence 01..06", () => {
       `SELECT count(*) AS n FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
        JOIN pg_namespace ns ON ns.oid = c.relnamespace WHERE ns.nspname = 'public' AND NOT t.tgisinternal`,
     );
-    assert.equal(Number(rows[0].n), 15, "all 15 live triggers kept (08 is optional and not applied here)");
+    assert.equal(Number(rows[0].n), 16, "all 15 live triggers kept + customers_phone_normalized (08 is optional and not applied here)");
   });
 
   it("objects created later by postgres are NOT exposed (default privileges + global PUBLIC EXECUTE)", async () => {
