@@ -462,7 +462,7 @@ export function Sidebar() {
             NAVIGATION
         ================================================_ */}
 
-        <nav className="space-y-1">
+        <nav className="space-y-1 mt-5">
           {filteredMenuItems.map((item) => {
             /* =============================================
                 GROUP

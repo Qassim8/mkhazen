@@ -20,7 +20,11 @@ export default function CreditValuationBlock({
 }) {
   const valuation = creditValuation({ remainingSdg, saleRate, currentRate });
 
-  if (remainingSdg <= 0 || valuation.usdAtSale == null || valuation.usdNow == null) {
+  if (
+    remainingSdg <= 0 ||
+    valuation.usdAtSale == null ||
+    valuation.usdNow == null
+  ) {
     return null;
   }
 
@@ -31,14 +35,14 @@ export default function CreditValuationBlock({
       <div className="flex justify-between gap-2">
         <span>سعر الصرف ج.س/$ (يوم الشراء ← اليوم)</span>
         <span dir="ltr" className="text-left">
-          {shortRate(valuation.saleRate)} ← {shortRate(valuation.currentRate)}
+          {shortRate(valuation.currentRate)} ← {shortRate(valuation.saleRate)}
         </span>
       </div>
 
       <div className="flex justify-between gap-2">
         <span>قيمة المتبقي بالدولار (يوم الشراء ← اليوم)</span>
         <span dir="ltr" className="text-left">
-          {formatUSD(valuation.usdAtSale)} ← {formatUSD(valuation.usdNow)}
+          {formatUSD(valuation.usdNow)} ← {formatUSD(valuation.usdAtSale)}
         </span>
       </div>
 
@@ -47,13 +51,18 @@ export default function CreditValuationBlock({
           <div className="flex justify-between gap-2">
             <span>نسبة الانخفاض</span>
             <span dir="ltr" className="text-left font-bold">
-              {valuation.lossPct.toLocaleString("en-US", { maximumFractionDigits: 2 })}%
+              {valuation.lossPct.toLocaleString("en-US", {
+                maximumFractionDigits: 2,
+              })}
+              %
             </span>
           </div>
 
           {valuation.equivalentSdgToday != null && (
             <div className="mt-1 rounded border border-black p-1.5 text-center text-[11px] font-black">
-              <p className="text-[9px] font-semibold">المبلغ المعادل لقيمته الأصلية اليوم</p>
+              <p className="text-[9px] font-semibold">
+                المبلغ المعادل لقيمته الأصلية اليوم
+              </p>
               <p>{formatSDG(valuation.equivalentSdgToday)}</p>
             </div>
           )}

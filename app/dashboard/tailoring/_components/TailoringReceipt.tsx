@@ -157,7 +157,10 @@ function TailorCopy({ order }: { order: TailoringOrder }) {
       </div>
 
       <div className="border-b border-dashed border-black py-2">
-        <p className="text-[13px] font-black">{order.tailoringItemName}</p>
+        <div className="flex justify-between items-center">
+          <p className="mb-1 text-[11px] font-bold">القطعة</p>
+          <p className="text-[13px] font-black">{order.tailoringItemName}</p>
+        </div>
         {order.tailoringItemDescription && (
           <p className="mt-1 whitespace-pre-line text-[11px]">
             {order.tailoringItemDescription}
@@ -188,11 +191,7 @@ function TailorCopy({ order }: { order: TailoringOrder }) {
       <div className="py-2">
         <Row
           label="القماش"
-          value={
-            order.fabric
-              ? `${order.fabric.name} — ${formatQuantity(order.fabricQuantity ?? 0)} متر`
-              : "من العميل"
-          }
+          value={order.fabric ? `${order.fabric.name} ` : "من العميل"}
         />
         {order.notes && (
           <p className="mt-1 whitespace-pre-line text-[10px]">
