@@ -23,7 +23,10 @@
       لا تؤثر على رصيد السلف.
    4) فرق العملة: السلف بالجنيه. عند وصول رصيد سلف الموظف إلى صفر يُغلق ما تبقّى من رصيد
       EMPLOYEE_ADVANCES بالدولار لهذا الموظف على CURRENCY_EXCHANGE (نفس أسلوب settle_tailor_fx).
-   5) get_payroll بأعمدة جديدة، و get_employee_advance_balance، و get_employee_advances_summary.
+   5) get_employee_payroll (أعمدة جديدة: رصيد السلف وحركات الشهر) بدل get_payroll، و
+      get_employee_advance_balance، و get_employee_advances_summary.
+      get_payroll القديمة تبقى كما هي دون استخدام: تغيير أعمدة دالة موجودة يكسر إعادة تشغيل
+      20261014/20261015 (CREATE OR REPLACE لا يغيّر نوع الإرجاع)، وكل ملف يجب أن يبقى قابلًا للتكرار.
 
    السلف القديمة (ADVANCE قبل هذا الملف) كانت مصروف رواتب مدفوعًا مقدمًا، فتُعلَّم is_legacy
    ولا تدخل في رصيد السلف الجديد (لا قيد يُعدَّل). تظهر في السجل بلا رصيد.
@@ -348,12 +351,12 @@ END;
 $$;
 
 /* ---------------------------------------------------------------------
-   5) get_payroll — الموظفون (عدا الخياطين والمالك) وحركات الشهر ورصيد السلف
+   5) get_employee_payroll — الموظفون (عدا الخياطين والمالك) وحركات الشهر ورصيد السلف
 --------------------------------------------------------------------- */
 
-DROP FUNCTION IF EXISTS public.get_payroll(uuid, date);
+DROP FUNCTION IF EXISTS public.get_employee_payroll(uuid, date);
 
-CREATE OR REPLACE FUNCTION public.get_payroll(p_branch_id uuid, p_period date)
+CREATE FUNCTION public.get_employee_payroll(p_branch_id uuid, p_period date)
 RETURNS TABLE (
   user_id uuid,
   name text,
@@ -451,7 +454,7 @@ BEGIN
     'public.get_employee_advance_balance(uuid)',
     'public.get_employee_advance_usd_balance(uuid)',
     'public.pay_employee(uuid, uuid, uuid, date, text, numeric, text, text, numeric)',
-    'public.get_payroll(uuid, date)',
+    'public.get_employee_payroll(uuid, date)',
     'public.get_employee_advances_summary(uuid)'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', v_sig);

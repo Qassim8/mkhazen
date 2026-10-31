@@ -155,7 +155,7 @@ export async function loadEmployeeMovements(employeeId: string, limit = 500): Pr
 
 export async function loadPayrollMonth(period: string): Promise<PayrollMonth> {
   const [employees, tailors] = await Promise.all([
-    supabaseAdmin.rpc("get_payroll", { p_branch_id: MAIN_BRANCH_ID, p_period: period }),
+    supabaseAdmin.rpc("get_employee_payroll", { p_branch_id: MAIN_BRANCH_ID, p_period: period }),
     supabaseAdmin.rpc("get_tailor_month_summary", { p_branch_id: MAIN_BRANCH_ID, p_period: period }),
   ]);
 

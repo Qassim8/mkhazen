@@ -154,6 +154,15 @@ export interface ReportSummary {
   manualReductionsSdg: number;
   /** Σ(الفعلي − الأصلي) × الكمية للأسطر المرفوعة يدويًا (ج.س) */
   manualIncreasesSdg: number;
+  /** الرواتب والعمولات المصروفة للموظفين في الفترة، كل واحد منفصل (السلف ليست مصروفًا) */
+  payroll: {
+    salariesCount: number;
+    salariesSdg: number;
+    salariesUsd: number;
+    commissionsCount: number;
+    commissionsSdg: number;
+    commissionsUsd: number;
+  };
   /** الذمم (فواتير التقسيط): المفتوح والمتأخر لقطة حالية، والمعدوم للفترة. الإيراد أعلاه = المحصّل فقط */
   receivables: {
     posCredit: ReceivablesBucket;

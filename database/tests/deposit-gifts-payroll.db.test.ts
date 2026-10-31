@@ -63,8 +63,6 @@ describe("deposit transfer, gifts, opening balances, payroll (20261014_01)", () 
   after(() => db.close());
 
   it("is re-runnable and keeps the verify checks green; tailors get canLogin = false", async () => {
-    // get_payroll صار بأعمدة مختلفة في 20261029_01 (الإطلاق الفعلي لا يعيد 20261014 بعده)
-    await db.exec(`DROP FUNCTION IF EXISTS public.get_payroll(uuid, date)`);
     await db.exec(sql(M.depositGiftsPayroll));
     // 20261014 يعيد تعريف دوال أحدث منه: نعيد تطبيق اللاحق بترتيبه (كما في الإطلاق الفعلي)
     await db.exec(sql(M.openingRepeatable));
@@ -194,7 +192,7 @@ describe("deposit transfer, gifts, opening balances, payroll (20261014_01)", () 
     assert.equal(after.b.cashSdg, before.b.cashSdg - 300_000);
     assert.equal(after.p.expenses, before.p.expenses + 80, "only the 200,000 salary is an expense (÷ 2500); the advance is an asset");
 
-    const payroll = await svc<Record<string, string>>(`SELECT * FROM public.get_payroll($1, $2::date)`, [BRANCH_ID, period]);
+    const payroll = await svc<Record<string, string>>(`SELECT * FROM public.get_employee_payroll($1, $2::date)`, [BRANCH_ID, period]);
     const row = payroll.rows.find((r) => r.user_id === users.cashier)!;
     assert.deepEqual(
       [num(row.salary_sdg), num(row.advances_month_sdg), num(row.salary_paid_sdg), num(row.advance_balance_sdg)],

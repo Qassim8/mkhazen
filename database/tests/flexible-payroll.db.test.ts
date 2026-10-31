@@ -252,14 +252,14 @@ describe("flexible employee payroll and advances (20261029_01)", () => {
     assert.match(await rpcError(pay(employee, "ADVANCE_RETURN", 1)), /يتجاوز رصيد سلف/);
   });
 
-  it("get_payroll: balance per employee and the month's movements; summary for the accounting card", async () => {
+  it("get_employee_payroll: balance per employee and the month's movements; summary for the accounting card", async () => {
     const employee = await newEmployee("كشف", 70_000);
     await pay(employee, "ADVANCE", 30_000);
     await pay(employee, "ADVANCE_RETURN", 5_000);
     await pay(employee, "SALARY", 60_000, { deduct: 10_000 });
     await pay(employee, "COMMISSION", 4_000);
 
-    const { rows } = await svc<Record<string, string | boolean>>(`SELECT * FROM public.get_payroll($1, $2::date)`, [BRANCH_ID, thisMonth()]);
+    const { rows } = await svc<Record<string, string | boolean>>(`SELECT * FROM public.get_employee_payroll($1, $2::date)`, [BRANCH_ID, thisMonth()]);
     const row = rows.find((r) => r.user_id === employee)!;
     assert.deepEqual(
       [

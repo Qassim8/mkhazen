@@ -17,6 +17,7 @@
 
 import { fetchAll, fetchIn } from "@/lib/supabase-fetch-all";
 import { loadReceivablesSnapshot } from "@/lib/credit-server";
+import { loadPayrollTotals } from "@/lib/reports/payroll-totals";
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
@@ -707,6 +708,9 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
   // الذمم المفتوحة/المتأخرة (حاليًا) والديون المعدومة في الفترة
   const receivables = await loadReceivablesSnapshot({ startIso, endIso });
 
+  // الرواتب والعمولات المصروفة للموظفين في الفترة (كل واحد منفصل)
+  const payroll = await loadPayrollTotals(startIso, endIso);
+
   const posTotalsUsd = posOrders.reduce((sum, o) => sum + orderCollectedUsd(o), 0);
   const posTotalsSdg = posOrders.reduce((sum, o) => sum + orderCollectedSdg(o), 0);
 
@@ -749,6 +753,7 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       discountsSdg: r2(discountsSdg),
       manualReductionsSdg: r2(manualReductionsSdg),
       manualIncreasesSdg: r2(manualIncreasesSdg),
+      payroll,
       receivables: {
         posCredit: receivables.posCredit,
         tailoringInProgress: receivables.tailoringInProgress,

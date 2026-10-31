@@ -146,6 +146,24 @@ function SummaryTab({ report }: { report: ReportData }) {
       </div>
 
       <Section
+        title="الرواتب والعمولات"
+        subtitle="ما صُرف للموظفين خلال الفترة، كل واحد منفصل. السلف واستردادها ليست مصروفًا. الراتب المخصوم منه سلفة يُحسب كاملًا."
+      >
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
+          <Kpi
+            title="إجمالي الرواتب"
+            value={formatSDG(s.payroll.salariesSdg)}
+            hint={`${qty(s.payroll.salariesCount)} دفعة — ${formatUSD(s.payroll.salariesUsd)}`}
+          />
+          <Kpi
+            title="إجمالي العمولات (نسبة من الأرباح)"
+            value={formatSDG(s.payroll.commissionsSdg)}
+            hint={`${qty(s.payroll.commissionsCount)} دفعة — ${formatUSD(s.payroll.commissionsUsd)}`}
+          />
+        </div>
+      </Section>
+
+      <Section
         title="ذمم العملاء"
         subtitle="الإيراد أعلاه يعكس المحصّل فقط؛ المتبقي غير المحصّل ليس إيرادًا. ديون الكاشير بالتقسيط ومتبقي التفصيل قيد التنفيذ (مبالغ متوقعة) حاليًا، والمعدوم خلال الفترة."
       >
