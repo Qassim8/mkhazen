@@ -35,6 +35,8 @@ TRUNCATE TABLE
   public.employee_payments,
   public.sales_order_payments,
   public.credit_adjustments,
+  public.payable_payments,
+  public.payables,
   public.sales_order_items,
   public.inventory_movements,
   public.journal_entries,

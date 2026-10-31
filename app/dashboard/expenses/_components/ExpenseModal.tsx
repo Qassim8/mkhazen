@@ -6,6 +6,9 @@ import { toast } from "react-hot-toast";
 
 import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { createManualJournalEntry } from "@/app/dashboard/accounting/services/accounting.services";
+import PaymentSplitFields, {
+  useSplitPayment,
+} from "@/app/dashboard/accounting/_components/PaymentSplitFields";
 import type {
   AccountingAccount,
   CreateManualJournalEntryInput,
@@ -34,6 +37,7 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
   const [reference, setReference] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const split = useSplitPayment(Number(amount));
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,6 +55,11 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
       return;
     }
 
+    if (split.error) {
+      toast.error(split.error);
+      return;
+    }
+
     const payload: CreateManualJournalEntryInput = {
       entryType: "EXPENSE",
       amount: numericAmount,
@@ -59,6 +68,8 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
       account,
       reference: reference.trim() || null,
       description: description.trim(),
+      // الدفع المجزأ: لا تُضاف أجزاء إلا عند التقسيم (الافتراضي كل المبلغ مدفوع الآن)
+      ...split.payload(),
     };
 
     try {
@@ -81,7 +92,7 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <h2 className="text-lg font-black text-gray-950">مصروف جديد</h2>
@@ -159,6 +170,8 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
               </select>
             </div>
           </div>
+
+          <PaymentSplitFields split={split} currency={currency} disabled={loading} />
 
           <div>
             <label className="mb-2 block text-sm font-bold text-gray-700">

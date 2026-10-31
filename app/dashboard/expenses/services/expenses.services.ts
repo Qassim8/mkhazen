@@ -10,6 +10,18 @@ export interface MyExpense {
   reference: string | null;
   expenseAccount: string;
   paymentMethod: "CASH" | "BANK";
+  /** مصدر الدفع: خزينة / بنك / رأس مال (دفعه المالك) / مستحق على المحل */
+  source: "CASH" | "BANK" | "CAPITAL" | "PAYABLE";
+  /** المستحق على المحل (للقيد الذي يمثل الجزء المتبقي فقط) */
+  payable: {
+    id: string;
+    totalAmount: number;
+    ownerPaid: number;
+    paidAmount: number;
+    remainingAmount: number;
+    dueDate: string | null;
+    status: "OPEN" | "PAID";
+  } | null;
   createdAt: string;
 }
 

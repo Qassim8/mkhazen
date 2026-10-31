@@ -15,6 +15,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   BANK: "البنك",
   INVENTORY: "المخزون",
   SUPPLIERS: "الموردون",
+  OTHER_PAYABLES: "مستحقات أخرى",
   CAPITAL: "رأس المال",
   SALES: "المبيعات",
   CUSTOMER_ADVANCES: "عربون العملاء",
@@ -33,6 +34,16 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   GIFTS: "هدايا للعملاء",
   CURRENCY_EXCHANGE: "تحويل عملة (فروق صرف)",
 };
+
+/* =========================================================
+   مصروف مجزأ (record_expense_with_payable)
+   أجزاؤه الثلاثة (دفعه المالك / المدفوع الآن / المتبقي) تنتهي أرقامها بـ -C و -P و -R.
+   لا تُصحَّح كل جزء على حدة، حتى لا ينفصل القيد عن سجل المستحق.
+========================================================= */
+
+export function isSplitExpensePart(entryNumber: unknown) {
+  return typeof entryNumber === "string" && /^JE-\d{4}-[0-9A-F]{10}-[CPR]$/.test(entryNumber);
+}
 
 /* =========================================================
    PAYMENT ACCOUNT

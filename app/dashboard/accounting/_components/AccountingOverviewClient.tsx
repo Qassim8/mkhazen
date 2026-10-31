@@ -267,6 +267,61 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         />
       </div>
 
+      {data.payables && (
+        <div className="rounded-2xl border border-rose-100 bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <LuHandCoins className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-gray-900">المستحقات على المحل</h3>
+                <p className="text-xs text-gray-500">
+                  متبقي الأصول والمصروفات التي تُدفع على أجزاء، وديون الموردين (من المشتريات) — لقطة حالية
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/accounting/payables"
+              className="inline-flex min-h-11 items-center rounded-lg border border-gray-200 px-4 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+            >
+              المستحقات على المحل
+            </Link>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">مستحقات الأصول</p>
+              <p className="mt-1 text-lg font-black text-rose-700">{formatMoney(data.payables.assets.bookUsd)}</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                {data.payables.assets.count} مستحق
+                {data.payables.assets.overdueCount > 0 && (
+                  <span className="text-red-600"> — {data.payables.assets.overdueCount} متأخر</span>
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">مستحقات المصروفات</p>
+              <p className="mt-1 text-lg font-black text-rose-700">{formatMoney(data.payables.expenses.bookUsd)}</p>
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                {data.payables.expenses.count} مستحق
+                {data.payables.expenses.overdueCount > 0 && (
+                  <span className="text-red-600"> — {data.payables.expenses.overdueCount} متأخر</span>
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">ديون الموردين (المشتريات)</p>
+              <p className="mt-1 text-lg font-black text-rose-700">{formatMoney(data.payables.supplierDebts)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">الإجمالي</p>
+              <p className="mt-1 text-lg font-black text-gray-900">{formatMoney(data.payables.totalUsd)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {data.receivables && (
         <div className="rounded-2xl border border-amber-100 bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

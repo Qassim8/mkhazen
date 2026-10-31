@@ -239,6 +239,13 @@ const menuItems: MenuItem[] = [
         exact: true,
       },
       {
+        href: "/dashboard/accounting/payables",
+        label: "المستحقات على المحل",
+        icon: LuHandCoins,
+        roles: ["admin", "cashier"],
+        exact: true,
+      },
+      {
         href: "/dashboard/accounting/opening-balances",
         label: "الأرصدة الافتتاحية",
         icon: LuScale,

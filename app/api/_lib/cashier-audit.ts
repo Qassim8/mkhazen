@@ -17,7 +17,8 @@ export type CashierAuditKind =
   | "ASSET"
   | "EXCHANGE_RATE"
   | "PURCHASE_RECEIPT"
-  | "SUPPLIER_PAYMENT";
+  | "SUPPLIER_PAYMENT"
+  | "PAYABLE_PAYMENT";
 
 export function money(amount: number, currency: CurrencyCode = "USD") {
   return formatMoney(amount, currency);

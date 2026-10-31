@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { LuLoaderCircle, LuX } from "react-icons/lu";
 
 import { createAsset } from "../services/accounting.services";
+import PaymentSplitFields, { useSplitPayment } from "./PaymentSplitFields";
 import {
   createAssetSchema,
   AssetFormInput,
@@ -42,7 +43,17 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
     },
   });
 
-  const onSubmit = async (data: AssetInput) => {
+  const split = useSplitPayment(Number(watch("purchaseValue")));
+
+  const onSubmit = async (input: AssetInput) => {
+    if (split.error) {
+      toast.error(split.error);
+      return;
+    }
+
+    // الدفع المجزأ: لا تُضاف أجزاء إلا عند التقسيم (الافتراضي كل المبلغ مدفوع الآن)
+    const data: AssetInput = { ...input, ...split.payload() };
+
     try {
       await createAsset(data, { idempotencyKey: idempotency.keyFor(data) });
       idempotency.reset();
@@ -56,7 +67,7 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl">
         {/* HEADER */}
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
@@ -224,6 +235,8 @@ export default function NewAssetModal({ onClose }: NewAssetModalProps) {
               )}
             </div>
           </div>
+
+          <PaymentSplitFields split={split} currency={watch("currency") ?? "USD"} disabled={isSubmitting} />
 
           {/* NOTES */}
           <div>

@@ -36,6 +36,9 @@ export const accountingAccountEnum = z.enum([
 
   "SUPPLIERS",
 
+  // مستحقات أخرى على المحل (التزام): متبقي أصل/مصروف يُدفع على أجزاء
+  "OTHER_PAYABLES",
+
   "CUSTOMER_ADVANCES",
 
   "TAILOR_ADVANCES",
@@ -87,6 +90,9 @@ export const journalEntryTypeEnum = z.enum([
   "EXPENSE",
   "ASSET",
 
+  // دفعة على مستحق (OTHER_PAYABLES ← الخزينة/البنك)
+  "PAYABLE_PAYMENT",
+
   "INVENTORY_ADJUSTMENT",
   "SALES_RETURN",
 
@@ -114,6 +120,66 @@ export const currencyEnum = z.enum(["USD", "SDG"], {
 });
 
 export type Currency = z.infer<typeof currencyEnum>;
+
+/* =========================================================
+   SPLIT PAYMENT (الدفع المجزأ للأصول والمصروفات)
+   القيمة الكاملة = دفعه المالك + المدفوع الآن + المتبقي (بنفس عملة القيد).
+   بدون أي جزء: السلوك القديم (كل المبلغ مدفوع الآن).
+========================================================= */
+
+const splitPart = z
+  .number({ message: "المبلغ غير صالح" })
+  .min(0, "المبلغ لا يمكن أن يكون سالبًا")
+  .optional();
+
+export const splitPaymentFields = {
+  /** دفعه المالك من ماله: لا يُخصم من الخزنة ويُضاف لرأس المال */
+  ownerPaid: splitPart,
+  /** المدفوع الآن من الخزنة/البنك */
+  paidNow: splitPart,
+  /** المتبقي (مستحق على المحل) */
+  remaining: splitPart,
+  /** تاريخ استحقاق المتبقي YYYY-MM-DD */
+  dueDate: z.preprocess(
+    (value) => (value === "" || value === undefined ? null : value),
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ الاستحقاق غير صالح")
+      .nullable()
+      .optional(),
+  ),
+};
+
+type SplitInput = { ownerPaid?: number; paidNow?: number; remaining?: number };
+
+export function hasSplitPayment(data: SplitInput) {
+  return data.ownerPaid !== undefined || data.paidNow !== undefined || data.remaining !== undefined;
+}
+
+const cents = (value: number) => Math.round(value * 100);
+
+export function validateSplitPayment(data: SplitInput, total: number, ctx: z.RefinementCtx) {
+  if (!hasSplitPayment(data)) return;
+
+  const parts = [data.ownerPaid ?? 0, data.paidNow ?? 0, data.remaining ?? 0];
+
+  if (parts.some((part) => Math.abs(part * 100 - cents(part)) > 1e-6) || Math.abs(total * 100 - cents(total)) > 1e-6) {
+    ctx.addIssue({
+      code: "custom",
+      message: "أجزاء الدفع يجب ألا تتجاوز منزلتين عشريتين",
+      path: ["remaining"],
+    });
+    return;
+  }
+
+  if (cents(parts[0]) + cents(parts[1]) + cents(parts[2]) !== cents(total)) {
+    ctx.addIssue({
+      code: "custom",
+      message: "مجموع (دفعه المالك + المدفوع الآن + المتبقي) يجب أن يساوي القيمة الكاملة",
+      path: ["remaining"],
+    });
+  }
+}
 
 /* =========================================================
    JOURNAL ENTRY
@@ -195,9 +261,25 @@ export const createManualJournalEntrySchema = z
 
     // عملة الحركة: المصروفات المحلية غالبًا بالجنيه، رأس المال غالبًا بالدولار
     currency: currencyEnum.default("USD"),
+
+    // الدفع المجزأ (للمصروف فقط)
+    ...splitPaymentFields,
   })
   .superRefine((data, ctx) => {
-    if (data.entryType === "EXPENSE" && !data.paymentMethod) {
+    if (data.entryType === "EXPENSE") {
+      validateSplitPayment(data, data.amount, ctx);
+    } else if (hasSplitPayment(data)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "الدفع المجزأ متاح للمصروفات والأصول فقط",
+        path: ["remaining"],
+      });
+    }
+
+    // طريقة الدفع مطلوبة فقط لو سيُدفع شيء من الخزنة/البنك الآن
+    const paysNow = hasSplitPayment(data) ? (data.paidNow ?? 0) > 0 : true;
+
+    if (data.entryType === "EXPENSE" && !data.paymentMethod && paysNow) {
       ctx.addIssue({
         code: "custom",
         message: "يجب تحديد طريقة الدفع للمصروف",
@@ -328,9 +410,12 @@ export const assetSchema = z.object({
     },
   ),
   notes: nullableOptionalString,
+  ...splitPaymentFields,
 });
 
-export const createAssetSchema = assetSchema;
+export const createAssetSchema = assetSchema.superRefine((data, ctx) => {
+  validateSplitPayment(data, data.purchaseValue, ctx);
+});
 
 /* =========================================================
    CURRENCY EXCHANGE (تحويل جنيه ⇄ دولار)
@@ -431,6 +516,16 @@ export interface Asset {
   notes: string | null;
 
   createdAt: string;
+
+  /** المستحق على الأصل لو سُدّد جزء منه فقط (الدفع المجزأ) */
+  payable?: {
+    id: string;
+    ownerPaid: number;
+    paidAmount: number;
+    remainingAmount: number;
+    dueDate: string | null;
+    status: "OPEN" | "PAID";
+  } | null;
 }
 
 export type AccountingAccount = z.infer<typeof accountingAccountEnum>;

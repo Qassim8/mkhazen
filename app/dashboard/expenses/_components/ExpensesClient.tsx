@@ -8,6 +8,10 @@ import PageHeader from "@/components/shared/PageHeader";
 import Pagination from "@/components/shared/Pagination";
 import Table from "@/components/shared/Table";
 import { formatMoney } from "@/lib/currency";
+import {
+  PayableHistoryModal,
+  PayPayableModal,
+} from "@/app/dashboard/accounting/_components/PayableModals";
 
 import type { MyExpense } from "../services/expenses.services";
 import ExpenseModal from "./ExpenseModal";
@@ -27,7 +31,80 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-const columns: ColumnDef<MyExpense, unknown>[] = [
+const SOURCE_LABELS: Record<MyExpense["source"], string> = {
+  CASH: "الخزينة",
+  BANK: "البنك",
+  CAPITAL: "دفعه المالك من ماله",
+  PAYABLE: "مستحق على المحل",
+};
+
+/** الجزء المتبقي من مصروف مجزأ: المتبقي وزر الدفع وسجل الدفعات */
+function PayableCell({ expense, onChanged }: { expense: MyExpense; onChanged: () => void }) {
+  const [modal, setModal] = useState<"pay" | "history" | null>(null);
+  const payable = expense.payable;
+
+  if (!payable) {
+    return <span className="text-xs font-semibold text-gray-600">{SOURCE_LABELS[expense.source]}</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-gray-600">{SOURCE_LABELS.PAYABLE}</p>
+      <p className="text-xs font-black text-amber-700">
+        {payable.status === "OPEN"
+          ? `المتبقي ${formatMoney(payable.remainingAmount, expense.currency)}`
+          : "سُدِّد بالكامل"}
+        {payable.status === "OPEN" && payable.dueDate && (
+          <span className="block text-[10px] font-normal text-gray-400">يستحق {payable.dueDate}</span>
+        )}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {payable.status === "OPEN" && (
+          <button
+            type="button"
+            onClick={() => setModal("pay")}
+            className="min-h-9 rounded-lg bg-(--primary-red) px-2.5 text-[11px] font-bold text-white hover:opacity-90"
+          >
+            دفع
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setModal("history")}
+          className="min-h-9 rounded-lg border border-gray-200 px-2.5 text-[11px] font-bold text-gray-700 hover:bg-gray-50"
+        >
+          السجل
+        </button>
+      </div>
+
+      {modal === "pay" && (
+        <PayPayableModal
+          payable={{
+            id: payable.id,
+            description: expense.description || "مصروف",
+            currency: expense.currency,
+            remainingAmount: payable.remainingAmount,
+          }}
+          onClose={() => setModal(null)}
+          onDone={() => {
+            setModal(null);
+            onChanged();
+          }}
+        />
+      )}
+      {modal === "history" && (
+        <PayableHistoryModal
+          payableId={payable.id}
+          title={expense.description || "مصروف"}
+          canViewAccounting={false}
+          onClose={() => setModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+const columns = (onChanged: () => void): ColumnDef<MyExpense, unknown>[] => [
   {
     accessorKey: "createdAt",
     header: "التاريخ",
@@ -67,11 +144,7 @@ const columns: ColumnDef<MyExpense, unknown>[] = [
   {
     accessorKey: "paymentMethod",
     header: "طريقة الدفع",
-    cell: ({ row }) => (
-      <span className="text-xs font-semibold text-gray-600">
-        {row.original.paymentMethod === "BANK" ? "البنك" : "الخزينة"}
-      </span>
-    ),
+    cell: ({ row }) => <PayableCell expense={row.original} onChanged={onChanged} />,
   },
   {
     accessorKey: "amount",
@@ -113,7 +186,7 @@ export default function ExpensesClient({ initialData, meta, allowRent }: Props) 
           <div className="p-12 text-center text-sm text-gray-500">لا توجد مصروفات مسجلة</div>
         ) : (
           <div className="w-full overflow-x-auto">
-            <Table data={initialData} columns={columns} />
+            <Table data={initialData} columns={columns(() => router.refresh())} />
           </div>
         )}
       </div>

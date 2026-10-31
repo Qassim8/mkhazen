@@ -16,6 +16,7 @@ import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { runIdempotentRpc } from "@/lib/idempotency";
 
 import { correctManualJournalEntrySchema } from "@/app/dashboard/accounting/schemas/accounting.schema";
+import { isSplitExpensePart } from "../../../_lib/accounting";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -59,6 +60,25 @@ export async function POST(request: Request, { params }: Props) {
 
     const { amount, currency, paymentMethod, account, reference, description, notes } =
       validation.data;
+
+    // أجزاء المصروف المجزأ (دفعه المالك / المدفوع الآن / المتبقي) مرتبطة بسجل المستحق
+    const { data: original } = await supabaseAdmin
+      .from("journal_entries")
+      .select("entry_number, credit_account")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (
+      original &&
+      (isSplitExpensePart(original.entry_number) ||
+        original.credit_account === "OTHER_PAYABLES" ||
+        original.credit_account === "CAPITAL")
+    ) {
+      return NextResponse.json(
+        { message: "لا يمكن تصحيح جزء من مصروف مجزأ؛ هو مرتبط بسجل المستحقات على المحل." },
+        { status: 422 },
+      );
+    }
 
     return await runIdempotentRpc<unknown>({
       request,

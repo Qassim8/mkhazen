@@ -115,6 +115,8 @@ export function computeBalances(allEntries: LedgerEntry[], currentRate: number |
     capital: round2(Math.abs(debitBalanceUsd(allEntries, "CAPITAL"))),
     supplierDebts: round2(Math.max(0, -debitBalanceUsd(allEntries, "SUPPLIERS"))),
     tailorsPayable: round2(Math.max(0, -debitBalanceUsd(allEntries, "TAILORS_PAYABLE"))),
+    // مستحقات أخرى على المحل (متبقي أصول/مصروفات لم يُسدَّد بعد)
+    otherPayables: round2(Math.max(0, -debitBalanceUsd(allEntries, "OTHER_PAYABLES"))),
     customerAdvances: round2(Math.max(0, -debitBalanceUsd(allEntries, "CUSTOMER_ADVANCES"))),
     assets: round2(Math.max(0, debitBalanceUsd(allEntries, "ASSETS"))),
     inventory: round2(Math.max(0, debitBalanceUsd(allEntries, "INVENTORY"))),

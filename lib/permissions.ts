@@ -50,6 +50,8 @@ export const PERMISSIONS = {
   "assets.create": ["owner", "admin", "cashier"],
   /** تسجيل مصروف يدوي وعرض مصروفات المستخدم نفسه فقط */
   "expenses.record": ["owner", "admin", "cashier"],
+  /** دفع المستحقات على المحل (متبقي الأصول والمصروفات): نفس من يسجّلها */
+  "payables.manage": ["owner", "admin", "cashier"],
 
   "reports.view": ["owner", "admin"],
   "dashboard.view": ["owner", "admin"],
@@ -142,6 +144,7 @@ const ROUTE_PERMISSIONS: { prefix: string; exact?: boolean; permission: Permissi
   { prefix: "/dashboard", exact: true, permission: "dashboard.view" },
   { prefix: "/dashboard/accounting/opening-balances", permission: "accounting.openingBalances" },
   { prefix: "/dashboard/accounting/assets", permission: "assets.create" },
+  { prefix: "/dashboard/accounting/payables", permission: "payables.manage" },
   { prefix: "/dashboard/expenses", permission: "expenses.record" },
   { prefix: "/dashboard/employees/payroll", permission: "payroll.manage" },
   { prefix: "/dashboard/accounting", permission: "accounting.view" },

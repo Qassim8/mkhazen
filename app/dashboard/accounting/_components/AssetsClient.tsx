@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { LuPlus } from "react-icons/lu";
+import { LuBanknote, LuHistory, LuPlus } from "react-icons/lu";
 
 import Table from "@/components/shared/Table";
 import TableFilter from "@/components/shared/TableFilter";
@@ -13,6 +14,7 @@ import { ResetFilters } from "@/components/shared/ResetFilters";
 
 import { Asset } from "../schemas/accounting.schema";
 import NewAssetModal from "./NewAssetsModal";
+import { PayableHistoryModal, PayPayableModal } from "./PayableModals";
 
 interface AssetsClientProps {
   initialData: Asset[];
@@ -74,7 +76,11 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-const columns: ColumnDef<Asset, unknown>[] = [
+function buildColumns(actions: {
+  onPay: (asset: Asset) => void;
+  onHistory: (asset: Asset) => void;
+}): ColumnDef<Asset, unknown>[] {
+  return [
   {
     accessorKey: "name",
     header: "الأصل",
@@ -166,14 +172,72 @@ const columns: ColumnDef<Asset, unknown>[] = [
       );
     },
   },
-];
+  {
+    id: "payable",
+    header: "المدفوع / المتبقي",
+    cell: ({ row }) => {
+      const asset = row.original;
+      const payable = asset.payable;
+
+      if (!payable) {
+        return <span className="text-xs font-semibold text-emerald-700">مدفوع بالكامل</span>;
+      }
+
+      const unit = asset.currency === "SDG" ? "ج.س" : "$";
+
+      return (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-gray-600">
+            المدفوع {formatNumber(payable.ownerPaid + payable.paidAmount)} {unit}
+          </p>
+          {payable.status === "OPEN" ? (
+            <p className="text-xs font-black text-amber-700">
+              المتبقي {formatNumber(payable.remainingAmount)} {unit}
+              {payable.dueDate && <span className="block text-[10px] font-normal text-gray-400">يستحق {payable.dueDate}</span>}
+            </p>
+          ) : (
+            <p className="text-xs font-black text-emerald-700">سُدِّد بالكامل</p>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {payable.status === "OPEN" && (
+              <button
+                type="button"
+                onClick={() => actions.onPay(asset)}
+                className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-(--primary-red) px-2.5 text-[11px] font-bold text-white hover:opacity-90"
+              >
+                <LuBanknote className="h-3.5 w-3.5" />
+                دفع
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => actions.onHistory(asset)}
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-gray-200 px-2.5 text-[11px] font-bold text-gray-700 hover:bg-gray-50"
+            >
+              <LuHistory className="h-3.5 w-3.5" />
+              السجل
+            </button>
+          </div>
+        </div>
+      );
+    },
+  },
+  ];
+}
 
 export default function AssetsClient({
   initialData,
   meta,
   totalValue,
 }: AssetsClientProps) {
+  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
+  const [payModal, setPayModal] = useState<{ kind: "pay" | "history"; asset: Asset } | null>(null);
+
+  const columns = buildColumns({
+    onPay: (asset) => setPayModal({ kind: "pay", asset }),
+    onHistory: (asset) => setPayModal({ kind: "history", asset }),
+  });
 
   return (
     <div dir="rtl" className="space-y-6 p-4 pb-12">
@@ -238,6 +302,30 @@ export default function AssetsClient({
       </div>
 
       {showModal && <NewAssetModal onClose={() => setShowModal(false)} />}
+
+      {payModal?.kind === "pay" && payModal.asset.payable && (
+        <PayPayableModal
+          payable={{
+            id: payModal.asset.payable.id,
+            description: `أصل: ${payModal.asset.name}`,
+            currency: payModal.asset.currency,
+            remainingAmount: payModal.asset.payable.remainingAmount,
+          }}
+          onClose={() => setPayModal(null)}
+          onDone={() => {
+            setPayModal(null);
+            router.refresh();
+          }}
+        />
+      )}
+      {payModal?.kind === "history" && payModal.asset.payable && (
+        <PayableHistoryModal
+          payableId={payModal.asset.payable.id}
+          title={`أصل: ${payModal.asset.name}`}
+          canViewAccounting
+          onClose={() => setPayModal(null)}
+        />
+      )}
     </div>
   );
 }

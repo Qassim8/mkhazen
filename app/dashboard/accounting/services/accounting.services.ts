@@ -259,6 +259,21 @@ function mapAsset(raw: Record<string, unknown>): Asset {
     reference: raw.reference != null ? String(raw.reference) : null,
     notes: raw.notes != null ? String(raw.notes) : null,
     createdAt: String(raw.created_at ?? ""),
+    payable: mapAssetPayable(raw.payable),
+  };
+}
+
+function mapAssetPayable(raw: unknown): Asset["payable"] {
+  if (!raw || typeof raw !== "object") return null;
+  const payable = raw as Record<string, unknown>;
+
+  return {
+    id: String(payable.id ?? ""),
+    ownerPaid: Number(payable.owner_paid ?? 0),
+    paidAmount: Number(payable.paid_amount ?? 0),
+    remainingAmount: Number(payable.remaining_amount ?? 0),
+    dueDate: payable.due_date != null ? String(payable.due_date) : null,
+    status: payable.status === "PAID" ? "PAID" : "OPEN",
   };
 }
 
@@ -340,6 +355,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   WORK_IN_PROGRESS: "أعمال قيد التنفيذ",
   DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   SUPPLIERS: "الموردون",
+  OTHER_PAYABLES: "مستحقات أخرى",
   CUSTOMER_ADVANCES: "عربون العملاء",
   TAILOR_ADVANCES: "سلف الخياطين",
   TAILORS_PAYABLE: "مستحقات الخياطين",
@@ -375,6 +391,7 @@ export const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   COGS: "تكلفة البضاعة المباعة",
   EXPENSE: "مصروف",
   ASSET: "أصل",
+  PAYABLE_PAYMENT: "دفعة مستحق",
   INVENTORY_ADJUSTMENT: "تسوية مخزون",
   SALES_RETURN: "مرتجع مبيعات",
   GIFT: "هدية",
@@ -392,6 +409,8 @@ export interface AccountingOverviewCards {
   netProfit: number;
   supplierDebts: number;
   tailorsPayable: number;
+  /** مستحقات أخرى على المحل: متبقي أصول/مصروفات (رصيد OTHER_PAYABLES) */
+  otherPayables?: number;
   customerAdvances: number;
   capital: number;
   cashUsd: number;
@@ -436,6 +455,23 @@ export interface AccountingReceivables {
   totalLossUsd: number;
 }
 
+export interface AccountingPayablesBucket {
+  count: number;
+  overdueCount: number;
+  remainingSdg: number;
+  remainingUsdNative: number;
+  /** الرصيد الدفتري بالدولار (حساب OTHER_PAYABLES) */
+  bookUsd: number;
+}
+
+/** المستحقات على المحل: متبقي الأصول والمصروفات (جدول المستحقات) وديون الموردين (المشتريات) */
+export interface AccountingPayables {
+  assets: AccountingPayablesBucket;
+  expenses: AccountingPayablesBucket;
+  supplierDebts: number;
+  totalUsd: number;
+}
+
 export interface AccountingOverview {
   year: number;
   /** السنوات المالية المتاحة (الأحدث أولًا) */
@@ -444,6 +480,7 @@ export interface AccountingOverview {
   exchangeRate?: number | null;
   cards: AccountingOverviewCards;
   receivables?: AccountingReceivables;
+  payables?: AccountingPayables;
   monthly: AccountingOverviewMonth[];
   expenseBreakdown: AccountingOverviewExpense[];
 }

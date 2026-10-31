@@ -44,8 +44,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "حدث خطأ أثناء جلب المصروفات" }, { status: 500 });
     }
 
+    // المستحق المرتبط بكل قيد "مستحق على المحل" (الدفع المجزأ)
+    const payableEntryIds = (data ?? [])
+      .filter((row) => row.credit_account === "OTHER_PAYABLES")
+      .map((row) => row.id as string);
+
+    const { data: payableRows, error: payablesError } = payableEntryIds.length
+      ? await supabaseAdmin
+          .from("payables")
+          .select("id, recognition_entry_id, total_amount, owner_paid, paid_amount, remaining_amount, due_date, status")
+          .in("recognition_entry_id", payableEntryIds)
+      : { data: [], error: null };
+
+    if (payablesError) {
+      console.error("Expenses payables:", payablesError);
+      return NextResponse.json({ message: "حدث خطأ أثناء جلب المصروفات" }, { status: 500 });
+    }
+
+    const payableByEntry = new Map((payableRows ?? []).map((row) => [row.recognition_entry_id as string, row]));
+
     return NextResponse.json({
-      data: (data ?? []).map((row) => ({
+      data: (data ?? []).map((row) => {
+        const payable = payableByEntry.get(row.id as string);
+        return {
         id: row.id,
         entryNumber: row.entry_number,
         amount: Number(row.amount),
@@ -55,8 +76,29 @@ export async function GET(request: Request) {
         reference: row.reference,
         expenseAccount: row.debit_account,
         paymentMethod: row.credit_account === "BANK" ? "BANK" : "CASH",
+        // مصدر الدفع: خزينة / بنك / رأس مال (دفعه المالك) / مستحق على المحل
+        source:
+          row.credit_account === "BANK"
+            ? "BANK"
+            : row.credit_account === "CAPITAL"
+              ? "CAPITAL"
+              : row.credit_account === "OTHER_PAYABLES"
+                ? "PAYABLE"
+                : "CASH",
+        payable: payable
+          ? {
+              id: payable.id,
+              totalAmount: Number(payable.total_amount),
+              ownerPaid: Number(payable.owner_paid),
+              paidAmount: Number(payable.paid_amount),
+              remainingAmount: Number(payable.remaining_amount),
+              dueDate: payable.due_date,
+              status: payable.status,
+            }
+          : null,
         createdAt: row.created_at,
-      })),
+        };
+      }),
       meta: {
         total: count ?? 0,
         page,

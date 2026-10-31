@@ -28,6 +28,7 @@ const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   WORK_IN_PROGRESS: "إنتاج تحت التشغيل",
   DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   SUPPLIERS: "الموردون",
+  OTHER_PAYABLES: "مستحقات أخرى",
   CAPITAL: "رأس المال",
   SALES: "المبيعات",
   CUSTOMER_ADVANCES: "عربون العملاء",
@@ -74,6 +75,7 @@ const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
 
   EXPENSE: "مصروف",
   ASSET: "أصل",
+  PAYABLE_PAYMENT: "دفعة مستحق",
 
   GIFT: "هدية",
   CURRENCY_EXCHANGE: "تحويل عملة",
@@ -270,6 +272,15 @@ function getColumns(
       const isReversal = raw.is_correction_reversal === true;
 
       if (!onEdit || isReversal || !CORRECTABLE_TYPES.includes(type)) {
+        return null;
+      }
+
+      // أجزاء المصروف المجزأ مرتبطة بسجل المستحق فلا تُصحَّح منفردة
+      if (
+        raw.credit_account === "OTHER_PAYABLES" ||
+        raw.credit_account === "CAPITAL" && type === "EXPENSE" ||
+        /^JE-\d{4}-[0-9A-F]{10}-[CPR]$/.test(String(raw.entry_number ?? ""))
+      ) {
         return null;
       }
 

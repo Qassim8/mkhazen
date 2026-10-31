@@ -52,6 +52,7 @@ const ENTRY_TYPES = [
   { value: "SALE", label: "بيع" },
   { value: "EXPENSE", label: "مصروف" },
   { value: "ASSET", label: "أصل" },
+  { value: "PAYABLE_PAYMENT", label: "دفعة مستحق" },
   { value: "OTHER", label: "أخرى" },
 ];
 

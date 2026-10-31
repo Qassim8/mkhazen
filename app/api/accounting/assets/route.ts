@@ -103,8 +103,37 @@ export async function GET(request: Request) {
       throw new Error(error?.message ?? valueError?.message);
     }
 
+    // المستحق على كل أصل (لو سُدّد جزء منه فقط)
+    const assetIds = (data ?? []).map((asset) => asset.id as string);
+    const { data: payableRows, error: payablesError } = assetIds.length
+      ? await supabaseAdmin
+          .from("payables")
+          .select("id, source_id, owner_paid, paid_amount, remaining_amount, due_date, status")
+          .eq("source_type", "ASSET")
+          .in("source_id", assetIds)
+      : { data: [], error: null };
+
+    if (payablesError) throw new Error(payablesError.message);
+
+    const payableByAsset = new Map((payableRows ?? []).map((row) => [row.source_id as string, row]));
+
     return NextResponse.json({
-      data: data ?? [],
+      data: (data ?? []).map((asset) => {
+        const payable = payableByAsset.get(asset.id as string);
+        return {
+          ...asset,
+          payable: payable
+            ? {
+                id: payable.id,
+                owner_paid: Number(payable.owner_paid),
+                paid_amount: Number(payable.paid_amount),
+                remaining_amount: Number(payable.remaining_amount),
+                due_date: payable.due_date,
+                status: payable.status,
+              }
+            : null,
+        };
+      }),
       meta: {
         total: count ?? 0,
         page,
@@ -177,6 +206,9 @@ export async function POST(request: Request) {
         ? purchaseDate.toISOString().split("T")[0]
         : String(purchaseDate).split("T")[0];
 
+    const { ownerPaid, paidNow, remaining, dueDate } = validation.data;
+    const isSplit = ownerPaid !== undefined || paidNow !== undefined || remaining !== undefined;
+
     // فحص الرصيد (بعملة الدفع) بقى جوه الدالة نفسها عشان يكون ذري
     const entryNumber = `AST-${Date.now()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
 
@@ -201,13 +233,20 @@ export async function POST(request: Request) {
           p_notes: notes ?? null,
           p_entry_number: entryNumber,
           p_currency: currency,
+          // الدفع المجزأ (اختياري): بدونه كل القيمة مدفوعة الآن كالسابق
+          p_owner_paid: ownerPaid ?? null,
+          p_paid_now: paidNow ?? null,
+          p_remaining: remaining ?? null,
+          p_due_date: dueDate ?? null,
         }),
       onSuccess: async (assetData) => {
         await notifyOwnerOfCashierAction({
           actor: user,
           kind: "ASSET",
           title: "تسجيل أصل جديد من الكاشير",
-          details: `سجّل أصلًا «${name}» بقيمة ${money(purchaseValue, currency)} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"})`,
+          details: isSplit
+            ? `سجّل أصلًا «${name}» بقيمة ${money(purchaseValue, currency)} — دفعه المالك ${money(ownerPaid ?? 0, currency)}، مدفوع الآن ${money(paidNow ?? 0, currency)} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"})، والمتبقي ${money(remaining ?? 0, currency)}`
+            : `سجّل أصلًا «${name}» بقيمة ${money(purchaseValue, currency)} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"})`,
           link: "/dashboard/accounting/assets",
           amount: purchaseValue,
           currency,
