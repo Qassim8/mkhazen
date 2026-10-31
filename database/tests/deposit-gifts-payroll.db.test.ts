@@ -63,11 +63,14 @@ describe("deposit transfer, gifts, opening balances, payroll (20261014_01)", () 
   after(() => db.close());
 
   it("is re-runnable and keeps the verify checks green; tailors get canLogin = false", async () => {
+    // get_payroll صار بأعمدة مختلفة في 20261029_01 (الإطلاق الفعلي لا يعيد 20261014 بعده)
+    await db.exec(`DROP FUNCTION IF EXISTS public.get_payroll(uuid, date)`);
     await db.exec(sql(M.depositGiftsPayroll));
     // 20261014 يعيد تعريف دوال أحدث منه: نعيد تطبيق اللاحق بترتيبه (كما في الإطلاق الفعلي)
     await db.exec(sql(M.openingRepeatable));
     await db.exec(sql(M.flexiblePrice));
     await db.exec(sql(M.creditSales));
+    await db.exec(sql(M.flexiblePayroll));
     await db.exec(sql(M.reassert));
     const { failed, raised } = await runVerify(db);
     assert.deepEqual(failed, []);
@@ -172,30 +175,31 @@ describe("deposit transfer, gifts, opening balances, payroll (20261014_01)", () 
     assert.equal(num(journal.rows[0].s), 100, "10×4 + 10×6 → DR INVENTORY / CR CAPITAL");
   });
 
-  it("payroll: advances + salary never above the monthly salary; SALARIES expense in SDG", async () => {
+  it("payroll: salary is a free SALARIES expense in SDG; an advance is an asset (EMPLOYEE_ADVANCES), not an expense", async () => {
+    // (قبل 20261029_01 كانت السلفة والراتب مقيدين بالراتب الشهري؛ التفاصيل الجديدة في flexible-payroll.db.test.ts)
     await db.query(`UPDATE public.users SET salary = 300000 WHERE id = $1`, [users.cashier]);
     const period = new Date().toISOString().slice(0, 7) + "-01";
     const pay = (type: string, amount: number, employee = users.cashier) =>
       svc<{ r: Record<string, unknown> }>(
-        `SELECT public.pay_employee($1, $2, $3, $4::date, $5, $6, 'CASH', NULL) AS r`,
+        `SELECT public.pay_employee($1, $2, $3, $4::date, $5, $6, 'CASH', NULL, 0) AS r`,
         [BRANCH_ID, users.admin, employee, period, type, amount],
       );
 
     assert.match(await rpcError(pay("SALARY", 1000, users.tailor)), /مستحقات الخياطين/);
     const before = await ledger();
     await pay("ADVANCE", 100_000);
-    assert.match(await rpcError(pay("ADVANCE", 200_001)), /تتجاوز الراتب/);
-    const { rows } = await pay("SALARY", 200_000);
-    assert.equal(num(rows[0].r.remaining), 0);
-    assert.match(await rpcError(pay("SALARY", 1)), /يتجاوز المتبقي/);
+    await pay("SALARY", 200_000);
 
     const after = await ledger();
     assert.equal(after.b.cashSdg, before.b.cashSdg - 300_000);
-    assert.equal(after.p.expenses, before.p.expenses + 120, "300,000 SDG / 2500");
+    assert.equal(after.p.expenses, before.p.expenses + 80, "only the 200,000 salary is an expense (÷ 2500); the advance is an asset");
 
     const payroll = await svc<Record<string, string>>(`SELECT * FROM public.get_payroll($1, $2::date)`, [BRANCH_ID, period]);
     const row = payroll.rows.find((r) => r.user_id === users.cashier)!;
-    assert.deepEqual([num(row.salary_sdg), num(row.advances_sdg), num(row.salary_paid_sdg), num(row.remaining_sdg)], [300_000, 100_000, 200_000, 0]);
+    assert.deepEqual(
+      [num(row.salary_sdg), num(row.advances_month_sdg), num(row.salary_paid_sdg), num(row.advance_balance_sdg)],
+      [300_000, 100_000, 200_000, 100_000],
+    );
   });
 
   it("tailor month summary: month dues, taken, current remaining", async () => {

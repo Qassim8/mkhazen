@@ -37,6 +37,7 @@ DECLARE
     'merge_customers', 'find_duplicate_customers',
     'resolve_customer_by_phone', 'get_unified_receivables',
     'record_expense_with_payable', 'pay_payable', 'get_payables_summary',
+    'get_employee_advances_summary',
     'get_payroll', 'pay_employee', 'get_tailor_month_summary',
     'get_current_exchange_rate', 'ledger_period_totals',
     'maintain_notifications', 'process_inventory_adjustment',

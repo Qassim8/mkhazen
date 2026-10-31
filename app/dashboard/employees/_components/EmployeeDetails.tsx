@@ -79,27 +79,37 @@ export default function EmployeeViewContent({ initialData }: Props) {
         <div>
           <div className="col-span-2 rounded-2xl border border-gray-100 bg-gray-50/50 p-3.5">
             <span className="block text-xs text-gray-400 mb-1">
-              {initialData.position === "tailor" ? "مستحقات هذا الشهر" : "الراتب هذا الشهر"}
+              {initialData.position === "tailor" ? "مستحقات هذا الشهر" : "الراتب والسلف هذا الشهر"}
             </span>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div>
                 <span className="block text-gray-400">
-                  {initialData.position === "tailor" ? "المستحق" : "الراتب"}
+                  {initialData.position === "tailor" ? "المستحق" : "الراتب (مقترح)"}
                 </span>
                 <strong className="text-gray-900">
-                  {formatSDG(
-                    initialData.monthSummary?.dueSdg ??
-                      (initialData.position === "tailor" ? 0 : initialData.salary ?? 0),
-                  )}
+                  {initialData.position !== "tailor" && !(initialData.monthSummary?.dueSdg ?? initialData.salary)
+                    ? "—"
+                    : formatSDG(
+                        initialData.monthSummary?.dueSdg ??
+                          (initialData.position === "tailor" ? 0 : initialData.salary ?? 0),
+                      )}
                 </strong>
               </div>
               <div>
-                <span className="block text-gray-400">المأخوذ</span>
+                <span className="block text-gray-400">{initialData.position === "tailor" ? "المأخوذ" : "المدفوع"}</span>
                 <strong className="text-gray-900">{formatSDG(initialData.monthSummary?.takenSdg ?? 0)}</strong>
               </div>
               <div>
-                <span className="block text-gray-400">المتبقي</span>
-                <strong className="text-gray-900">{formatSDG(initialData.monthSummary?.remainingSdg ?? 0)}</strong>
+                <span className="block text-gray-400">
+                  {initialData.position === "tailor" ? "المتبقي" : "رصيد السلف"}
+                </span>
+                <strong className="text-gray-900">
+                  {formatSDG(
+                    initialData.position === "tailor"
+                      ? (initialData.monthSummary?.remainingSdg ?? 0)
+                      : (initialData.monthSummary?.advanceBalanceSdg ?? 0),
+                  )}
+                </strong>
               </div>
             </div>
           </div>

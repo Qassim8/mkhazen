@@ -125,6 +125,8 @@ export function computeBalances(allEntries: LedgerEntry[], currentRate: number |
     deferredCogs: round2(Math.max(0, debitBalanceUsd(allEntries, "DEFERRED_COGS"))),
     // دفعات اتدفعت للخياط قبل ما تكلفة الطلب تتثبت (أصل لحين التسوية)
     tailorAdvances: round2(Math.max(0, debitBalanceUsd(allEntries, "TAILOR_ADVANCES"))),
+    // سلف الموظفين (أصل): تُسترد نقدًا أو تُخصم من الراتب
+    employeeAdvances: round2(Math.max(0, debitBalanceUsd(allEntries, "EMPLOYEE_ADVANCES"))),
   };
 }
 

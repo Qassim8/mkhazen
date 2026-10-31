@@ -44,6 +44,9 @@ export const accountingAccountEnum = z.enum([
   "TAILOR_ADVANCES",
   "TAILORS_PAYABLE",
 
+  // سلف الموظفين (أصل): سلفة تُسترد نقدًا أو تُخصم من الراتب
+  "EMPLOYEE_ADVANCES",
+
   "SALES",
   "COGS",
 
@@ -92,6 +95,9 @@ export const journalEntryTypeEnum = z.enum([
 
   // دفعة على مستحق (OTHER_PAYABLES ← الخزينة/البنك)
   "PAYABLE_PAYMENT",
+
+  // سلفة موظف أو استرداد سلفة (EMPLOYEE_ADVANCES)
+  "EMPLOYEE_ADVANCE",
 
   "INVENTORY_ADJUSTMENT",
   "SALES_RETURN",

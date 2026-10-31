@@ -29,6 +29,7 @@ const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   SUPPLIERS: "الموردون",
   OTHER_PAYABLES: "مستحقات أخرى",
+  EMPLOYEE_ADVANCES: "سلف الموظفين",
   CAPITAL: "رأس المال",
   SALES: "المبيعات",
   CUSTOMER_ADVANCES: "عربون العملاء",
@@ -76,6 +77,7 @@ const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   EXPENSE: "مصروف",
   ASSET: "أصل",
   PAYABLE_PAYMENT: "دفعة مستحق",
+  EMPLOYEE_ADVANCE: "سلفة موظف",
 
   GIFT: "هدية",
   CURRENCY_EXCHANGE: "تحويل عملة",

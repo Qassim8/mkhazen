@@ -89,11 +89,23 @@ const EmployeesTable = ({ initialData }: Props) => {
           );
         }
 
+        if (summary.kind === "SALARY") {
+          return (
+            <div className="space-y-0.5 text-xs text-gray-600">
+              {summary.dueSdg > 0 && <p>الراتب (مقترح): {formatSDG(summary.dueSdg)}</p>}
+              <p>المدفوع هذا الشهر: {formatSDG(summary.takenSdg)}</p>
+              <p>
+                رصيد السلف:{" "}
+                <strong className="text-gray-900">{formatSDG(summary.advanceBalanceSdg ?? 0)}</strong>
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-0.5 text-xs text-gray-600">
             <p>
-              {summary.kind === "TAILOR" ? "المستحق" : "الراتب"}:{" "}
-              <strong className="text-gray-900">{formatSDG(summary.dueSdg)}</strong>
+              المستحق: <strong className="text-gray-900">{formatSDG(summary.dueSdg)}</strong>
             </p>
             <p>المأخوذ: {formatSDG(summary.takenSdg)}</p>
             <p>

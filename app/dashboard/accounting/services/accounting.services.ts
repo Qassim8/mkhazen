@@ -356,6 +356,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   DEFERRED_COGS: "تكلفة بضاعة مباعة بالآجل",
   SUPPLIERS: "الموردون",
   OTHER_PAYABLES: "مستحقات أخرى",
+  EMPLOYEE_ADVANCES: "سلف الموظفين",
   CUSTOMER_ADVANCES: "عربون العملاء",
   TAILOR_ADVANCES: "سلف الخياطين",
   TAILORS_PAYABLE: "مستحقات الخياطين",
@@ -392,6 +393,7 @@ export const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   EXPENSE: "مصروف",
   ASSET: "أصل",
   PAYABLE_PAYMENT: "دفعة مستحق",
+  EMPLOYEE_ADVANCE: "سلفة موظف",
   INVENTORY_ADJUSTMENT: "تسوية مخزون",
   SALES_RETURN: "مرتجع مبيعات",
   GIFT: "هدية",
@@ -425,6 +427,8 @@ export interface AccountingOverviewCards {
   /** رصيد DEFERRED_COGS: تكلفة بضاعة مباعة بالآجل لم يُحصَّل ثمنها بعد (أصل) */
   deferredCogs?: number;
   tailorAdvances: number;
+  /** سلف الموظفين (رصيد EMPLOYEE_ADVANCES): أصل */
+  employeeAdvances?: number;
 }
 
 export interface AccountingOverviewMonth {

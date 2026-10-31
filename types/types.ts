@@ -70,10 +70,14 @@ export interface Employee {
   /** ملخص الشهر الحالي (من الرواتب والسلف) */
   monthSummary?: {
     kind: "SALARY" | "TAILOR";
-    /** الراتب، أو مستحقات الخياط في الشهر */
+    /** الراتب المسجل (اقتراح فقط)، أو مستحقات الخياط في الشهر */
     dueSdg: number;
+    /** المأخوذ: للموظف ما دُفع له هذا الشهر (راتب + عمولة)، وللخياط السلف والدفعات */
     takenSdg: number;
+    /** للخياط فقط: المتبقي من مستحقاته */
     remainingSdg: number;
+    /** للموظف فقط: رصيد السلف (السلف − المسترد − المخصوم) */
+    advanceBalanceSdg?: number;
   };
   resetRequested?: boolean;
   job?: string;

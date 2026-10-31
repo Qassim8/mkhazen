@@ -37,7 +37,13 @@ const Employees = async ({ searchParams }: PageProps) => {
       monthSummary: tailor
         ? { kind: "TAILOR" as const, dueSdg: tailor.monthDuesSdg, takenSdg: tailor.monthTakenSdg, remainingSdg: tailor.remainingSdg }
         : salary
-          ? { kind: "SALARY" as const, dueSdg: salary.salarySdg, takenSdg: salary.takenSdg, remainingSdg: salary.remainingSdg }
+          ? {
+              kind: "SALARY" as const,
+              dueSdg: salary.salarySdg,
+              takenSdg: salary.salaryPaidSdg + salary.commissionPaidSdg,
+              remainingSdg: 0,
+              advanceBalanceSdg: salary.advanceBalanceSdg,
+            }
           : undefined,
     };
   });

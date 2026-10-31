@@ -16,6 +16,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   INVENTORY: "المخزون",
   SUPPLIERS: "الموردون",
   OTHER_PAYABLES: "مستحقات أخرى",
+  EMPLOYEE_ADVANCES: "سلف الموظفين",
   CAPITAL: "رأس المال",
   SALES: "المبيعات",
   CUSTOMER_ADVANCES: "عربون العملاء",

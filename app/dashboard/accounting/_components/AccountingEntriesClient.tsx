@@ -53,6 +53,7 @@ const ENTRY_TYPES = [
   { value: "EXPENSE", label: "مصروف" },
   { value: "ASSET", label: "أصل" },
   { value: "PAYABLE_PAYMENT", label: "دفعة مستحق" },
+  { value: "EMPLOYEE_ADVANCE", label: "سلفة موظف" },
   { value: "OTHER", label: "أخرى" },
 ];
 

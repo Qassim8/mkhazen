@@ -8,11 +8,16 @@ export interface PayrollEmployeeRow {
   role: string;
   position: string | null;
   isActive: boolean;
+  /** الراتب المسجل (اقتراح فقط؛ اختياري) */
   salarySdg: number;
-  advancesSdg: number;
+  /** رصيد السلف = السلف − المسترد − المخصوم من الرواتب */
+  advanceBalanceSdg: number;
+  /** حركات الشهر المختار */
+  advancesMonthSdg: number;
+  returnedMonthSdg: number;
+  deductedMonthSdg: number;
   salaryPaidSdg: number;
-  takenSdg: number;
-  remainingSdg: number;
+  commissionPaidSdg: number;
 }
 
 export interface PayrollTailorRow {
@@ -61,10 +66,12 @@ export async function loadPayrollMonth(period: string): Promise<PayrollMonth> {
       position: row.position != null ? String(row.position) : null,
       isActive: row.is_active !== false,
       salarySdg: n(row.salary_sdg),
-      advancesSdg: n(row.advances_sdg),
+      advanceBalanceSdg: n(row.advance_balance_sdg),
+      advancesMonthSdg: n(row.advances_month_sdg),
+      returnedMonthSdg: n(row.returned_month_sdg),
+      deductedMonthSdg: n(row.deducted_month_sdg),
       salaryPaidSdg: n(row.salary_paid_sdg),
-      takenSdg: n(row.taken_sdg),
-      remainingSdg: n(row.remaining_sdg),
+      commissionPaidSdg: n(row.commission_paid_sdg),
     })),
     tailors: ((tailors.data ?? []) as Record<string, unknown>[]).map((row) => ({
       tailorId: String(row.tailor_id),
