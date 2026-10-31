@@ -4,6 +4,8 @@
  * نافذة حركة مالية لموظف (بالجنيه) — تُستخدم من صفحة الرواتب وصفحة الموظف:
  *   ADVANCE        سلفة: مبلغ مفتوح غير مرتبط بالراتب (EMPLOYEE_ADVANCES ← الخزينة/البنك)
  *   ADVANCE_RETURN استرداد نقدي: لا يتجاوز رصيد السلف
+ *   SALARY         دفع راتب بأي مبلغ وفي أي وقت (الراتب المسجل مجرد اقتراح)، مع ملاحظة للفترة،
+ *                  وخيار "خصم من رصيد السلف" (الراتب كاملًا مصروف، والصافي من الخزينة/البنك)
  */
 
 import { useState } from "react";
@@ -14,7 +16,7 @@ import { serverFetch } from "@/lib/api-client";
 import { formatSDG } from "@/lib/currency";
 import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 
-export type EmployeePayType = "ADVANCE" | "ADVANCE_RETURN";
+export type EmployeePayType = "ADVANCE" | "ADVANCE_RETURN" | "SALARY";
 
 export interface PayEmployeeTarget {
   userId: string;
@@ -44,13 +46,23 @@ export default function EmployeePayModal({
   const idempotency = useIdempotencyKey();
 
   const [amount, setAmount] = useState(type === "ADVANCE_RETURN" ? String(employee.advanceBalanceSdg) : "");
+  const [month, setMonth] = useState(period.slice(0, 7));
+  const [deductOn, setDeductOn] = useState(false);
+  const [deduct, setDeduct] = useState("");
   const [method, setMethod] = useState<"CASH" | "BANK">("CASH");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   const value = Number(amount);
+  const deductValue = deductOn ? Number(deduct) || 0 : 0;
+  const net = Math.round((value - deductValue) * 100) / 100;
 
-  const title = type === "ADVANCE" ? `سلفة للموظف ${employee.name}` : `استرداد سلفة من ${employee.name}`;
+  const title =
+    type === "ADVANCE"
+      ? `سلفة للموظف ${employee.name}`
+      : type === "ADVANCE_RETURN"
+        ? `استرداد سلفة من ${employee.name}`
+        : `دفع راتب ${employee.name}`;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -65,12 +77,28 @@ export default function EmployeePayModal({
       return;
     }
 
+    if (type === "SALARY" && deductOn) {
+      if (!(deductValue > 0)) {
+        toast.error("أدخل مبلغ الخصم من السلف.");
+        return;
+      }
+      if (deductValue > employee.advanceBalanceSdg) {
+        toast.error(`الخصم يتجاوز رصيد السلف (${formatSDG(employee.advanceBalanceSdg)}).`);
+        return;
+      }
+      if (deductValue > value) {
+        toast.error("المخصوم يتجاوز مبلغ الراتب.");
+        return;
+      }
+    }
+
     const payload = {
       employeeId: employee.userId,
-      period,
+      period: type === "SALARY" ? `${month}-01` : period,
       type,
       amount: value,
       paymentMethod: method,
+      ...(type === "SALARY" && deductOn ? { deductAdvance: deductValue } : {}),
       notes: notes.trim() || null,
     };
 
@@ -106,9 +134,34 @@ export default function EmployeePayModal({
           <span className="block">
             {type === "ADVANCE"
               ? "مبلغ مفتوح غير مرتبط بالراتب، وليس مصروفًا: يُسترد نقدًا أو يُخصم من راتب لاحق."
-              : "يدخل المبلغ الخزينة أو البنك ويُنقص رصيد السلف، ولا يتجاوز الرصيد."}
+              : type === "ADVANCE_RETURN"
+                ? "يدخل المبلغ الخزينة أو البنك ويُنقص رصيد السلف، ولا يتجاوز الرصيد."
+                : "مصروف رواتب بأي مبلغ وفي أي وقت؛ الراتب المسجل مجرد اقتراح."}
           </span>
+          {type === "SALARY" && employee.salarySdg > 0 && (
+            <button
+              type="button"
+              onClick={() => setAmount(String(employee.salarySdg))}
+              className="mt-1 font-bold text-(--primary-red) underline"
+            >
+              استخدام الراتب المسجل ({formatSDG(employee.salarySdg)})
+            </button>
+          )}
         </p>
+
+        {type === "SALARY" && (
+          <label className="block">
+            <span className="text-xs font-bold text-gray-600">الفترة (ملاحظة للشهر الذي يخصه الراتب)</span>
+            <input
+              type="month"
+              value={month}
+              max={period.slice(0, 7)}
+              onChange={(event) => event.target.value && setMonth(event.target.value)}
+              disabled={saving}
+              className={FIELD}
+            />
+          </label>
+        )}
 
         <label className="block">
           <span className="text-xs font-bold text-gray-600">المبلغ (ج.س)</span>
@@ -124,9 +177,47 @@ export default function EmployeePayModal({
           />
         </label>
 
+        {type === "SALARY" && employee.advanceBalanceSdg > 0 && (
+          <div className="space-y-2 rounded-xl border border-gray-200 p-3">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-gray-700">
+              <input
+                type="checkbox"
+                checked={deductOn}
+                disabled={saving}
+                onChange={(event) => {
+                  setDeductOn(event.target.checked);
+                  if (event.target.checked && !deduct) {
+                    setDeduct(String(Math.min(employee.advanceBalanceSdg, value > 0 ? value : employee.advanceBalanceSdg)));
+                  }
+                }}
+              />
+              خصم من رصيد السلف ({formatSDG(employee.advanceBalanceSdg)})
+            </label>
+            {deductOn && (
+              <>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={deduct}
+                  onChange={(event) => setDeduct(event.target.value)}
+                  disabled={saving}
+                  placeholder="المبلغ المخصوم"
+                  className={FIELD}
+                />
+                <p className="text-[11px] text-gray-500">
+                  الراتب كاملًا مصروف رواتب، ويُدفع من الخزينة/البنك الصافي فقط:{" "}
+                  <strong>{formatSDG(Math.max(net, 0))}</strong>
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
         <label className="block">
           <span className="text-xs font-bold text-gray-600">
-            {type === "ADVANCE" ? "تُدفع من" : "تُستلم في"}
+            {type === "ADVANCE_RETURN" ? "تُستلم في" : "تُدفع من"}
           </span>
           <select
             value={method}

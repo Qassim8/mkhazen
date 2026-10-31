@@ -47,7 +47,7 @@ export default function UpdateModalContent({
       isActive:
         initialData.isActive === "TRUE" || initialData.isActive === true,
       canLogin: initialData.canLogin !== false,
-      salary: initialData.salary ?? 0,
+      salary: initialData.salary ? initialData.salary : undefined,
     },
   });
 
@@ -143,6 +143,7 @@ export default function UpdateModalContent({
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-gray-700">
               الراتب الأساسي
+              <span className="mr-1 text-xs font-normal text-gray-400">اختياري — اقتراح فقط عند صرف الراتب</span>
             </label>
             <input
               type="number"

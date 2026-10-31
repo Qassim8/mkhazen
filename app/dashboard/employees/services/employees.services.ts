@@ -42,7 +42,12 @@ export const updateEmployee = async (id: string, data: UpdateEmployeeInput) => {
   const payload = {
     ...rest,
     isActive: Boolean(data.isActive),
-    salary: !isTailor ? Number(data.salary ?? 0) : 0,
+    // الراتب اختياري: فارغ = لا راتب مسجل (NULL)
+    salary: isTailor
+      ? 0
+      : data.salary === undefined || data.salary === null || Number.isNaN(Number(data.salary))
+        ? null
+        : Number(data.salary),
   };
 
   return serverFetch<{ message: string; data: Employee }>(`/api/users/${id}`, {

@@ -193,6 +193,11 @@ export async function PUT(request: Request, { params }: Params) {
 
       Object.assign(updatePayload, validation.data);
 
+      // مسح الراتب (اختياري): قيمة فارغة تعني لا راتب مسجل
+      if (Object.prototype.hasOwnProperty.call(body, "salary") && (body.salary === null || body.salary === "")) {
+        updatePayload.salary = null;
+      }
+
       if (validation.data.position) {
         const nextRole = positionToRoleMap[validation.data.position] || "tailor";
 

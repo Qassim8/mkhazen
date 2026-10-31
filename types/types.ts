@@ -59,7 +59,7 @@ export interface Employee {
   phone?: string;
   email?: string;
   position?: "system_manager" | "tailor" | "cashier";
-  salary?: number;
+  salary?: number | null;
   commissionRate?: number;
   address?: string;
   shift?: "morning" | "night" | "full_time" | "Morning" | "Night" | "Flexible";

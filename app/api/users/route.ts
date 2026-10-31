@@ -128,7 +128,8 @@ export async function POST(request: Request) {
     }
     const isTailor = position === "tailor";
 
-    const finalSalary = isTailor ? 0 : salary || 0;
+    // الراتب اختياري: بدونه NULL (يظهر كاقتراح فقط عند الصرف)
+    const finalSalary = isTailor ? 0 : (salary ?? null);
     const finalCommission = isTailor ? (commissionRate ?? 50) : 0;
 
     // كلمة سر مؤقتة عشوائية (مش مشتقة من البريد) بتظهر مرة واحدة للي أنشأ الحساب،

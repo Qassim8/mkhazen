@@ -179,13 +179,14 @@ export default function PayrollClient({ data, initialTab }: { data: PayrollMonth
                   <th className="px-4 py-3 text-right">الراتب (مقترح)</th>
                   <th className="px-4 py-3 text-right">رصيد السلف</th>
                   <th className="px-4 py-3 text-right">سلف هذا الشهر</th>
+                  <th className="px-4 py-3 text-right">رواتب هذا الشهر</th>
                   <th className="px-4 py-3 text-right">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {data.employees.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
+                    <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
                       لا يوجد موظفون.
                     </td>
                   </tr>
@@ -208,8 +209,17 @@ export default function PayrollClient({ data, initialTab }: { data: PayrollMonth
                         <span className="block text-[10px] text-emerald-700">مسترد: {formatSDG(row.returnedMonthSdg)}</span>
                       )}
                     </td>
+                    <td dir="ltr" className="px-4 py-3 text-right text-emerald-700">
+                      {formatSDG(row.salaryPaidSdg)}
+                      {row.deductedMonthSdg > 0 && (
+                        <span className="block text-[10px] text-amber-700">مخصوم من السلف: {formatSDG(row.deductedMonthSdg)}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setEmployeeModal({ row, type: "SALARY" })} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-gray-900 px-3 text-xs font-bold text-white">
+                          <LuWalletCards className="h-3.5 w-3.5" /> دفع راتب
+                        </button>
                         <button type="button" onClick={() => setEmployeeModal({ row, type: "ADVANCE" })} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-800">
                           <LuHandCoins className="h-3.5 w-3.5" /> سلفة
                         </button>

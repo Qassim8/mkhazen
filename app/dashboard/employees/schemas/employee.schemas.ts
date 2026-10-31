@@ -28,9 +28,10 @@ export const baseEmployeeSchema = z.object({
     message: "يرجى اختيار نوع الدوام",
   }),
 
+  // الراتب اختياري تمامًا: يظهر كاقتراح فقط عند صرف الراتب (الصرف بأي مبلغ)
   salary: z.preprocess(
-    (val) => (val === "" || Number.isNaN(val) ? undefined : Number(val)),
-    z.number({ message: "يرجى إدخال مبلغ صحيح" }).optional(),
+    (val) => (val === "" || val === null || val === undefined || Number.isNaN(val) ? undefined : Number(val)),
+    z.number({ message: "يرجى إدخال مبلغ صحيح" }).min(0, "الراتب لا يمكن أن يكون سالبًا").optional(),
   ),
 
   // غير مستخدم في الواجهة (أجرة الخياط تُحدد في كل طلب)؛ اختياري للتوافق فقط
@@ -67,7 +68,7 @@ export type Employee = {
   phone: string;
   email: string;
   position: "system_manager" | "tailor" | "cashier";
-  salary: number;
+  salary?: number | null;
   commissionRate?: number;
   address?: string;
   shift: "morning" | "night" | "full_time";
