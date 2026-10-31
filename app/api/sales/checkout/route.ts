@@ -140,6 +140,19 @@ export async function POST(req: NextRequest) {
     let creditName = payload.creditName ?? null;
     let creditPhone = payload.creditPhone ?? null;
 
+    // البيع العادي بعميل مكتوب دون اختيار: يُربط بعميل نفس الرقم (phone_normalized) أو يُنشأ
+    if (payload.isCredit !== true && !payload.customerId && payload.customerPhone) {
+      const typed = await resolveCreditCustomer({ name: payload.customerName, phone: payload.customerPhone });
+
+      if (!typed.ok) {
+        await idempotency.abandon();
+        if (typed.kind === "NOT_FOUND") return apiError(422, "VALIDATION_ERROR", "العميل المختار غير موجود.");
+        return dbErrorResponse(typed.error, "resolve_customer", "تعذر تحديد العميل.");
+      }
+
+      customerId = typed.customerId;
+    }
+
     if (payload.isCredit === true) {
       const customer = await resolveCreditCustomer({
         customerId: payload.customerId,

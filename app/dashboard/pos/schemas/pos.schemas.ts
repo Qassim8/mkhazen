@@ -218,6 +218,9 @@ export const createSalesOrderSchema = z
      * الدفعة المقدمة (0 إلى 3 طرق) ويجب أن يكون مجموعها أقل من الإجمالي.
      */
     // اختياري (غائب = بيع عادي) حتى لا تتأثر واجهة الكاشير الحالية
+    // البيع العادي بعميل مكتوب (بلا اختيار): اسم وهاتف يربطهما السيرفر بعميل نفس الرقم أو ينشئ عميلًا
+    customerName: z.string().trim().max(255, "اسم العميل طويل جدًا").nullable().optional(),
+    customerPhone: z.string().trim().max(30, "رقم الهاتف طويل جدًا").nullable().optional(),
     isCredit: z.boolean().optional(),
     creditName: z.string().trim().max(255, "اسم العميل طويل جدًا").nullable().optional(),
     creditPhone: z.string().trim().max(30, "رقم الهاتف طويل جدًا").nullable().optional(),
@@ -310,6 +313,14 @@ export const createSalesOrderSchema = z
     // -------------------------------------------------------
     // Payment
     // -------------------------------------------------------
+    if (!data.isCredit && !data.customerId && Boolean(data.customerName) !== Boolean(data.customerPhone)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "اكتب اسم العميل ورقم هاتفه معًا، أو اتركهما فارغين",
+        path: ["customerPhone"],
+      });
+    }
+
     if (data.isCredit) {
       if (giftOnly) {
         ctx.addIssue({

@@ -1,6 +1,9 @@
 "use client";
 
-import type { CustomerRecord } from "@/app/dashboard/customers/services/customers.services";
+import {
+  EMPTY_CUSTOMER_FIELDS,
+  type CustomerFieldsValue,
+} from "@/app/dashboard/customers/_components/CustomerFields";
 import { createPortal } from "react-dom";
 import {
   type FormEvent,
@@ -162,7 +165,8 @@ export default function POSClient({
 
   // بيع بالتقسيط (دين مربوط بالفاتورة)
   const [credit, setCredit] = useState<CreditFormState>(EMPTY_CREDIT);
-  const [linkedCustomer, setLinkedCustomer] = useState<CustomerRecord | null>(null);
+  // عميل الفاتورة (اختياري في البيع العادي، إلزامي في التقسيط): اسم وهاتف، أو عميل مختار من الاقتراحات
+  const [customer, setCustomer] = useState<CustomerFieldsValue>(EMPTY_CUSTOMER_FIELDS);
 
   // منع النقر المزدوج (أسرع من تحديث الـ state) + مفتاح منع التكرار للسلة الحالية
   const checkingOutRef = useRef(false);
@@ -732,7 +736,7 @@ export default function POSClient({
     setPaymentSplits([]);
     setPaymentMethod("CASH");
     setCredit(EMPTY_CREDIT);
-    setLinkedCustomer(null);
+    setCustomer(EMPTY_CUSTOMER_FIELDS);
   };
 
   // =====================================================
@@ -798,8 +802,22 @@ export default function POSClient({
 
   const allGifts = cart.length > 0 && cart.every((item) => item.isGift);
   const creditError = credit.enabled
-    ? validateCredit(credit, totalAmount, allGifts, linkedCustomer !== null)
+    ? validateCredit(
+        { ...credit, name: customer.name, phone: customer.phone },
+        totalAmount,
+        allGifts,
+        customer.customerId !== null,
+      )
     : null;
+
+  // البيع العادي: الاسم والهاتف اختياريان معًا (لو كُتب أحدهما يلزم الآخر لإنشاء/ربط العميل)
+  const customerError =
+    !credit.enabled &&
+    customer.customerId === null &&
+    (customer.name.trim() !== "") !== (customer.phone.trim() !== "")
+      ? "اكتب اسم العميل ورقم هاتفه معًا، أو اتركهما فارغين."
+      : null;
+
 
   const handleCreditToggle = () => {
     setCredit((current) => ({ ...current, enabled: !current.enabled }));
@@ -914,6 +932,11 @@ export default function POSClient({
       return;
     }
 
+    if (customerError) {
+      toast.error(customerError);
+      return;
+    }
+
     // التقسيط: الدفعة المقدمة (إن وُجدت) بطريقة دفع واحدة
     const creditPaid = credit.enabled ? creditPaidNow(credit) : 0;
     const effectiveSplits: PaymentSplit[] = credit.enabled
@@ -935,7 +958,9 @@ export default function POSClient({
       paymentSplits: effectiveSplits,
       exchangeRate,
       credit: credit.enabled ? credit : null,
-      customerId: linkedCustomer?.id ?? null,
+      customerId:
+        customer.customerId ??
+        (customer.name.trim() || customer.phone.trim() ? `${customer.name.trim()}|${customer.phone.trim()}` : null),
     });
 
     if (checkoutKeyRef.current?.fingerprint !== fingerprint) {
@@ -952,7 +977,12 @@ export default function POSClient({
       const payload = {
         orderType: "POS" as const,
 
-        customerId: linkedCustomer?.id ?? null,
+        customerId: customer.customerId,
+
+        // بلا عميل مختار: السيرفر يربط بعميل نفس الرقم أو ينشئه
+        ...(!credit.enabled && customer.customerId === null && customer.phone.trim()
+          ? { customerName: customer.name.trim(), customerPhone: customer.phone.trim() }
+          : {}),
 
         tailorId: null,
 
@@ -972,8 +1002,8 @@ export default function POSClient({
           ? {
               isCredit: true,
               // عميل مختار: الاسم والهاتف على الفاتورة نسخة من بياناته (يضبطها السيرفر)
-              creditName: linkedCustomer ? null : credit.name.trim(),
-              creditPhone: linkedCustomer ? null : credit.phone.trim(),
+              creditName: customer.customerId ? null : customer.name.trim(),
+              creditPhone: customer.customerId ? null : customer.phone.trim(),
               dueDate: credit.dueDate || null,
             }
           : {}),
@@ -1305,8 +1335,8 @@ export default function POSClient({
             discountError={discountError}
             credit={credit}
             creditError={creditError}
-            linkedCustomer={linkedCustomer}
-            onLinkCustomer={setLinkedCustomer}
+            customer={customer}
+            onCustomerChange={setCustomer}
             onCreditToggle={handleCreditToggle}
             onCreditChange={handleCreditChange}
             onPaymentMethodChange={handlePaymentMethodChange}

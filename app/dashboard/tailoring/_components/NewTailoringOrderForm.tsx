@@ -20,7 +20,7 @@ import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 import { formatQuantity, formatSDG, formatUSD, sdgToUsd, usdToSdg } from "@/lib/currency";
 import { useExchangeRate } from "@/components/shared/useExchangeRate";
 import ExchangeRateBadge from "@/components/shared/ExchangeRateBadge";
-import CustomerPicker from "@/app/dashboard/customers/_components/CustomerPicker";
+import CustomerFields from "@/app/dashboard/customers/_components/CustomerFields";
 import type { CustomerRecord } from "@/app/dashboard/customers/services/customers.services";
 
 interface TailorOption {
@@ -166,18 +166,17 @@ export default function NewTailoringOrderForm({
   const tailoringCostValue = useWatch({ control, name: "tailoringCost" });
   const selectedFabricId = useWatch({ control, name: "fabricVariantId" });
   const intakeDate = useWatch({ control, name: "intakeDate" });
+  const customerNameValue = useWatch({ control, name: "customerName" }) ?? "";
+  const customerWhatsappValue = useWatch({ control, name: "customerWhatsapp" }) ?? "";
+  // عميل مختار من الاقتراحات (يُربط عند الحفظ بنفس الرقم في كل الأحوال)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(initialCustomer?.id ?? null);
 
   function handleCustomerSelection(customer: CustomerRecord | null) {
-    setValue("customerName", customer?.name ?? "", {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-    setValue("customerWhatsapp", customer?.whatsappNumber ?? "", {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
+    // إلغاء الاختيار يُبقي الاسم والهاتف المكتوبين للتعديل؛ الاختيار يحمّل مقاسات العميل
+    if (!customer) return;
+
     replace(
-      (customer?.measurements.length
+      (customer.measurements.length
         ? customer.measurements
         : [
             { label: "الطول", value: 0, unit: "M" as const },
@@ -549,40 +548,20 @@ export default function NewTailoringOrderForm({
 
             {purpose === "CUSTOMER" ? (
               <div className="space-y-4">
-                {!advanceSource && (
-                  <CustomerPicker
-                    initialCustomer={initialCustomer}
-                    onSelect={handleCustomerSelection}
-                  />
-                )}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-bold text-gray-600">
-                      اسم العميل
-                    </span>
-                    <input
-                      {...register("customerName")}
-                      disabled={isSubmitting}
-                      className={inputClass(Boolean(errors.customerName))}
-                      placeholder="اسم العميل"
-                    />
-                    <InlineError message={errors.customerName?.message} />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-bold text-gray-600">
-                      رقم واتساب
-                    </span>
-                    <input
-                      {...register("customerWhatsapp")}
-                      disabled={isSubmitting}
-                      dir="ltr"
-                      inputMode="tel"
-                      className={inputClass(Boolean(errors.customerWhatsapp))}
-                      placeholder="+2499xxxxxxxx"
-                    />
-                    <InlineError message={errors.customerWhatsapp?.message} />
-                  </label>
-                </div>
+                <CustomerFields
+                  required
+                  suggest={!advanceSource}
+                  disabled={isSubmitting}
+                  value={{ name: customerNameValue, phone: customerWhatsappValue, customerId: selectedCustomerId }}
+                  onChange={(next) => {
+                    setValue("customerName", next.name, { shouldDirty: true, shouldValidate: true });
+                    setValue("customerWhatsapp", next.phone, { shouldDirty: true, shouldValidate: true });
+                    setSelectedCustomerId(next.customerId);
+                  }}
+                  onSelect={handleCustomerSelection}
+                  nameError={errors.customerName?.message}
+                  phoneError={errors.customerWhatsapp?.message}
+                />
               </div>
             ) : (
               <div></div>

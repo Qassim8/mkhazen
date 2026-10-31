@@ -6,6 +6,8 @@ import { can, isManager } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
+import { resolveTailoringCustomer } from "@/app/api/tailoring/_lib/resolve-customer";
+import { dbErrorResponse } from "@/lib/api-response";
 import { fetchAll } from "@/lib/supabase-fetch-all";
 import { sanitizeSearchTerm } from "@/lib/postgrest";
 import { runIdempotentRpc } from "@/lib/idempotency";
@@ -587,6 +589,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // العميل: يُربط بعميل نفس الرقم (phone_normalized) أو يُنشأ، ثم نمرّر بياناته المحفوظة للدالة
+    let customerName = value.customerName;
+    let customerWhatsapp = value.customerWhatsapp;
+
+    if (value.tailoringPurpose === "CUSTOMER") {
+      const customer = await resolveTailoringCustomer({ name: value.customerName, whatsapp: value.customerWhatsapp });
+      if (!customer.ok) return dbErrorResponse(customer.error, "resolve_customer_by_phone", "تعذر تحديد العميل.");
+      customerName = customer.name;
+      customerWhatsapp = customer.whatsapp;
+    }
+
     return await runIdempotentRpc<Record<string, unknown> & { id: string; order_number: string }>({
       request,
       scope: "tailoring.create",
@@ -602,8 +615,8 @@ export async function POST(request: Request) {
         p_customer_advance_source_order_id: value.customerAdvanceSourceOrderId,
         p_tailor_id: value.tailorId,
         p_tailoring_purpose: value.tailoringPurpose,
-        p_customer_name: value.customerName,
-        p_customer_whatsapp: value.customerWhatsapp,
+        p_customer_name: customerName,
+        p_customer_whatsapp: customerWhatsapp,
         p_measurements: value.measurements,
         p_intake_date: value.intakeDate,
         p_expected_delivery_date: value.expectedDeliveryDate,

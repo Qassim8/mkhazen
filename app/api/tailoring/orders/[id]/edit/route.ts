@@ -5,6 +5,8 @@ import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { supabaseAdmin } from "@/lib/supabase";
 import { notifyTailoringUpdate } from "@/app/api/tailoring/_lib/notify";
+import { resolveTailoringCustomer } from "@/app/api/tailoring/_lib/resolve-customer";
+import { dbErrorResponse } from "@/lib/api-response";
 import { updateTailoringOrderApiSchema } from "@/app/dashboard/tailoring/schemas/tailoring.schemas";
 
 export async function PATCH(
@@ -51,6 +53,17 @@ export async function PATCH(
       }
     }
 
+    // العميل: يُربط بعميل نفس الرقم (phone_normalized) أو يُنشأ (طلب التصنيع بلا عميل)
+    let customerName = value.customerName;
+    let customerWhatsapp = value.customerWhatsapp;
+
+    if (value.customerName?.trim() || value.customerWhatsapp?.trim()) {
+      const customer = await resolveTailoringCustomer({ name: value.customerName, whatsapp: value.customerWhatsapp });
+      if (!customer.ok) return dbErrorResponse(customer.error, "resolve_customer_by_phone", "تعذر تحديد العميل.");
+      customerName = customer.name;
+      customerWhatsapp = customer.whatsapp;
+    }
+
     const { data, error } = await supabaseAdmin.rpc("update_tailoring_order", {
       p_order_id: id,
       p_branch_id: MAIN_BRANCH_ID,
@@ -58,8 +71,8 @@ export async function PATCH(
       p_tailoring_item_name: value.tailoringItemName,
       p_tailoring_item_description: value.tailoringItemDescription,
       p_tailor_id: value.tailorId,
-      p_customer_name: value.customerName,
-      p_customer_whatsapp: value.customerWhatsapp,
+      p_customer_name: customerName,
+      p_customer_whatsapp: customerWhatsapp,
       p_measurements: value.measurements,
       p_intake_date: value.intakeDate,
       p_expected_delivery_date: value.expectedDeliveryDate,

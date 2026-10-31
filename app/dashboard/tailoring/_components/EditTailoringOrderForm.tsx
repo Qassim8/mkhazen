@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { LuSave, LuShoppingBag, LuFactory, LuTrash2, LuPlus } from "react-icons/lu";
 
 import FabricSearch from "./FabricSearch";
+import CustomerFields from "@/app/dashboard/customers/_components/CustomerFields";
 import {
   calculateMeasurementMeters,
   updateTailoringOrderFormSchema,
@@ -119,6 +120,9 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
   const useStoreFabric = useWatch({ control, name: "useStoreFabric" });
   const selectedFabricId = useWatch({ control, name: "fabricVariantId" });
   const measurements = useWatch({ control, name: "measurements" }) ?? NO_MEASUREMENTS;
+  const customerNameValue = useWatch({ control, name: "customerName" }) ?? "";
+  const customerWhatsappValue = useWatch({ control, name: "customerWhatsapp" }) ?? "";
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const intakeDate = useWatch({ control, name: "intakeDate" });
 
   const numericMeasurements = useMemo(
@@ -268,16 +272,18 @@ export default function EditTailoringOrderForm({ order, tailors }: Props) {
           {purpose === "CUSTOMER" && (
             <section className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
               <h2 className="text-sm font-black text-gray-900">بيانات العميل</h2>
-              <label className="block">
-                <span className="text-xs font-bold text-gray-600">اسم العميل</span>
-                <input {...register("customerName")} disabled={isSubmitting} className={inputClass(Boolean(errors.customerName))} />
-                <InlineError message={errors.customerName?.message} />
-              </label>
-              <label className="block">
-                <span className="text-xs font-bold text-gray-600">واتساب العميل</span>
-                <input {...register("customerWhatsapp")} disabled={isSubmitting} dir="ltr" className={`${inputClass(Boolean(errors.customerWhatsapp))} text-left`} placeholder="9665XXXXXXXX" />
-                <InlineError message={errors.customerWhatsapp?.message} />
-              </label>
+              <CustomerFields
+                required
+                disabled={isSubmitting}
+                value={{ name: customerNameValue, phone: customerWhatsappValue, customerId: selectedCustomerId }}
+                onChange={(next) => {
+                  setValue("customerName", next.name, { shouldDirty: true, shouldValidate: true });
+                  setValue("customerWhatsapp", next.phone, { shouldDirty: true, shouldValidate: true });
+                  setSelectedCustomerId(next.customerId);
+                }}
+                nameError={errors.customerName?.message}
+                phoneError={errors.customerWhatsapp?.message}
+              />
             </section>
           )}
         </div>

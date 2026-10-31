@@ -12,8 +12,7 @@ import {
 } from "react-icons/lu";
 import CartItem from "./CartItem";
 import GiftPicker from "./GiftPicker";
-import CustomerPicker from "@/app/dashboard/customers/_components/CustomerPicker";
-import type { CustomerRecord } from "@/app/dashboard/customers/services/customers.services";
+import CustomerFields, { type CustomerFieldsValue } from "@/app/dashboard/customers/_components/CustomerFields";
 import type { POSCartItem } from "./POSClient";
 import {
   creditPaidNow,
@@ -57,9 +56,9 @@ interface CartListProps {
   /** بيع بالتقسيط: النموذج وخطؤه الحالي (null = صالح) */
   credit: CreditFormState;
   creditError: string | null;
-  /** عميل مربوط اختياريًا بالفاتورة (البيع العادي فقط) */
-  linkedCustomer: CustomerRecord | null;
-  onLinkCustomer: (customer: CustomerRecord | null) => void;
+  /** عميل الفاتورة: الاسم والهاتف (اختياري في البيع العادي، إلزامي في التقسيط) */
+  customer: CustomerFieldsValue;
+  onCustomerChange: (customer: CustomerFieldsValue) => void;
   onCreditToggle: () => void;
   onCreditChange: (patch: Partial<CreditFormState>) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
@@ -141,8 +140,8 @@ export default function CartList({
   discountError,
   credit,
   creditError,
-  linkedCustomer,
-  onLinkCustomer,
+  customer,
+  onCustomerChange,
   onCreditToggle,
   onCreditChange,
   onPaymentMethodChange,
@@ -305,16 +304,23 @@ export default function CartList({
               </p>
             )}
           </div>
-          <CustomerPicker
-            key={linkedCustomer?.id ?? "none"}
-            label={
-              credit.enabled
-                ? "العميل (ابحث بالاسم أو الهاتف، أو أضف عميلًا جديدًا)"
-                : "ربط عميل بالفاتورة (اختياري)"
-            }
-            initialCustomer={linkedCustomer}
-            onSelect={onLinkCustomer}
-          />
+          <div>
+            <p className="mb-2 text-xs font-bold text-gray-700">
+              {credit.enabled ? "العميل (إلزامي للتقسيط)" : "العميل (اختياري)"}
+            </p>
+            <CustomerFields
+              variant="compact"
+              required={credit.enabled}
+              disabled={isCheckingOut}
+              value={customer}
+              onChange={onCustomerChange}
+            />
+            <p className="mt-1.5 text-[10px] font-medium text-gray-500">
+              {credit.enabled
+                ? "لو كان الرقم لعميل مسجل يُربط به، وإلا يُنشأ عميل جديد عند الحفظ."
+                : "اتركهما فارغين لبيع بلا عميل؛ وإن كتبتهما يُربط الرقم بعميل مسجل أو يُنشأ عميل جديد."}
+            </p>
+          </div>
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-700">
@@ -368,41 +374,6 @@ export default function CartList({
               <div className="text-[10px] font-bold text-amber-800">
                 بيانات البيع بالتقسيط (الدين بالجنيه ومربوط بهذه الفاتورة)
               </div>
-
-              {linkedCustomer ? (
-                <p className="rounded-lg bg-white p-2 text-[10px] font-semibold text-gray-600">
-                  الدين مربوط بالعميل «{linkedCustomer.name}» (يظهر في صفحته وفي ذمم العملاء).
-                </p>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    value={credit.name}
-                    maxLength={255}
-                    disabled={isCheckingOut}
-                    onChange={(event) =>
-                      onCreditChange({ name: event.target.value })
-                    }
-                    placeholder="اسم العميل *"
-                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
-                  />
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={credit.phone}
-                    maxLength={30}
-                    disabled={isCheckingOut}
-                    onChange={(event) =>
-                      onCreditChange({ phone: event.target.value })
-                    }
-                    placeholder="رقم الهاتف *"
-                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
-                  />
-                  <p className="text-[10px] font-medium text-gray-500">
-                    لو كان الرقم لعميل موجود يُربط به تلقائيًا، وإلا يُنشأ عميل جديد.
-                  </p>
-                </>
-              )}
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
