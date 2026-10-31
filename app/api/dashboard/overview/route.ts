@@ -700,6 +700,9 @@ export async function GET(request: NextRequest) {
             (item) => item.status === "OUT_OF_STOCK",
           ).length,
           receivables: {
+            posCredit: receivables.posCredit,
+            tailoringInProgress: receivables.tailoringInProgress,
+            total: receivables.total,
             openCount: receivables.openCount,
             overdueCount: receivables.overdueCount,
             totalRemainingSdg: receivables.totalRemainingSdg,

@@ -327,7 +327,8 @@ export const createSalesOrderSchema = z
         });
       }
 
-      if (!data.creditName?.trim()) {
+      // عميل مختار (customerId) يغني عن الاسم والهاتف؛ وإلا يُربط/يُنشأ من الاسم والهاتف
+      if (!data.customerId && !data.creditName?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "اسم العميل مطلوب للبيع بالتقسيط",
@@ -335,7 +336,7 @@ export const createSalesOrderSchema = z
         });
       }
 
-      if (!data.creditPhone?.trim()) {
+      if (!data.customerId && !data.creditPhone?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "رقم هاتف العميل مطلوب للبيع بالتقسيط",

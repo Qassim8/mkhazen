@@ -7,6 +7,7 @@ import { LuPencil, LuPhone, LuScissors } from "react-icons/lu";
 
 import BackLink from "@/components/shared/BackLink";
 import { formatSDG } from "@/lib/currency";
+import CollectButton from "@/app/dashboard/receivables/_components/CollectButton";
 
 import type { CustomerDetail, CustomerOrderRow } from "../services/customers.services";
 import { CustomerFormModal, DuplicateWarning } from "./CustomerModals";
@@ -59,6 +60,22 @@ export default function CustomerDetailClient({
 
   const { stats } = customer;
 
+  // زر التحصيل: نفس منطق صفحة الذمم (المتبقي وإمكانية التحصيل من قاعدة البيانات)
+  const collectButton = (order: CustomerOrderRow) =>
+    order.receivableKind && order.remaining > 0 ? (
+      <CollectButton
+        kind={order.receivableKind}
+        row={{
+          order_id: order.id,
+          order_number: order.orderNumber,
+          customer_name: customer.name,
+          remaining_sdg: order.remaining,
+        }}
+        canCollect={order.canCollect}
+        onDone={() => router.refresh()}
+      />
+    ) : null;
+
   return (
     <div dir="rtl" className="space-y-6 pb-12">
       <BackLink href="/dashboard/customers" label="العودة إلى العملاء" />
@@ -102,21 +119,33 @@ export default function CustomerDetailClient({
 
       <DuplicateWarning duplicates={customer.duplicates} />
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <Card label="عدد الفواتير" value={String(stats.invoiceCount)} />
         <Card label="إجمالي المشتريات" value={formatSDG(stats.totalPurchases)} />
         <Card label="إجمالي المدفوع" value={formatSDG(stats.totalPaid)} tone="text-emerald-700" />
         <Card
-          label="متبقٍ على طلبات قيد التنفيذ"
+          label="ديون الكاشير (بالتقسيط)"
+          value={formatSDG(stats.posCreditRemaining)}
+          tone={stats.posCreditRemaining > 0 ? "text-red-600" : undefined}
+        />
+        <Card
+          label="متبقي التفصيل قيد التنفيذ (متوقع)"
           value={formatSDG(stats.tailoringInProgressRemaining)}
           tone={stats.tailoringInProgressRemaining > 0 ? "text-amber-700" : undefined}
         />
         <Card
-          label="متبقٍ مستحق (سُلِّمت)"
-          value={formatSDG(stats.tailoringDueRemaining)}
-          tone={stats.tailoringDueRemaining > 0 ? "text-red-600" : undefined}
+          label="إجمالي المتبقي"
+          value={formatSDG(stats.totalRemaining)}
+          tone={stats.totalRemaining > 0 ? "text-amber-700" : undefined}
         />
       </section>
+
+      {stats.tailoringInProgressRemaining > 0 && (
+        <p className="-mt-3 text-[11px] text-gray-500">
+          متبقي التفصيل قيد التنفيذ مبالغ متوقعة على طلبات لم تُسلَّم، وليست ديونًا: تُحصَّل كاملة عند التسليم.
+          لا يوجد متبقٍ على طلبات مُسلَّمة لأن التسليم يحصّل الباقي بالكامل.
+        </p>
+      )}
 
       <section>
         <h2 className="mb-2 text-sm font-black text-gray-900">الفواتير والطلبات</h2>
@@ -129,11 +158,8 @@ export default function CustomerDetailClient({
           <>
             <div className="space-y-3 md:hidden">
               {customer.orders.map((order) => (
-                <Link
-                  key={order.id}
-                  href={orderHref(order)}
-                  className="block rounded-2xl border border-gray-200 bg-white p-4"
-                >
+                <div key={order.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <Link href={orderHref(order)} className="block">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p dir="ltr" className="text-left font-mono text-xs font-bold text-gray-900">
@@ -162,12 +188,14 @@ export default function CustomerDetailClient({
                       <p className={`font-bold ${order.remaining > 0 ? "text-amber-700" : ""}`}>{formatSDG(order.remaining)}</p>
                     </div>
                   </div>
-                </Link>
+                  </Link>
+                  {collectButton(order) && <div className="mt-3 border-t border-gray-100 pt-3">{collectButton(order)}</div>}
+                </div>
               ))}
             </div>
 
             <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white md:block">
-              <table className="w-full min-w-200 text-sm">
+              <table className="w-full min-w-225 text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-500">
                   <tr>
                     <th className="px-4 py-3 text-right font-bold">الرقم</th>
@@ -177,6 +205,7 @@ export default function CustomerDetailClient({
                     <th className="px-4 py-3 text-right font-bold">المدفوع</th>
                     <th className="px-4 py-3 text-right font-bold">المتبقي</th>
                     <th className="px-4 py-3 text-right font-bold">الحالة</th>
+                    <th className="px-4 py-3 text-right font-bold">تحصيل</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -202,6 +231,7 @@ export default function CustomerDetailClient({
                           {order.statusLabel}
                         </span>
                       </td>
+                      <td className="px-4 py-3">{collectButton(order)}</td>
                     </tr>
                   ))}
                 </tbody>

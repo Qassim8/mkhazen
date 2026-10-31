@@ -67,8 +67,13 @@ export const PERMISSIONS = {
   "sales.pos": ["owner", "admin", "cashier"],
   /** سجل المبيعات والفواتير */
   "sales.view": ["owner", "admin"],
-  /** الفواتير الآجلة: تعديل المتبقي (تفاوض) وإغلاقه كدين معدوم (البيع والتحصيل = sales.pos) */
-  "sales.creditManage": ["owner", "admin"],
+  /**
+   * الفواتير الآجلة: تعديل المتبقي (تفاوض) وإغلاقه كدين معدوم (البيع والتحصيل = sales.pos).
+   * للكاشير أيضًا؛ وكل إجراء منه يُنشئ إشعارًا للمالك داخل قاعدة البيانات.
+   */
+  "sales.creditManage": ["owner", "admin", "cashier"],
+  /** ربح/تكلفة الفواتير الآجلة ونسبة الخسارة من الربح المتوقع وملخص المحاسبة (لا يراها الكاشير) */
+  "sales.creditProfit": ["owner", "admin"],
 
   /** إنشاء الطلبات وتحصيل الرصيد من العملاء */
   "tailoring.operate": ["owner", "admin", "cashier"],

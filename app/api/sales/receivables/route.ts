@@ -1,29 +1,39 @@
 /**
- * GET /api/sales/receivables — الفواتير الآجلة المفتوحة مع تقييم المتبقي
+ * GET /api/sales/receivables — ذمم العملاء الموحدة (مصدر واحد: get_unified_receivables)
  *
- * • التقييم من get_credit_valuation (المتبقي بسعر البيع وسعر اليوم والخسارة).
- * • بحث (رقم الفاتورة / اسم العميل / الهاتف) وفلتر المتأخرة وصفحات.
- * • الكاشير وما فوق. expected_profit_usd و loss_pct_of_profit (وتكلفة المؤجل) والملخص
- *   المحاسبي للمالك والمدير فقط.
+ * التصنيفات (kind):
+ *   POS_CREDIT             ديون فواتير الكاشير بالتقسيط المفتوحة (ديون فعلية)
+ *   TAILORING_IN_PROGRESS  متبقي على طلبات تفصيل غير ملغاة ولم تُسلَّم (مبالغ متوقعة، ليست ديونًا)
+ * لا يوجد تصنيف "تفصيل مُسلَّم وعليه متبقٍ": التسليم يحصّل كامل المتبقي (complete_tailoring_pickup).
+ *
+ * • التقييم بالدولار (يوم البيع ← اليوم) للنوعين.
+ * • بحث (رقم الفاتورة / اسم العميل / الهاتف بأي صيغة) وفلتر المتأخرة والتصنيف وصفحات.
+ * • الكاشير وما فوق. الربح المتوقع وتكلفة المؤجل ونسبة الخسارة من الربح وملخص التكلفة
+ *   لمن يملك sales.creditProfit (المالك والمدير) فقط.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, dbErrorResponse } from "@/lib/api-response";
+import { phoneSearchVariants } from "@/lib/customer-phone";
 import { can } from "@/lib/permissions";
 import { requirePermission } from "@/lib/permissions-server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { receivablesQuerySchema } from "@/app/dashboard/pos/schemas/credit.schemas";
 
-type ValuationRow = {
+type UnifiedRow = {
+  kind: "POS_CREDIT" | "TAILORING_IN_PROGRESS";
   order_id: string;
   order_number: string;
-  credit_customer_name: string | null;
-  credit_customer_phone: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
   created_at: string;
   due_date: string | null;
   is_overdue: boolean;
   payment_status: string;
+  status_code: string | null;
+  can_collect: boolean;
   total_amount: number | string;
   paid_amount: number | string;
   remaining_sdg: number | string;
@@ -43,9 +53,9 @@ const num = (value: number | string | null | undefined) =>
   value === null || value === undefined ? null : Number(value);
 
 export async function GET(req: NextRequest) {
-  const guard = await requirePermission("sales.pos", "عذراً، الفواتير الآجلة غير متاحة لصلاحياتك.");
+  const guard = await requirePermission("sales.pos", "عذراً، ذمم العملاء غير متاحة لصلاحياتك.");
   if (!guard.ok) return guard.response;
-  const isManager = can(guard.session.role, "sales.creditManage");
+  const canProfit = can(guard.session.role, "sales.creditProfit");
 
   const params = req.nextUrl.searchParams;
   const validation = receivablesQuerySchema.safeParse({
@@ -53,6 +63,8 @@ export async function GET(req: NextRequest) {
     limit: params.get("limit") || undefined,
     search: params.get("search") || undefined,
     overdue: params.get("overdue") || undefined,
+    kind: params.get("kind") || undefined,
+    customerId: params.get("customerId") || undefined,
   });
 
   if (!validation.success) {
@@ -61,26 +73,33 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const { page, limit, search, overdue } = validation.data;
+  const { page, limit, search, overdue, kind, customerId } = validation.data;
 
   try {
-    const [valuation, summary] = await Promise.all([
-      supabaseAdmin.rpc("get_credit_valuation", { p_order_id: null }),
-      isManager ? supabaseAdmin.rpc("get_receivables_summary") : Promise.resolve({ data: null, error: null }),
+    const [unified, summary] = await Promise.all([
+      supabaseAdmin.rpc("get_unified_receivables", { p_customer_id: customerId ?? null }),
+      supabaseAdmin.rpc("get_receivables_summary"),
     ]);
 
-    if (valuation.error) return dbErrorResponse(valuation.error, "get_credit_valuation", "تعذر جلب الفواتير الآجلة.");
-    if (summary.error) return dbErrorResponse(summary.error, "get_receivables_summary", "تعذر جلب ملخص الديون.");
+    if (unified.error) return dbErrorResponse(unified.error, "get_unified_receivables", "تعذر جلب ذمم العملاء.");
+    if (summary.error) return dbErrorResponse(summary.error, "get_receivables_summary", "تعذر جلب ملخص الذمم.");
 
-    let rows = (valuation.data ?? []) as ValuationRow[];
+    let rows = (unified.data ?? []) as UnifiedRow[];
 
-    const needle = (search ?? "").toLowerCase();
+    if (kind !== "ALL") rows = rows.filter((row) => row.kind === kind);
+
+    const needle = (search ?? "").trim().toLowerCase();
     if (needle) {
-      rows = rows.filter((row) =>
-        [row.order_number, row.credit_customer_name, row.credit_customer_phone]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(needle)),
-      );
+      const phones = phoneSearchVariants(needle);
+      rows = rows.filter((row) => {
+        if ([row.order_number, row.customer_name, row.customer_phone].some((value) => value && String(value).toLowerCase().includes(needle))) {
+          return true;
+        }
+        if (phones.length === 0 || !row.customer_phone) return false;
+        const stored = String(row.customer_phone).replace(/[^0-9]/g, "");
+        const storedNormalized = stored.startsWith("249") ? stored : stored.length === 10 && stored.startsWith("0") ? `249${stored.slice(1)}` : stored;
+        return phones.some((variant) => stored.includes(variant) || storedNormalized.includes(variant));
+      });
     }
 
     if (overdue === "true") rows = rows.filter((row) => row.is_overdue);
@@ -88,16 +107,34 @@ export async function GET(req: NextRequest) {
     const total = rows.length;
     const pageRows = rows.slice((page - 1) * limit, page * limit);
 
+    const rawSummary = (summary.data ?? {}) as Record<string, unknown>;
+    const publicSummary = {
+      pos_credit: rawSummary.pos_credit ?? null,
+      tailoring_in_progress: rawSummary.tailoring_in_progress ?? null,
+      total: rawSummary.total ?? null,
+      // التكلفة المؤجلة (محاسبية) للمالك والمدير فقط
+      ...(canProfit
+        ? {
+            deferred_cost_usd_open: rawSummary.deferred_cost_usd_open ?? 0,
+            deferred_cogs_usd: rawSummary.deferred_cogs_usd ?? 0,
+          }
+        : {}),
+    };
+
     return NextResponse.json({
       data: pageRows.map((row) => ({
+        kind: row.kind,
         order_id: row.order_id,
         order_number: row.order_number,
-        credit_customer_name: row.credit_customer_name,
-        credit_customer_phone: row.credit_customer_phone,
+        customer_id: row.customer_id,
+        customer_name: row.customer_name,
+        customer_phone: row.customer_phone,
         created_at: row.created_at,
         due_date: row.due_date,
         is_overdue: row.is_overdue,
         payment_status: row.payment_status,
+        status_code: row.status_code,
+        can_collect: row.can_collect,
         total_amount: num(row.total_amount),
         paid_amount: num(row.paid_amount),
         remaining_sdg: num(row.remaining_sdg),
@@ -109,7 +146,7 @@ export async function GET(req: NextRequest) {
         loss_pct: num(row.loss_pct),
         equivalent_sdg_today: num(row.equivalent_sdg_today),
         // الربح المتوقع والتكلفة للمالك والمدير فقط
-        ...(isManager
+        ...(canProfit
           ? {
               expected_profit_usd: num(row.expected_profit_usd),
               loss_pct_of_profit: num(row.loss_pct_of_profit),
@@ -123,10 +160,10 @@ export async function GET(req: NextRequest) {
         limit,
         totalPages: total ? Math.ceil(total / limit) : 0,
       },
-      ...(isManager ? { summary: summary.data } : {}),
+      summary: publicSummary,
     });
   } catch (error: unknown) {
     console.error("GET /api/sales/receivables:", error);
-    return apiError(500, "INTERNAL_ERROR", "حدث خطأ أثناء جلب الفواتير الآجلة.");
+    return apiError(500, "INTERNAL_ERROR", "حدث خطأ أثناء جلب ذمم العملاء.");
   }
 }

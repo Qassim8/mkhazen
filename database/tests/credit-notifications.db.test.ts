@@ -33,8 +33,19 @@ describe("overdue credit notifications (20261025_01)", () => {
 
   const creditSale = async (variantId: string, name: string) => {
     const { rows } = await svc<{ r: { id: string } }>(
-      `SELECT public.complete_sales_checkout($1, $2, 'POS', NULL, NULL, 0, 0, 'CASH', '[]'::jsonb, NULL, $3::jsonb, NULL, true, $4, '0911', NULL) AS r`,
-      [BRANCH_ID, users.cashier, JSON.stringify([{ variantId, quantity: 1 }]), name],
+      `SELECT public.complete_sales_checkout($1, $2, 'POS', $5, NULL, 0, 0, 'CASH', '[]'::jsonb, NULL, $3::jsonb, NULL, true, $4, '0911', NULL) AS r`,
+      [
+        BRANCH_ID,
+        users.cashier,
+        JSON.stringify([{ variantId, quantity: 1 }]),
+        name,
+        (
+          await db.query<{ id: string }>(
+            `INSERT INTO public.customers (branch_id, name, whatsapp_number) VALUES ($1, $2, '249911000000') ON CONFLICT (branch_id, whatsapp_number) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+            [BRANCH_ID, name],
+          )
+        ).rows[0].id,
+      ],
     );
     return rows[0].r.id;
   };

@@ -14,10 +14,11 @@ import {
   closeCreditBadDebt,
   getCreditHistory,
   recordCreditPayment,
+  type CollectTarget,
   type CreditHistory,
   type CreditPaymentResult,
-  type ReceivableRow,
 } from "../services/receivables.services";
+import { completeTailoringPickup } from "@/app/dashboard/tailoring/services/tailoring.services";
 
 const FIELD =
   "min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base outline-none focus:border-gray-400 md:text-sm";
@@ -109,7 +110,7 @@ export function PaymentModal({
   onClose,
   onDone,
 }: {
-  row: ReceivableRow;
+  row: CollectTarget;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -199,7 +200,7 @@ export function PaymentModal({
   }
 
   return (
-    <ModalShell title="تسجيل دفعة" subtitle={`فاتورة ${row.order_number} — ${row.credit_customer_name ?? ""}`} onClose={onClose} busy={loading}>
+    <ModalShell title="تسجيل دفعة" subtitle={`فاتورة ${row.order_number} — ${row.customer_name ?? ""}`} onClose={onClose} busy={loading}>
       {confirmOver ? (
         <div className="space-y-4">
           <p className="rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-900">
@@ -286,7 +287,7 @@ export function AdjustModal({
   onClose,
   onDone,
 }: {
-  row: ReceivableRow;
+  row: CollectTarget;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -335,7 +336,7 @@ export function AdjustModal({
   }
 
   return (
-    <ModalShell title="تعديل المتبقي" subtitle={`فاتورة ${row.order_number} — ${row.credit_customer_name ?? ""}`} onClose={onClose} busy={loading}>
+    <ModalShell title="تعديل المتبقي" subtitle={`فاتورة ${row.order_number} — ${row.customer_name ?? ""}`} onClose={onClose} busy={loading}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
           تعديل المتبقي (زيادة أو نقصانًا بعد تفاوض) لا يُنشئ قيدًا محاسبيًا، ويُسجَّل في سجل التعديلات.
@@ -393,7 +394,7 @@ export function CloseDebtModal({
   onClose,
   onDone,
 }: {
-  row: ReceivableRow;
+  row: CollectTarget;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -421,7 +422,7 @@ export function CloseDebtModal({
   }
 
   return (
-    <ModalShell title="إغلاق كدين معدوم" subtitle={`فاتورة ${row.order_number} — ${row.credit_customer_name ?? ""}`} onClose={onClose} busy={loading}>
+    <ModalShell title="إغلاق كدين معدوم" subtitle={`فاتورة ${row.order_number} — ${row.customer_name ?? ""}`} onClose={onClose} busy={loading}>
       <div className="space-y-4">
         <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">
           سيُشطب المتبقي {formatSDG(Number(row.remaining_sdg ?? 0))} نهائيًا، وتتحول التكلفة المؤجلة للجزء غير المحصَّل إلى مصروف.
@@ -469,7 +470,7 @@ export function HistoryModal({
   isManager,
   onClose,
 }: {
-  row: ReceivableRow;
+  row: CollectTarget;
   isManager: boolean;
   onClose: () => void;
 }) {
@@ -497,7 +498,7 @@ export function HistoryModal({
   return (
     <ModalShell
       title="سجل الدفعات والتعديلات"
-      subtitle={`فاتورة ${row.order_number} — ${row.credit_customer_name ?? ""}`}
+      subtitle={`فاتورة ${row.order_number} — ${row.customer_name ?? ""}`}
       onClose={onClose}
       wide
     >
@@ -571,6 +572,114 @@ export function HistoryModal({
           )}
         </div>
       )}
+    </ModalShell>
+  );
+}
+
+/* =====================================================================
+   تحصيل طلب تفصيل = تسليم الطلب وتحصيل كامل المتبقي (complete_tailoring_pickup)
+   • هي دالة التحصيل الوحيدة لطلبات التفصيل: لا دفعات جزئية قبل التسليم.
+   • الشاشة نفسها المستخدمة في تفاصيل الطلب (نفس مسار /pickup ونفس منطق المحاسبة).
+===================================================================== */
+
+export function openTailoringReceipt(orderId: string) {
+  window.open(`/dashboard/tailoring/${orderId}?print=customer`, "_blank", "width=900,height=800");
+}
+
+export function TailoringPickupModal({
+  row,
+  onClose,
+  onDone,
+}: {
+  row: CollectTarget;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const idempotency = useIdempotencyKey();
+  const remaining = Number(row.remaining_sdg ?? 0);
+
+  const [method, setMethod] = useState<"CASH" | "BANK_TRANSFER">("CASH");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+
+    try {
+      setLoading(true);
+      await completeTailoringPickup(row.order_id, method, {
+        idempotencyKey: idempotency.keyFor({ id: row.order_id, paymentMethod: method }),
+      });
+      idempotency.reset();
+      toast.success(`تم تسليم الطلب ${row.order_number} وتحصيل ${formatSDG(remaining)}.`);
+      setDone(true);
+      openTailoringReceipt(row.order_id);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "تعذر إتمام تسليم الطلب");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <ModalShell title="تم التسليم والتحصيل" subtitle={`طلب ${row.order_number}`} onClose={onDone}>
+        <div className="space-y-4 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <LuCheck className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-bold text-gray-800">سُلِّم الطلب وحُصِّل المتبقي بالكامل</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => openTailoringReceipt(row.order_id)} className={SECONDARY_BUTTON}>
+              <span className="inline-flex items-center justify-center gap-2">
+                <LuPrinter className="h-4 w-4" />
+                طباعة الإيصال
+              </span>
+            </button>
+            <button type="button" onClick={onDone} className={PRIMARY_BUTTON}>
+              تم
+            </button>
+          </div>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell
+      title="تسليم الطلب وتحصيل المتبقي"
+      subtitle={`طلب ${row.order_number} — ${row.customer_name ?? ""}`}
+      onClose={onClose}
+      busy={loading}
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+          يُحصَّل كامل المتبقي عند تسليم الطلب للعميل، ثم يُغلق الطلب. لا توجد دفعات جزئية قبل التسليم.
+        </p>
+        <div className="flex justify-between rounded-lg bg-gray-50 p-3 text-sm">
+          <span className="text-gray-500">المتبقي على العميل</span>
+          <span className="font-black text-amber-700">{formatSDG(remaining)}</span>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-bold text-gray-700">طريقة الدفع</label>
+          <select value={method} onChange={(event) => setMethod(event.target.value as typeof method)} className={FIELD}>
+            <option value="CASH">نقداً / الخزينة</option>
+            <option value="BANK_TRANSFER">حوالة / البنك</option>
+          </select>
+        </div>
+
+        <div className="flex gap-3 border-t border-gray-100 pt-4">
+          <button type="button" onClick={onClose} disabled={loading} className={SECONDARY_BUTTON}>
+            إلغاء
+          </button>
+          <button type="submit" disabled={loading} className={PRIMARY_BUTTON}>
+            {loading && <LuLoaderCircle className="h-4 w-4 animate-spin" />}
+            تأكيد التسليم والتحصيل
+          </button>
+        </div>
+      </form>
     </ModalShell>
   );
 }

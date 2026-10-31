@@ -31,3 +31,18 @@ export function isValidCustomerPhone(value: string | null | undefined): boolean 
   const digits = cleanCustomerPhone(value);
   return digits.length >= 8 && digits.length <= 15;
 }
+
+/**
+ * صيغ البحث بالهاتف: النص كما هو (أرقامه)، وصيغته الموحدة، ولو بدأ بصفر فبديلها 249…
+ * (يُستخدم للبحث الجزئي في الأرقام المخزنة بصيغ مختلفة).
+ */
+export function phoneSearchVariants(term: string): string[] {
+  const digits = String(term ?? "").replace(/[^0-9]/g, "");
+  if (!digits) return [];
+
+  const variants = new Set<string>([digits]);
+  const normalized = normalizeCustomerPhone(term);
+  if (normalized) variants.add(normalized);
+  if (digits.startsWith("0")) variants.add(`249${digits.slice(1)}`);
+  return [...variants];
+}

@@ -1,3 +1,4 @@
+import type { ReceivablesBucket } from "@/lib/credit";
 import { serverFetch } from "@/lib/api-client";
 
 export type DashboardPeriod = "week" | "month" | "quarter" | "year";
@@ -74,6 +75,9 @@ export interface DashboardOverview {
     outOfStockItems: number;
     /** ذمم العملاء: المفتوح والمتأخر حاليًا، والمعدوم خلال الفترة */
     receivables: {
+      posCredit: ReceivablesBucket;
+      tailoringInProgress: ReceivablesBucket;
+      total: ReceivablesBucket;
       openCount: number;
       overdueCount: number;
       totalRemainingSdg: number;

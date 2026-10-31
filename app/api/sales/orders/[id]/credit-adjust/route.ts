@@ -2,7 +2,7 @@
  * POST /api/sales/orders/[id]/credit-adjust — تعديل متبقي فاتورة آجلة (تفاوض)، زيادة أو نقصانًا
  *
  * بدون قيد محاسبي، مع سجل في credit_adjustments (القديم ← الجديد + السبب + المستخدم).
- * المالك والمدير فقط (sales.creditManage).
+ * المالك والمدير والكاشير (sales.creditManage)؛ تعديل الكاشير يُشعِر المالك (داخل الدالة).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,7 +18,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const guard = await requirePermission("sales.creditManage", "تعديل متبقي الفاتورة الآجلة متاح للمالك أو المدير فقط.");
+  const guard = await requirePermission("sales.creditManage", "تعديل متبقي الفاتورة الآجلة غير متاح لصلاحياتك.");
   if (!guard.ok) return guard.response;
   const user = guard.session;
 

@@ -46,6 +46,8 @@ const TYPE_META: Record<string, { icon: typeof LuBell; className: string }> = {
   PURCHASE_ORDER: { icon: LuShoppingCart, className: "bg-emerald-50 text-emerald-600" },
   TAILORING_UPDATE: { icon: LuFactory, className: "bg-violet-50 text-violet-600" },
   CREDIT_OVERDUE: { icon: LuHandCoins, className: "bg-amber-50 text-amber-600" },
+  CREDIT_ADJUSTED: { icon: LuHandCoins, className: "bg-orange-50 text-orange-600" },
+  CREDIT_BAD_DEBT: { icon: LuHandCoins, className: "bg-red-50 text-red-600" },
 };
 
 function timeAgo(value: string) {

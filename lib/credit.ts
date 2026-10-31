@@ -7,6 +7,21 @@
 
 const r2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+/**
+ * ذمم العملاء بتصنيفاتها (من get_receivables_summary):
+ * ديون الكاشير بالتقسيط، ومتبقي طلبات التفصيل غير المسلَّمة (مبالغ متوقعة)، والإجمالي.
+ */
+export interface ReceivablesBucket {
+  count: number;
+  overdueCount: number;
+  remainingSdg: number;
+  /** القيمة بالدولار بسعر يوم البيع (أو إنشاء طلب التفصيل) */
+  usdAtSale: number;
+  /** القيمة بالدولار بسعر اليوم */
+  usdNow: number;
+  lossUsd: number;
+}
+
 export interface CreditValuation {
   remainingSdg: number;
   saleRate: number | null;

@@ -750,6 +750,9 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       manualReductionsSdg: r2(manualReductionsSdg),
       manualIncreasesSdg: r2(manualIncreasesSdg),
       receivables: {
+        posCredit: receivables.posCredit,
+        tailoringInProgress: receivables.tailoringInProgress,
+        total: receivables.total,
         openCount: receivables.openCount,
         overdueCount: receivables.overdueCount,
         totalRemainingSdg: receivables.totalRemainingSdg,

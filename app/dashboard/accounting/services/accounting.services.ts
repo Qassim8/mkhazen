@@ -1,3 +1,4 @@
+import type { ReceivablesBucket } from "@/lib/credit";
 import { serverFetch } from "@/lib/api-client";
 
 import {
@@ -424,6 +425,9 @@ export interface AccountingOverviewExpense {
 
 /** ديون العملاء: الفواتير الآجلة المفتوحة (لقطة حالية، المتبقي بالجنيه) */
 export interface AccountingReceivables {
+  posCredit: ReceivablesBucket;
+  tailoringInProgress: ReceivablesBucket;
+  total: ReceivablesBucket;
   openCount: number;
   overdueCount: number;
   totalRemainingSdg: number;

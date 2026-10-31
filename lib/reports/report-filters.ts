@@ -3,6 +3,8 @@
  * (بدون أي استيراد سيرفر، آمن للاستخدام في مكونات العميل)
  */
 
+import type { ReceivablesBucket } from "@/lib/credit";
+
 /* =====================================================================
    الفلاتر
 ===================================================================== */
@@ -154,6 +156,9 @@ export interface ReportSummary {
   manualIncreasesSdg: number;
   /** الذمم (فواتير التقسيط): المفتوح والمتأخر لقطة حالية، والمعدوم للفترة. الإيراد أعلاه = المحصّل فقط */
   receivables: {
+    posCredit: ReceivablesBucket;
+    tailoringInProgress: ReceivablesBucket;
+    total: ReceivablesBucket;
     openCount: number;
     overdueCount: number;
     totalRemainingSdg: number;

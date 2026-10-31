@@ -43,10 +43,13 @@ export const M = {
   creditSales: join(MIGRATIONS_DIR, "20261024_01_credit_sales.sql"),
   creditNotifications: join(MIGRATIONS_DIR, "20261025_01_credit_overdue_notifications.sql"),
   customersHub: join(MIGRATIONS_DIR, "20261026_01_customers_hub.sql"),
+  unifiedReceivables: join(MIGRATIONS_DIR, "20261027_01_unified_receivables.sql"),
+  linkCreditPreview: join(MIGRATIONS_DIR, "20261027_02_link_credit_customers_preview.sql"),
+  linkCreditApply: join(MIGRATIONS_DIR, "20261027_03_link_credit_customers_apply.sql"),
 } as const;
 
 /** The mandatory release sequence, in filename order (07/08 are optional). */
-export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections, M.cashierOps, M.creditSales, M.creditNotifications, M.customersHub];
+export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections, M.cashierOps, M.creditSales, M.creditNotifications, M.customersHub, M.unifiedReceivables];
 
 const ROLES_SQL = `
 DO $$ BEGIN

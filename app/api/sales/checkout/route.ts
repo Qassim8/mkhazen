@@ -12,6 +12,7 @@ import {
 } from "@/lib/api-response";
 import { beginIdempotentOperation, readIdempotencyKey } from "@/lib/idempotency";
 import { CheckoutRpcError, completeSalesCheckout } from "../_lib/sales-helper";
+import { resolveCreditCustomer } from "../_lib/credit-customer";
 import { verifyCheckoutSubtotal, type PricingVariant } from "../_lib/checkout-pricing";
 import { createSalesOrderSchema } from "@/app/dashboard/pos/schemas/pos.schemas";
 
@@ -133,6 +134,30 @@ export async function POST(req: NextRequest) {
       return apiError(409, "BUSINESS_RULE", pricing.message, { errors: { currentPrices } });
     }
 
+    // 4b. البيع بالتقسيط: الدين مربوط بعميل (المختار، أو الموجود بنفس الرقم، أو يُنشأ).
+    // الاسم والهاتف على الفاتورة نسخة من بيانات العميل.
+    let customerId: string | null = payload.customerId ?? null;
+    let creditName = payload.creditName ?? null;
+    let creditPhone = payload.creditPhone ?? null;
+
+    if (payload.isCredit === true) {
+      const customer = await resolveCreditCustomer({
+        customerId: payload.customerId,
+        name: payload.creditName,
+        phone: payload.creditPhone,
+      });
+
+      if (!customer.ok) {
+        await idempotency.abandon();
+        if (customer.kind === "NOT_FOUND") return apiError(422, "VALIDATION_ERROR", "العميل المختار غير موجود.");
+        return dbErrorResponse(customer.error, "resolve_credit_customer", "تعذر تحديد عميل البيع بالتقسيط.");
+      }
+
+      customerId = customer.customerId;
+      creditName = customer.name;
+      creditPhone = customer.phone;
+    }
+
     // 5. البيع (ذرّي في قاعدة البيانات)
     let result;
     reachedCheckout = true;
@@ -142,7 +167,7 @@ export async function POST(req: NextRequest) {
         cashierId,
         // طلبات التفصيل ليها مسار خاص (/api/tailoring/orders)
         orderType: "POS",
-        customerId: payload.customerId ?? null,
+        customerId,
         tailorId: payload.tailorId ?? null,
         discountAmount: payload.discountAmount,
         taxAmount: payload.taxAmount,
@@ -158,8 +183,8 @@ export async function POST(req: NextRequest) {
         })),
         expectedExchangeRate: payload.exchangeRate,
         isCredit: payload.isCredit === true,
-        creditName: payload.creditName ?? null,
-        creditPhone: payload.creditPhone ?? null,
+        creditName,
+        creditPhone,
         dueDate: payload.dueDate ?? null,
       });
     } catch (error) {

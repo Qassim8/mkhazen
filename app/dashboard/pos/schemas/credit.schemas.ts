@@ -36,5 +36,9 @@ export const receivablesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().trim().max(100, "نص البحث طويل جدًا").optional(),
   overdue: z.enum(["true", "false"]).optional(),
+  /** تصنيف الذمم: كل شيء، أو ديون الكاشير، أو متبقي طلبات التفصيل قيد التنفيذ */
+  kind: z.enum(["ALL", "POS_CREDIT", "TAILORING_IN_PROGRESS"]).default("ALL"),
+  /** ذمم عميل واحد (صفحة العميل) */
+  customerId: z.string().uuid("معرف العميل غير صالح").optional(),
 });
 export type ReceivablesQueryInput = z.infer<typeof receivablesQuerySchema>;

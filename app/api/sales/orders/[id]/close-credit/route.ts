@@ -2,7 +2,7 @@
  * POST /api/sales/orders/[id]/close-credit — إغلاق فاتورة آجلة كدين معدوم
  *
  * remaining_amount = 0، وتتحول التكلفة المؤجلة المتبقية إلى مصروف
- * (OTHER_EXPENSE ← DEFERRED_COGS). المالك والمدير فقط (sales.creditManage).
+ * (OTHER_EXPENSE ← DEFERRED_COGS). المالك والمدير والكاشير (sales.creditManage)؛ إغلاق الكاشير يُشعِر المالك (داخل الدالة).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,7 +19,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const guard = await requirePermission("sales.creditManage", "إغلاق الدين المعدوم متاح للمالك أو المدير فقط.");
+  const guard = await requirePermission("sales.creditManage", "إغلاق الدين المعدوم غير متاح لصلاحياتك.");
   if (!guard.ok) return guard.response;
   const user = guard.session;
 

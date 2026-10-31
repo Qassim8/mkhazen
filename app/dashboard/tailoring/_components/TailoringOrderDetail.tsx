@@ -150,7 +150,9 @@ export default function TailoringOrderDetail({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const autoPrint = searchParams.get("print") === "1";
+  // print=1: فاتورتا العميل والخياط بعد الإنشاء، print=customer: إيصال العميل بعد التسليم والتحصيل
+  const printParam = searchParams.get("print");
+  const autoPrint = printParam === "1" || printParam === "customer";
 
   // فاتورة العميل (مالية) وفاتورة الخياط (مقاسات بلا مبالغ)
   const [receiptMode, setReceiptMode] = useState<TailoringReceiptMode>(
@@ -166,11 +168,16 @@ export default function TailoringOrderDetail({
   useEffect(() => {
     if (!autoPrint || order.tailoringPurpose !== "CUSTOMER") return;
     const timer = window.setTimeout(() => {
-      window.print();
+      if (printParam === "customer") {
+        setReceiptMode("customer");
+        window.setTimeout(() => window.print(), 150);
+      } else {
+        window.print();
+      }
       router.replace(pathname, { scroll: false });
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [autoPrint, order.tailoringPurpose, pathname, router]);
+  }, [autoPrint, order.tailoringPurpose, pathname, printParam, router]);
 
   // مفاتيح منع التكرار للعمليات المالية (تسليم/استرداد)
   const pickupIdempotency = useIdempotencyKey();
@@ -316,7 +323,8 @@ export default function TailoringOrderDetail({
             : "تم تسليم الطلب دون مبلغ متبقٍ.",
         );
         setPickupOpen(false);
-        router.refresh();
+        // يُحدِّث الطلب ويطبع إيصال العميل بعد التسليم والتحصيل
+        router.replace(`${pathname}?print=customer`, { scroll: false });
       } catch (error: unknown) {
         console.error("Complete tailoring pickup:", error);
         toast.error(

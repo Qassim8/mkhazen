@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { cleanCustomerPhone, isValidCustomerPhone, normalizeCustomerPhone } from "@/lib/customer-phone";
+import { cleanCustomerPhone, isValidCustomerPhone, normalizeCustomerPhone, phoneSearchVariants } from "@/lib/customer-phone";
 import { can, canAccessPath } from "@/lib/permissions";
 
 describe("توحيد أرقام العملاء (lib/customer-phone)", () => {
@@ -29,6 +29,12 @@ describe("توحيد أرقام العملاء (lib/customer-phone)", () => {
     assert.equal(cleanCustomerPhone("+249 912-345-678"), "249912345678");
     assert.equal(cleanCustomerPhone("00249912345678"), "249912345678");
     assert.equal(cleanCustomerPhone("0912345678"), "0912345678");
+  });
+
+  it("phoneSearchVariants: النص كما هو، والصيغة الموحدة، وبديل 249 لما يبدأ بصفر", () => {
+    assert.deepEqual(phoneSearchVariants("0912"), ["0912", "249912"]);
+    assert.deepEqual(phoneSearchVariants("+249 912 345 678"), ["249912345678"]);
+    assert.deepEqual(phoneSearchVariants("علي"), []);
   });
 
   it("isValidCustomerPhone", () => {

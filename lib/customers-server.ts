@@ -29,6 +29,8 @@ export interface CustomerOrder {
   /** لطلبات التفصيل: لم تُسلَّم بعد */
   inProgress: boolean;
   isCredit: boolean;
+  /** حالة طلب التفصيل (NEW / UNDER_TAILORING / READY_FOR_PICKUP / RECEIVED) */
+  statusCode: string | null;
 }
 
 export interface CustomerStats {
@@ -165,6 +167,7 @@ export async function loadCustomerOrders(customerIds: string[]): Promise<Custome
         statusLabel: TAILORING_LABELS[row.tailoring_status ?? ""] ?? row.tailoring_status ?? "—",
         inProgress: row.tailoring_status !== "RECEIVED",
         isCredit: false,
+        statusCode: row.tailoring_status,
       };
     }
 
@@ -192,6 +195,7 @@ export async function loadCustomerOrders(customerIds: string[]): Promise<Custome
         : "مدفوعة",
       inProgress: false,
       isCredit,
+      statusCode: null,
     };
   });
 }
@@ -267,4 +271,33 @@ export async function loadCustomerPayments(orders: CustomerOrder[]): Promise<Cus
       notes: row.notes,
     }))
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+}
+
+/**
+ * ذمم العميل من قاعدة البيانات نفسها التي تقرأ منها صفحة الذمم (get_unified_receivables):
+ * المتبقي وإمكانية التحصيل لا يُحسبان في مكان ثانٍ.
+ */
+export interface CustomerReceivable {
+  kind: "POS_CREDIT" | "TAILORING_IN_PROGRESS";
+  orderId: string;
+  paid: number;
+  remaining: number;
+  canCollect: boolean;
+  isOverdue: boolean;
+  dueDate: string | null;
+}
+
+export async function loadCustomerReceivables(customerId: string): Promise<CustomerReceivable[]> {
+  const { data, error } = await supabaseAdmin.rpc("get_unified_receivables", { p_customer_id: customerId });
+  if (error) throw new Error(`تعذر جلب ذمم العميل: ${error.message}`);
+
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    kind: row.kind as CustomerReceivable["kind"],
+    orderId: String(row.order_id),
+    paid: r2(num(row.paid_amount)),
+    remaining: r2(num(row.remaining_sdg)),
+    canCollect: row.can_collect === true,
+    isOverdue: row.is_overdue === true,
+    dueDate: (row.due_date as string | null) ?? null,
+  }));
 }

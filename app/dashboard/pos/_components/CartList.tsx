@@ -305,14 +305,16 @@ export default function CartList({
               </p>
             )}
           </div>
-          {!credit.enabled && (
-            <CustomerPicker
-              key={linkedCustomer?.id ?? "none"}
-              label="ربط عميل بالفاتورة (اختياري)"
-              initialCustomer={linkedCustomer}
-              onSelect={onLinkCustomer}
-            />
-          )}
+          <CustomerPicker
+            key={linkedCustomer?.id ?? "none"}
+            label={
+              credit.enabled
+                ? "العميل (ابحث بالاسم أو الهاتف، أو أضف عميلًا جديدًا)"
+                : "ربط عميل بالفاتورة (اختياري)"
+            }
+            initialCustomer={linkedCustomer}
+            onSelect={onLinkCustomer}
+          />
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-bold text-gray-700">
@@ -367,29 +369,40 @@ export default function CartList({
                 بيانات البيع بالتقسيط (الدين بالجنيه ومربوط بهذه الفاتورة)
               </div>
 
-              <input
-                type="text"
-                value={credit.name}
-                maxLength={255}
-                disabled={isCheckingOut}
-                onChange={(event) =>
-                  onCreditChange({ name: event.target.value })
-                }
-                placeholder="اسم العميل *"
-                className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
-              />
-              <input
-                type="tel"
-                inputMode="tel"
-                value={credit.phone}
-                maxLength={30}
-                disabled={isCheckingOut}
-                onChange={(event) =>
-                  onCreditChange({ phone: event.target.value })
-                }
-                placeholder="رقم الهاتف *"
-                className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
-              />
+              {linkedCustomer ? (
+                <p className="rounded-lg bg-white p-2 text-[10px] font-semibold text-gray-600">
+                  الدين مربوط بالعميل «{linkedCustomer.name}» (يظهر في صفحته وفي ذمم العملاء).
+                </p>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={credit.name}
+                    maxLength={255}
+                    disabled={isCheckingOut}
+                    onChange={(event) =>
+                      onCreditChange({ name: event.target.value })
+                    }
+                    placeholder="اسم العميل *"
+                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
+                  />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={credit.phone}
+                    maxLength={30}
+                    disabled={isCheckingOut}
+                    onChange={(event) =>
+                      onCreditChange({ phone: event.target.value })
+                    }
+                    placeholder="رقم الهاتف *"
+                    className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-base font-semibold text-gray-800 outline-none focus:border-amber-500 lg:min-h-0 lg:text-[11px]"
+                  />
+                  <p className="text-[10px] font-medium text-gray-500">
+                    لو كان الرقم لعميل موجود يُربط به تلقائيًا، وإلا يُنشأ عميل جديد.
+                  </p>
+                </>
+              )}
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>

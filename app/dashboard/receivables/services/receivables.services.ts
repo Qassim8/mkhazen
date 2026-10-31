@@ -1,18 +1,37 @@
 import { serverFetch } from "@/lib/api-client";
 
-/** صف من /api/sales/receivables (snake_case كما يرجع من الـ API) */
-export interface ReceivableRow {
+/**
+ * تصنيفات الذمم:
+ *  POS_CREDIT            ديون فواتير الكاشير بالتقسيط (ديون فعلية)
+ *  TAILORING_IN_PROGRESS متبقي على طلبات تفصيل لم تُسلَّم (مبالغ متوقعة، ليست ديونًا)
+ * (لا يوجد "تفصيل مُسلَّم وعليه متبقٍ": التسليم يحصّل كامل المتبقي)
+ */
+export type ReceivableKind = "POS_CREDIT" | "TAILORING_IN_PROGRESS";
+export type ReceivableKindFilter = "ALL" | ReceivableKind;
+
+/** ما تحتاجه نوافذ التحصيل والتعديل من الصف (يطابقه ReceivableRow وصفوف صفحة العميل) */
+export interface CollectTarget {
   order_id: string;
   order_number: string;
-  credit_customer_name: string | null;
-  credit_customer_phone: string | null;
+  customer_name: string | null;
+  remaining_sdg: number | null;
+}
+
+/** صف من /api/sales/receivables (snake_case كما يرجع من الـ API) */
+export interface ReceivableRow extends CollectTarget {
+  kind: ReceivableKind;
+  customer_id: string | null;
+  customer_phone: string | null;
   created_at: string;
   due_date: string | null;
   is_overdue: boolean;
   payment_status: string;
+  /** حالة طلب التفصيل (NEW / UNDER_TAILORING / READY_FOR_PICKUP) */
+  status_code: string | null;
+  /** التحصيل متاح الآن (فاتورة آجلة، أو طلب تفصيل جاهز للاستلام) */
+  can_collect: boolean;
   total_amount: number | null;
   paid_amount: number | null;
-  remaining_sdg: number | null;
   sale_rate: number | null;
   current_rate: number | null;
   remaining_usd_at_sale: number | null;
@@ -26,21 +45,27 @@ export interface ReceivableRow {
   deferred_cost_usd?: number | null;
 }
 
-export interface ReceivablesSummary {
-  invoices_count: number;
+export interface ReceivableBucket {
+  count: number;
   overdue_count: number;
-  total_remaining_sdg: number;
-  total_usd_at_sale: number;
-  total_usd_now: number;
-  total_loss_usd: number;
-  deferred_cost_usd_open: number;
-  deferred_cogs_usd: number;
+  remaining_sdg: number;
+  usd_at_sale: number;
+  usd_now: number;
+  loss_usd: number;
+}
+
+export interface ReceivablesSummary {
+  pos_credit: ReceivableBucket;
+  tailoring_in_progress: ReceivableBucket;
+  total: ReceivableBucket;
+  /** للمالك والمدير فقط */
+  deferred_cost_usd_open?: number;
+  deferred_cogs_usd?: number;
 }
 
 export interface ReceivablesResponse {
   data: ReceivableRow[];
   meta: { total: number; page: number; limit: number; totalPages: number };
-  /** للمالك والمدير فقط */
   summary?: ReceivablesSummary;
 }
 
@@ -49,6 +74,8 @@ export async function getReceivables(params: {
   limit?: number;
   search?: string;
   overdue?: boolean;
+  kind?: ReceivableKindFilter;
+  customerId?: string;
 }): Promise<ReceivablesResponse> {
   return serverFetch<ReceivablesResponse>("/api/sales/receivables", {
     method: "GET",
@@ -57,6 +84,8 @@ export async function getReceivables(params: {
       limit: params.limit ?? 20,
       search: params.search || undefined,
       overdue: params.overdue ? "true" : undefined,
+      kind: params.kind && params.kind !== "ALL" ? params.kind : undefined,
+      customerId: params.customerId || undefined,
     },
     cache: "no-store",
   });

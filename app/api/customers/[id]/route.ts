@@ -5,7 +5,7 @@ import { isUuid } from "@/lib/api-response";
 import { can } from "@/lib/permissions";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { cleanCustomerPhone } from "@/lib/customer-phone";
-import { loadCustomerOrders, loadCustomerPayments, summarizeOrders } from "@/lib/customers-server";
+import { loadCustomerOrders, loadCustomerPayments, loadCustomerReceivables, summarizeOrders } from "@/lib/customers-server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 import { customerInputSchema, findExactPhoneOwner, findPhoneDuplicates } from "../_lib/customer-helpers";
@@ -67,18 +67,52 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ data: base });
     }
 
-    const orders = await loadCustomerOrders([id]);
+    const [orders, receivables] = await Promise.all([loadCustomerOrders([id]), loadCustomerReceivables(id)]);
     const [payments, duplicates] = await Promise.all([
       loadCustomerPayments(orders),
       findPhoneDuplicates(data.whatsapp_number, id),
     ]);
 
+    // المتبقي وإمكانية التحصيل من get_unified_receivables (نفس مصدر صفحة الذمم)؛
+    // أي فاتورة بلا صف هناك لا متبقي عليها (مغلقة/مسلَّمة/عادية)
+    const receivableByOrder = new Map(receivables.map((item) => [item.orderId, item]));
+    const withReceivables = orders.map((order) => {
+      const receivable = receivableByOrder.get(order.id);
+      return {
+        ...order,
+        paid: receivable ? receivable.paid : order.paid,
+        remaining: receivable ? receivable.remaining : 0,
+        canCollect: receivable?.canCollect ?? false,
+        receivableKind: receivable?.kind ?? null,
+      };
+    });
+
+    const posCreditRemaining = receivables
+      .filter((item) => item.kind === "POS_CREDIT")
+      .reduce((sum, item) => sum + item.remaining, 0);
+    const tailoringInProgressRemaining = receivables
+      .filter((item) => item.kind === "TAILORING_IN_PROGRESS")
+      .reduce((sum, item) => sum + item.remaining, 0);
+    const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+    const summary = summarizeOrders(orders);
+
     return NextResponse.json({
       data: {
         ...base,
         order_count: orders.length,
-        stats: summarizeOrders(orders),
-        orders: [...orders].sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt)),
+        stats: {
+          invoiceCount: summary.invoiceCount,
+          totalPurchases: summary.totalPurchases,
+          totalPaid: summary.totalPaid,
+          lastActivity: summary.lastActivity,
+          posCreditRemaining: round2(posCreditRemaining),
+          tailoringInProgressRemaining: round2(tailoringInProgressRemaining),
+          totalRemaining: round2(posCreditRemaining + tailoringInProgressRemaining),
+        },
+        orders: [...withReceivables].sort((a, b) =>
+          (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt),
+        ),
         payments,
         duplicates,
       },

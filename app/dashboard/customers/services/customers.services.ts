@@ -121,6 +121,12 @@ export interface CustomerOrderRow {
   statusLabel: string;
   inProgress: boolean;
   isCredit: boolean;
+  /** حالة طلب التفصيل (NEW / UNDER_TAILORING / READY_FOR_PICKUP / RECEIVED) */
+  statusCode: string | null;
+  /** يمكن تحصيله الآن (من get_unified_receivables) */
+  canCollect: boolean;
+  /** تصنيف الذمة لو عليه متبقٍ */
+  receivableKind: "POS_CREDIT" | "TAILORING_IN_PROGRESS" | null;
 }
 
 export interface CustomerDetail {
@@ -134,8 +140,12 @@ export interface CustomerDetail {
     totalPurchases: number;
     totalPaid: number;
     lastActivity: string | null;
+    /** ديون الكاشير بالتقسيط */
+    posCreditRemaining: number;
+    /** متبقي طلبات التفصيل غير المسلَّمة (مبالغ متوقعة) */
     tailoringInProgressRemaining: number;
-    tailoringDueRemaining: number;
+    /** مجموع الاثنين */
+    totalRemaining: number;
   };
   orders: CustomerOrderRow[];
   payments: {

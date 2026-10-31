@@ -798,7 +798,7 @@ export default function POSClient({
 
   const allGifts = cart.length > 0 && cart.every((item) => item.isGift);
   const creditError = credit.enabled
-    ? validateCredit(credit, totalAmount, allGifts)
+    ? validateCredit(credit, totalAmount, allGifts, linkedCustomer !== null)
     : null;
 
   const handleCreditToggle = () => {
@@ -935,7 +935,7 @@ export default function POSClient({
       paymentSplits: effectiveSplits,
       exchangeRate,
       credit: credit.enabled ? credit : null,
-      customerId: credit.enabled ? null : (linkedCustomer?.id ?? null),
+      customerId: linkedCustomer?.id ?? null,
     });
 
     if (checkoutKeyRef.current?.fingerprint !== fingerprint) {
@@ -952,7 +952,7 @@ export default function POSClient({
       const payload = {
         orderType: "POS" as const,
 
-        customerId: credit.enabled ? null : (linkedCustomer?.id ?? null),
+        customerId: linkedCustomer?.id ?? null,
 
         tailorId: null,
 
@@ -971,8 +971,9 @@ export default function POSClient({
         ...(credit.enabled
           ? {
               isCredit: true,
-              creditName: credit.name.trim(),
-              creditPhone: credit.phone.trim(),
+              // عميل مختار: الاسم والهاتف على الفاتورة نسخة من بياناته (يضبطها السيرفر)
+              creditName: linkedCustomer ? null : credit.name.trim(),
+              creditPhone: linkedCustomer ? null : credit.phone.trim(),
               dueDate: credit.dueDate || null,
             }
           : {}),

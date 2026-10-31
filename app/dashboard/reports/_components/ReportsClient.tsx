@@ -146,25 +146,35 @@ function SummaryTab({ report }: { report: ReportData }) {
       </div>
 
       <Section
-        title="ذمم العملاء (البيع بالتقسيط)"
-        subtitle="الإيراد أعلاه يعكس المحصّل فقط؛ المتبقي غير المحصّل ليس إيرادًا. المفتوح والمتأخر حاليًا، والمعدوم خلال الفترة."
+        title="ذمم العملاء"
+        subtitle="الإيراد أعلاه يعكس المحصّل فقط؛ المتبقي غير المحصّل ليس إيرادًا. ديون الكاشير بالتقسيط ومتبقي التفصيل قيد التنفيذ (مبالغ متوقعة) حاليًا، والمعدوم خلال الفترة."
       >
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
           <Kpi
-            title="الذمم المفتوحة"
-            value={formatSDG(s.receivables.totalRemainingSdg)}
-            hint={`${qty(s.receivables.openCount)} فاتورة — ${formatUSD(s.receivables.totalUsdAtSale)} ← ${formatUSD(s.receivables.totalUsdNow)}`}
+            title="ديون الكاشير (بالتقسيط)"
+            value={formatSDG(s.receivables.posCredit.remainingSdg)}
+            hint={`${qty(s.receivables.posCredit.count)} فاتورة — يوم البيع ← اليوم: ${formatUSD(s.receivables.posCredit.usdAtSale)} ← ${formatUSD(s.receivables.posCredit.usdNow)}`}
+          />
+          <Kpi
+            title="متبقي التفصيل قيد التنفيذ (متوقع)"
+            value={formatSDG(s.receivables.tailoringInProgress.remainingSdg)}
+            hint={`${qty(s.receivables.tailoringInProgress.count)} طلب — يوم البيع ← اليوم: ${formatUSD(s.receivables.tailoringInProgress.usdAtSale)} ← ${formatUSD(s.receivables.tailoringInProgress.usdNow)}`}
+          />
+          <Kpi
+            title="إجمالي الذمم"
+            value={formatSDG(s.receivables.total.remainingSdg)}
+            hint={`${qty(s.receivables.total.count)} ذمة — يوم البيع ← اليوم: ${formatUSD(s.receivables.total.usdAtSale)} ← ${formatUSD(s.receivables.total.usdNow)}`}
           />
           <Kpi
             title="الذمم المتأخرة"
-            value={qty(s.receivables.overdueCount)}
-            hint="فواتير تجاوزت تاريخ الاستحقاق"
-            tone={s.receivables.overdueCount > 0 ? "bad" : "default"}
+            value={qty(s.receivables.total.overdueCount)}
+            hint="تجاوزت تاريخ الاستحقاق أو التسليم المتوقع"
+            tone={s.receivables.total.overdueCount > 0 ? "bad" : "default"}
           />
           <Kpi
             title="خسارة انخفاض الجنيه على المتبقي"
-            value={formatUSD(s.receivables.totalLossUsd)}
-            tone={s.receivables.totalLossUsd > 0 ? "bad" : "default"}
+            value={formatUSD(s.receivables.total.lossUsd)}
+            tone={s.receivables.total.lossUsd > 0 ? "bad" : "default"}
           />
           <Kpi
             title="ديون معدومة في الفترة"

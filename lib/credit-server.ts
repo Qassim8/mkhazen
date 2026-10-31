@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { fetchAll } from "@/lib/supabase-fetch-all";
+import type { ReceivablesBucket } from "@/lib/credit";
 
 /**
  * ملخص الذمم للمالك والمدير (نظرة المحاسبة، التقارير، لوحة التحكم).
@@ -9,6 +10,13 @@ import { fetchAll } from "@/lib/supabase-fetch-all";
  * • الديون المعدومة للفترة المطلوبة فقط (من سجل credit_adjustments).
  */
 export interface ReceivablesSnapshot {
+  /** ديون الكاشير بالتقسيط (ديون فعلية) */
+  posCredit: ReceivablesBucket;
+  /** متبقي طلبات التفصيل غير المسلَّمة (مبالغ متوقعة، ليست ديونًا) */
+  tailoringInProgress: ReceivablesBucket;
+  /** مجموع التصنيفين */
+  total: ReceivablesBucket;
+  /** المفاتيح التالية: فواتير الكاشير الآجلة فقط (كما كانت) */
   openCount: number;
   overdueCount: number;
   totalRemainingSdg: number;
@@ -26,6 +34,18 @@ const num = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 const r2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+function bucketFrom(raw: unknown): ReceivablesBucket {
+  const bucket = (raw ?? {}) as Record<string, unknown>;
+  return {
+    count: num(bucket.count),
+    overdueCount: num(bucket.overdue_count),
+    remainingSdg: r2(num(bucket.remaining_sdg)),
+    usdAtSale: r2(num(bucket.usd_at_sale)),
+    usdNow: r2(num(bucket.usd_now)),
+    lossUsd: r2(num(bucket.loss_usd)),
+  };
+}
 
 export async function loadReceivablesSnapshot(range?: {
   startIso: string;
@@ -71,6 +91,9 @@ export async function loadReceivablesSnapshot(range?: {
   }
 
   return {
+    posCredit: bucketFrom(summary.pos_credit),
+    tailoringInProgress: bucketFrom(summary.tailoring_in_progress),
+    total: bucketFrom(summary.total),
     openCount: num(summary.invoices_count),
     overdueCount: num(summary.overdue_count),
     totalRemainingSdg: r2(num(summary.total_remaining_sdg)),

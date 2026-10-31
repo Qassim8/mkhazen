@@ -39,10 +39,24 @@ describe("credit sales (20261024_01)", () => {
   const product = async (opts: { stock?: number; cost?: number; price?: number } = {}) =>
     createProduct(db, { stock: opts.stock ?? 100, averageCost: opts.cost ?? 4, purchasePrice: opts.cost ?? 4, sellingPrice: opts.price ?? 10 });
 
+  // البيع بالتقسيط يتطلب عميلًا (20261027_01): عميل افتراضي واحد للاختبارات
+  let defaultCustomerId: string | null = null;
+  const defaultCustomer = async () => {
+    if (!defaultCustomerId) {
+      defaultCustomerId = (
+        await db.query<{ id: string }>(
+          `INSERT INTO public.customers (branch_id, name, whatsapp_number) VALUES ($1, 'عميل التقسيط', '249912345678') RETURNING id`,
+          [BRANCH_ID],
+        )
+      ).rows[0].id;
+    }
+    return defaultCustomerId;
+  };
+
   const sale = async (
     variantId: string,
     quantity: number,
-    credit: { paid?: { method: string; amount: number }[]; name?: string | null; phone?: string | null; due?: string | null } | null,
+    credit: { paid?: { method: string; amount: number }[]; name?: string | null; phone?: string | null; due?: string | null; customerId?: string | null } | null,
     userId = users.cashier,
   ) => {
     const items = JSON.stringify([{ variantId, quantity }]);
@@ -54,7 +68,7 @@ describe("credit sales (20261024_01)", () => {
       return rows[0].r;
     }
     const { rows } = await svc<{ r: Json }>(
-      `SELECT public.complete_sales_checkout($1, $2, 'POS', NULL, NULL, 0, 0, 'CASH', $3::jsonb, NULL, $4::jsonb, NULL, true, $5, $6, $7::date) AS r`,
+      `SELECT public.complete_sales_checkout($1, $2, 'POS', $8, NULL, 0, 0, 'CASH', $3::jsonb, NULL, $4::jsonb, NULL, true, $5, $6, $7::date) AS r`,
       [
         BRANCH_ID,
         userId,
@@ -63,6 +77,7 @@ describe("credit sales (20261024_01)", () => {
         credit.name === undefined ? "محمد أحمد" : credit.name,
         credit.phone === undefined ? "0912345678" : credit.phone,
         credit.due ?? null,
+        credit.customerId === undefined ? await defaultCustomer() : credit.customerId,
       ],
     );
     return rows[0].r;
@@ -331,7 +346,7 @@ describe("credit sales (20261024_01)", () => {
     assert.equal(num((await order(id)).remaining_amount), 24_800);
   });
 
-  it("adjust remaining: owner/admin only, logged, no journal entry; later payments follow the new remaining", async () => {
+  it("adjust remaining: owner/admin/cashier only (not tailor), logged, no journal entry; later payments follow the new remaining", async () => {
     await setRate();
     const p = await product();
     const r = await sale(p.variantId, 2, { paid: [{ method: "CASH", amount: 20_000 }] });
@@ -340,7 +355,7 @@ describe("credit sales (20261024_01)", () => {
     const adjust = (newRemaining: number, reason: string | null, userId = users.admin) =>
       svc<{ r: Json }>(`SELECT public.adjust_credit_remaining($1, $2, $3, $4) AS r`, [id, newRemaining, reason, userId]);
 
-    assert.match(await rpcError(adjust(10_000, "تفاوض", users.cashier)), /للمالك أو المدير فقط/);
+    assert.match(await rpcError(adjust(10_000, "تفاوض", users.tailor)), /للكاشير أو المدير أو المالك فقط/);
     assert.match(await rpcError(adjust(10_000, "")), /سبب التعديل/);
     assert.match(await rpcError(adjust(0, "x")), /أكبر من صفر/);
     assert.match(await rpcError(adjust(30_000, "x")), /يساوي الحالي/);
@@ -373,7 +388,7 @@ describe("credit sales (20261024_01)", () => {
     assert.equal(num((await order(id)).deferred_cost_usd), 0);
   });
 
-  it("bad debt: remaining 0, OTHER_EXPENSE / DEFERRED_COGS for the remaining deferred cost, owner/admin only", async () => {
+  it("bad debt: remaining 0, OTHER_EXPENSE / DEFERRED_COGS for the remaining deferred cost, owner/admin/cashier only", async () => {
     await setRate();
     const p = await product();
     const r = await sale(p.variantId, 2, { paid: [{ method: "CASH", amount: 20_000 }] });
@@ -383,7 +398,7 @@ describe("credit sales (20261024_01)", () => {
     const close = (userId = users.owner, notes: string | null = "تعذر التحصيل") =>
       svc<{ r: Json }>(`SELECT public.close_credit_bad_debt($1, $2, $3, $4) AS r`, [id, userId, BRANCH_ID, notes]);
 
-    assert.match(await rpcError(close(users.cashier)), /للمالك أو المدير فقط/);
+    assert.match(await rpcError(close(users.tailor)), /للكاشير أو المدير أو المالك فقط/);
 
     const result = (await close(users.admin)).rows[0].r;
     assert.equal(num(result.written_off_sdg), 15_000);
@@ -433,6 +448,18 @@ describe("credit valuation and receivables summary (20261024_01)", () => {
 
   const svc = <T,>(text: string, params: unknown[] = []) => asRole(db, "service_role", () => db.query<T>(text, params));
 
+  // البيع بالتقسيط يتطلب عميلًا (20261027_01)
+  let customerId: string | null = null;
+  const defaultCustomer = async () => {
+    customerId ??= (
+      await db.query<{ id: string }>(
+        `INSERT INTO public.customers (branch_id, name, whatsapp_number) VALUES ($1, 'عميل التقسيط', '249912345678') RETURNING id`,
+        [BRANCH_ID],
+      )
+    ).rows[0].id;
+    return customerId;
+  };
+
   before(async () => {
     db = await createLiveDb({ migrations: RELEASE_SEQUENCE });
     users = await seedBase(db);
@@ -443,8 +470,8 @@ describe("credit valuation and receivables summary (20261024_01)", () => {
     const p = await createProduct(db, { stock: 50, averageCost: 4, purchasePrice: 4, sellingPrice: 10 });
     const items = JSON.stringify([{ variantId: p.variantId, quantity: 2 }]);
     const { rows } = await svc<{ r: Json }>(
-      `SELECT public.complete_sales_checkout($1, $2, 'POS', NULL, NULL, 0, 0, 'CASH', $3::jsonb, NULL, $4::jsonb, NULL, true, 'سارة', '0999', current_date + 30) AS r`,
-      [BRANCH_ID, users.cashier, JSON.stringify([{ method: "CASH", amount: 20_000 }]), items],
+      `SELECT public.complete_sales_checkout($1, $2, 'POS', $5, NULL, 0, 0, 'CASH', $3::jsonb, NULL, $4::jsonb, NULL, true, 'سارة', '0999', current_date + 30) AS r`,
+      [BRANCH_ID, users.cashier, JSON.stringify([{ method: "CASH", amount: 20_000 }]), items, await defaultCustomer()],
     );
     const id = rows[0].r.id as string;
 
@@ -480,8 +507,8 @@ describe("credit valuation and receivables summary (20261024_01)", () => {
     const p = await createProduct(db, { stock: 50, averageCost: 4, purchasePrice: 4, sellingPrice: 10 });
     const items = JSON.stringify([{ variantId: p.variantId, quantity: 1 }]);
     const { rows } = await svc<{ r: Json }>(
-      `SELECT public.complete_sales_checkout($1, $2, 'POS', NULL, NULL, 0, 0, 'CASH', '[]'::jsonb, NULL, $3::jsonb, NULL, true, 'علي', '0888', NULL) AS r`,
-      [BRANCH_ID, users.cashier, items],
+      `SELECT public.complete_sales_checkout($1, $2, 'POS', $4, NULL, 0, 0, 'CASH', '[]'::jsonb, NULL, $3::jsonb, NULL, true, 'علي', '0888', NULL) AS r`,
+      [BRANCH_ID, users.cashier, items, await defaultCustomer()],
     );
     const id = rows[0].r.id as string;
     await db.query(`UPDATE public.sales_orders SET due_date = current_date - 3 WHERE id = $1`, [id]);

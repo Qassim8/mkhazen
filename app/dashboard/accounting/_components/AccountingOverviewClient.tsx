@@ -275,8 +275,10 @@ export default function AccountingOverviewClient({ initialData }: Props) {
                 <LuHandCoins className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-gray-900">ديون العملاء</h3>
-                <p className="text-xs text-gray-500">الفواتير الآجلة المفتوحة (لقطة حالية)</p>
+                <h3 className="text-sm font-black text-gray-900">ذمم العملاء</h3>
+                <p className="text-xs text-gray-500">
+                  ديون الكاشير بالتقسيط ومتبقي طلبات التفصيل قيد التنفيذ (مبالغ متوقعة) — لقطة حالية
+                </p>
               </div>
             </div>
             <Link
@@ -287,38 +289,34 @@ export default function AccountingOverviewClient({ initialData }: Props) {
             </Link>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <p className="text-[11px] font-bold text-gray-400">إجمالي المتبقي</p>
-              <p className="mt-1 text-lg font-black text-amber-700">
-                {formatSDG(data.receivables.totalRemainingSdg)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-gray-400">قيمته بالدولار (يوم البيع ← اليوم)</p>
-              <p dir="ltr" className="mt-1 text-right text-lg font-black text-gray-900">
-                {formatMoney(data.receivables.totalUsdAtSale)} ← {formatMoney(data.receivables.totalUsdNow)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-gray-400">إجمالي الخسارة</p>
-              <p
-                className={`mt-1 text-lg font-black ${
-                  data.receivables.totalLossUsd > 0 ? "text-red-600" : "text-gray-900"
-                }`}
-              >
-                {formatMoney(data.receivables.totalLossUsd)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] font-bold text-gray-400">الفواتير / المتأخرة</p>
-              <p className="mt-1 text-lg font-black text-gray-900">
-                {data.receivables.openCount} /{" "}
-                <span className={data.receivables.overdueCount > 0 ? "text-red-600" : ""}>
-                  {data.receivables.overdueCount}
-                </span>
-              </p>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {(
+              [
+                ["ديون الكاشير (بالتقسيط)", data.receivables.posCredit, "فاتورة"],
+                ["متبقي التفصيل قيد التنفيذ (متوقع)", data.receivables.tailoringInProgress, "طلب"],
+                ["الإجمالي", data.receivables.total, "ذمة"],
+              ] as const
+            ).map(([label, bucket, unit]) => (
+              <div key={label} className="rounded-xl bg-gray-50 p-4">
+                <p className="text-[11px] font-bold text-gray-400">{label}</p>
+                <p className="mt-1 text-lg font-black text-amber-700">{formatSDG(bucket.remainingSdg)}</p>
+                <p className="mt-0.5 text-[11px] text-gray-500">
+                  {bucket.count} {unit}
+                  {bucket.overdueCount > 0 && (
+                    <span className="text-red-600"> — {bucket.overdueCount} متأخرة</span>
+                  )}
+                </p>
+                <p className="mt-2 text-[10px] font-bold text-gray-400">بالدولار (يوم البيع ← اليوم)</p>
+                <p dir="ltr" className="text-right text-sm font-black text-gray-900">
+                  {formatMoney(bucket.usdNow)} ← {formatMoney(bucket.usdAtSale)}
+                </p>
+                <p
+                  className={`mt-0.5 text-[11px] font-bold ${bucket.lossUsd > 0 ? "text-red-600" : "text-gray-500"}`}
+                >
+                  الخسارة من انخفاض الجنيه: {formatMoney(bucket.lossUsd)}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}

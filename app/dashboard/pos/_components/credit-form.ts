@@ -33,11 +33,15 @@ export function validateCredit(
   credit: CreditFormState,
   totalAmount: number,
   giftOnly: boolean,
+  /** عميل مختار من البحث: يغني عن الاسم والهاتف (وإلا يُربط/يُنشأ من الاسم والهاتف عند البيع) */
+  hasCustomer = false,
 ): string | null {
   if (!credit.enabled) return null;
   if (giftOnly) return "فاتورة الهدايا لا تُباع بالتقسيط";
-  if (!credit.name.trim()) return "اسم العميل مطلوب للبيع بالتقسيط";
-  if (!credit.phone.trim()) return "رقم هاتف العميل مطلوب للبيع بالتقسيط";
+  if (!hasCustomer) {
+    if (!credit.name.trim()) return "اسم العميل مطلوب للبيع بالتقسيط";
+    if (!credit.phone.trim()) return "رقم هاتف العميل مطلوب للبيع بالتقسيط";
+  }
 
   const raw = credit.paidNow.trim();
   if (raw !== "") {

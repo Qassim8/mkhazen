@@ -70,6 +70,9 @@ export async function GET(request: Request) {
         monthly: performance.monthly,
         expenseBreakdown: performance.expenseBreakdown,
         receivables: {
+          posCredit: receivables.posCredit,
+          tailoringInProgress: receivables.tailoringInProgress,
+          total: receivables.total,
           openCount: receivables.openCount,
           overdueCount: receivables.overdueCount,
           totalRemainingSdg: receivables.totalRemainingSdg,

@@ -1,7 +1,7 @@
 /**
  * GET /api/sales/orders/[id]/credit-history — سجل دفعات وتعديلات فاتورة آجلة
  *
- * الدفعات: الكاشير وما فوق (sales.pos). سجل التعديلات (تفاوض/دين معدوم) للمالك والمدير فقط.
+ * الدفعات: الكاشير وما فوق (sales.pos). سجل التعديلات (تفاوض/دين معدوم) لمن يملك sales.creditManage (الكاشير وما فوق).
  */
 
 import { NextRequest, NextResponse } from "next/server";
