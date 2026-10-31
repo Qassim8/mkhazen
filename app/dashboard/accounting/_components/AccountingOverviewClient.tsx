@@ -267,6 +267,47 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         />
       </div>
 
+      {data.employeeAdvances && (
+        <div className="rounded-2xl border border-orange-100 bg-white p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                <LuHandCoins className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-gray-900">سلف الموظفين</h3>
+                <p className="text-xs text-gray-500">
+                  ما على الموظفين من سلف (أصل): تُسترد نقدًا أو تُخصم من الراتب — لقطة حالية
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/dashboard/employees/payroll"
+              className="inline-flex min-h-11 items-center rounded-lg border border-gray-200 px-4 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+            >
+              الرواتب والسلف
+            </Link>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">إجمالي رصيد السلف</p>
+              <p className="mt-1 text-lg font-black text-orange-700">{formatSDG(data.employeeAdvances.totalBalanceSdg)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">موظفون عليهم سلف</p>
+              <p className="mt-1 text-lg font-black text-gray-900">{data.employeeAdvances.employeesCount}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-[11px] font-bold text-gray-400">الرصيد الدفتري بالدولار</p>
+              <p dir="ltr" className="mt-1 text-right text-lg font-black text-gray-900">
+                {formatMoney(data.employeeAdvances.bookUsd)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {data.payables && (
         <div className="rounded-2xl border border-rose-100 bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

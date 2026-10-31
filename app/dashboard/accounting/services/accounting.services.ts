@@ -476,6 +476,13 @@ export interface AccountingPayables {
   totalUsd: number;
 }
 
+/** سلف الموظفين: ما على الموظفين حاليًا (تُسترد نقدًا أو تُخصم من الرواتب) */
+export interface AccountingEmployeeAdvances {
+  totalBalanceSdg: number;
+  employeesCount: number;
+  bookUsd: number;
+}
+
 export interface AccountingOverview {
   year: number;
   /** السنوات المالية المتاحة (الأحدث أولًا) */
@@ -485,6 +492,7 @@ export interface AccountingOverview {
   cards: AccountingOverviewCards;
   receivables?: AccountingReceivables;
   payables?: AccountingPayables;
+  employeeAdvances?: AccountingEmployeeAdvances;
   monthly: AccountingOverviewMonth[];
   expenseBreakdown: AccountingOverviewExpense[];
 }

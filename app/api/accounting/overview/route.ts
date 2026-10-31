@@ -72,7 +72,7 @@ export async function GET(request: Request) {
     const { start: startDate, end: nextYearDate } = sudanYearRange(year);
 
     // مصدر واحد (مجاميع من قاعدة البيانات) للأرصدة حتى نهاية السنة وأداء السنة نفسها
-    const [ledger, rateResult, years, receivables, payablesResult] = await Promise.all([
+    const [ledger, rateResult, years, receivables, payablesResult, advancesResult] = await Promise.all([
       loadLedgerEntries({ branchId: MAIN_BRANCH_ID, before: nextYearDate }),
       supabaseAdmin.rpc("get_current_exchange_rate", { p_branch_id: MAIN_BRANCH_ID }),
       getFiscalYears(),
@@ -80,11 +80,17 @@ export async function GET(request: Request) {
       loadReceivablesSnapshot(),
       // المستحقات على المحل (متبقي الأصول والمصروفات) — لقطة حالية
       supabaseAdmin.rpc("get_payables_summary"),
+      // سلف الموظفين (أصل): رصيد المستحق على الموظفين — لقطة حالية
+      supabaseAdmin.rpc("get_employee_advances_summary", { p_branch_id: MAIN_BRANCH_ID }),
     ]);
 
     if (payablesResult.error) {
       throw new Error(`تعذر جلب المستحقات: ${payablesResult.error.message}`);
     }
+    if (advancesResult.error) {
+      throw new Error(`تعذر جلب سلف الموظفين: ${advancesResult.error.message}`);
+    }
+    const advances = (advancesResult.data ?? {}) as Record<string, unknown>;
 
     const currentRate = rateResult.data != null ? Number(rateResult.data) : null;
 
@@ -111,6 +117,12 @@ export async function GET(request: Request) {
         expenseBreakdown: performance.expenseBreakdown,
         // المستحقات على المحل: الأصول والمصروفات (من جدول المستحقات) وديون الموردين (من المشتريات)
         payables: buildPayables(payablesResult.data, balances.supplierDebts),
+        employeeAdvances: {
+          totalBalanceSdg: round2(Number(advances.total_balance_sdg ?? 0)),
+          employeesCount: Number(advances.employees_count ?? 0),
+          /** رصيد حساب EMPLOYEE_ADVANCES الدفتري بالدولار */
+          bookUsd: round2(Number(advances.book_usd ?? 0)),
+        },
         receivables: {
           posCredit: receivables.posCredit,
           tailoringInProgress: receivables.tailoringInProgress,

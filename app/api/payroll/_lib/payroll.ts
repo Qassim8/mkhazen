@@ -48,6 +48,111 @@ export function normalizePeriod(value: string | null | undefined) {
 
 const n = (value: unknown) => Number(value ?? 0) || 0;
 
+/** حركة مالية لموظف (سلفة / استرداد / راتب / عمولة) مع أرقام القيود للروابط */
+export interface EmployeeMovement {
+  id: string;
+  type: "ADVANCE" | "ADVANCE_RETURN" | "SALARY" | "COMMISSION";
+  period: string;
+  amount: number;
+  /** المخصوم من رصيد السلف (للراتب) */
+  deductedAmount: number;
+  paymentMethod: "CASH" | "BANK";
+  notes: string | null;
+  createdAt: string;
+  createdByName: string | null;
+  /** سلفة سُجّلت قبل نظام السلف المرن (مصروف رواتب ولا تدخل في الرصيد) */
+  isLegacy: boolean;
+  entryNumber: string | null;
+  deductionEntryNumber: string | null;
+  fxEntryNumber: string | null;
+}
+
+export interface EmployeeProfile {
+  id: string;
+  name: string;
+  role: string;
+  position: string | null;
+  phone: string | null;
+  isActive: boolean;
+  /** الراتب المسجل (اقتراح فقط) */
+  salarySdg: number;
+}
+
+export async function loadEmployeeProfile(employeeId: string): Promise<EmployeeProfile | null> {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select('id, name, role, position, phone, salary, "isActive"')
+    .eq("id", employeeId)
+    .eq("branchId", MAIN_BRANCH_ID)
+    .maybeSingle();
+
+  if (error) throw new Error(`تعذر جلب الموظف: ${error.message}`);
+  if (!data) return null;
+
+  return {
+    id: data.id as string,
+    name: String(data.name ?? ""),
+    role: String(data.role ?? "").toLowerCase(),
+    position: data.position != null ? String(data.position) : null,
+    phone: data.phone != null ? String(data.phone) : null,
+    isActive: data.isActive !== false,
+    salarySdg: n(data.salary),
+  };
+}
+
+/** سجل كامل بحركات الموظف (الأحدث أولًا) */
+export async function loadEmployeeMovements(employeeId: string, limit = 500): Promise<EmployeeMovement[]> {
+  const { data, error } = await supabaseAdmin
+    .from("employee_payments")
+    .select(
+      "id, type, period, amount, deducted_amount, payment_method, notes, created_at, is_legacy, journal_entry_id, deduction_entry_id, fx_entry_id, creator:users!created_by ( name )",
+    )
+    .eq("user_id", employeeId)
+    .eq("branch_id", MAIN_BRANCH_ID)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`تعذر جلب حركات الموظف: ${error.message}`);
+
+  const rows = (data ?? []) as Record<string, unknown>[];
+  const entryIds = rows
+    .flatMap((row) => [row.journal_entry_id, row.deduction_entry_id, row.fx_entry_id])
+    .filter((value): value is string => typeof value === "string");
+
+  const numbers = new Map<string, string>();
+  if (entryIds.length > 0) {
+    const { data: entries, error: entriesError } = await supabaseAdmin
+      .from("journal_entries")
+      .select("id, entry_number")
+      .in("id", [...new Set(entryIds)]);
+
+    if (entriesError) throw new Error(`تعذر جلب قيود الموظف: ${entriesError.message}`);
+    for (const entry of entries ?? []) numbers.set(entry.id as string, entry.entry_number as string);
+  }
+
+  const numberOf = (id: unknown) => (typeof id === "string" ? (numbers.get(id) ?? null) : null);
+
+  return rows.map((row) => {
+    const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;
+    return {
+      id: String(row.id),
+      type: row.type as EmployeeMovement["type"],
+      period: String(row.period),
+      amount: n(row.amount),
+      deductedAmount: n(row.deducted_amount),
+      paymentMethod: row.payment_method === "BANK" ? "BANK" : "CASH",
+      notes: row.notes != null ? String(row.notes) : null,
+      createdAt: String(row.created_at),
+      createdByName: (creator as { name?: string } | null)?.name ?? null,
+      isLegacy: row.is_legacy === true,
+      entryNumber: numberOf(row.journal_entry_id),
+      deductionEntryNumber: numberOf(row.deduction_entry_id),
+      fxEntryNumber: numberOf(row.fx_entry_id),
+    };
+  });
+}
+
 export async function loadPayrollMonth(period: string): Promise<PayrollMonth> {
   const [employees, tailors] = await Promise.all([
     supabaseAdmin.rpc("get_payroll", { p_branch_id: MAIN_BRANCH_ID, p_period: period }),

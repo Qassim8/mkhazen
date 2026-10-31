@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Table from "@/components/shared/Table";
 import { Employee } from "@/types/types";
 import { createColumnHelper } from "@tanstack/react-table";
@@ -28,9 +29,18 @@ const EmployeesTable = ({ initialData }: Props) => {
         return (
           <div className="flex flex-col max-w-45">
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-gray-900 truncate">
-                {info.getValue()}
-              </span>
+              {row.position === "tailor" ? (
+                <span className="font-semibold text-gray-900 truncate">
+                  {info.getValue()}
+                </span>
+              ) : (
+                <Link
+                  href={`/dashboard/employees/${row.id}`}
+                  className="font-semibold text-gray-900 truncate hover:underline"
+                >
+                  {info.getValue()}
+                </Link>
+              )}
 
               {row.resetRequested && (
                 <span
