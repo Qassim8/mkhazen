@@ -6,9 +6,11 @@
  *   ADVANCE_RETURN استرداد نقدي: لا يتجاوز رصيد السلف
  *   SALARY         دفع راتب بأي مبلغ وفي أي وقت (الراتب المسجل مجرد اقتراح)، مع ملاحظة للفترة،
  *                  وخيار "خصم من رصيد السلف" (الراتب كاملًا مصروف، والصافي من الخزينة/البنك)
+ *   COMMISSION     نسبة من الأرباح (عمولة): مصروف رواتب بوصف عمولة، لا تمس رصيد السلف؛
+ *                  يُعرض كمرجع إجمالي مبيعات الموظف للفترة، والمبلغ يُدخل يدويًا
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 
@@ -16,7 +18,7 @@ import { serverFetch } from "@/lib/api-client";
 import { formatSDG } from "@/lib/currency";
 import { useIdempotencyKey } from "@/lib/use-idempotency-key";
 
-export type EmployeePayType = "ADVANCE" | "ADVANCE_RETURN" | "SALARY";
+export type EmployeePayType = "ADVANCE" | "ADVANCE_RETURN" | "SALARY" | "COMMISSION";
 
 export interface PayEmployeeTarget {
   userId: string;
@@ -25,6 +27,19 @@ export interface PayEmployeeTarget {
   salarySdg: number;
   /** رصيد السلف الحالي */
   advanceBalanceSdg: number;
+}
+
+interface EmployeeSales {
+  month: string;
+  invoices: number;
+  revenueSdg: number;
+  revenueUsd: number;
+}
+
+function monthRange(month: string) {
+  const [year, number] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, number, 0)).getUTCDate();
+  return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, "0")}` };
 }
 
 const FIELD = "mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base disabled:opacity-60 md:text-sm";
@@ -53,6 +68,34 @@ export default function EmployeePayModal({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [sales, setSales] = useState<EmployeeSales | { month: string; failed: true } | null>(null);
+
+  // مرجع العمولة: مبيعات الموظف في الشهر المختار (من تقرير مبيعات الكاشير)
+  useEffect(() => {
+    if (type !== "COMMISSION") return;
+
+    let active = true;
+    const { from, to } = monthRange(month);
+
+    serverFetch<{ data: Omit<EmployeeSales, "month"> }>("/api/payroll/sales", {
+      method: "GET",
+      params: { employeeId: employee.userId, from, to },
+      cache: "no-store",
+    })
+      .then((response) => {
+        if (active) setSales({ month, ...response.data });
+      })
+      .catch(() => {
+        if (active) setSales({ month, failed: true });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [type, month, employee.userId]);
+
+  const salesForMonth = sales && sales.month === month ? sales : null;
+
   const value = Number(amount);
   const deductValue = deductOn ? Number(deduct) || 0 : 0;
   const net = Math.round((value - deductValue) * 100) / 100;
@@ -62,7 +105,9 @@ export default function EmployeePayModal({
       ? `سلفة للموظف ${employee.name}`
       : type === "ADVANCE_RETURN"
         ? `استرداد سلفة من ${employee.name}`
-        : `دفع راتب ${employee.name}`;
+        : type === "SALARY"
+          ? `دفع راتب ${employee.name}`
+          : `عمولة (نسبة من الأرباح) — ${employee.name}`;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -94,7 +139,7 @@ export default function EmployeePayModal({
 
     const payload = {
       employeeId: employee.userId,
-      period: type === "SALARY" ? `${month}-01` : period,
+      period: type === "SALARY" || type === "COMMISSION" ? `${month}-01` : period,
       type,
       amount: value,
       paymentMethod: method,
@@ -136,7 +181,9 @@ export default function EmployeePayModal({
               ? "مبلغ مفتوح غير مرتبط بالراتب، وليس مصروفًا: يُسترد نقدًا أو يُخصم من راتب لاحق."
               : type === "ADVANCE_RETURN"
                 ? "يدخل المبلغ الخزينة أو البنك ويُنقص رصيد السلف، ولا يتجاوز الرصيد."
-                : "مصروف رواتب بأي مبلغ وفي أي وقت؛ الراتب المسجل مجرد اقتراح."}
+                : type === "SALARY"
+                  ? "مصروف رواتب بأي مبلغ وفي أي وقت؛ الراتب المسجل مجرد اقتراح."
+                  : "مصروف رواتب بوصف عمولة. لا تؤثر على رصيد السلف، والمبلغ يُدخل يدويًا."}
           </span>
           {type === "SALARY" && employee.salarySdg > 0 && (
             <button
@@ -149,9 +196,11 @@ export default function EmployeePayModal({
           )}
         </p>
 
-        {type === "SALARY" && (
+        {(type === "SALARY" || type === "COMMISSION") && (
           <label className="block">
-            <span className="text-xs font-bold text-gray-600">الفترة (ملاحظة للشهر الذي يخصه الراتب)</span>
+            <span className="text-xs font-bold text-gray-600">
+              {type === "SALARY" ? "الفترة (ملاحظة للشهر الذي يخصه الراتب)" : "فترة العمولة (الشهر)"}
+            </span>
             <input
               type="month"
               value={month}
@@ -176,6 +225,24 @@ export default function EmployeePayModal({
             className={FIELD}
           />
         </label>
+
+        {type === "COMMISSION" && (
+          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs leading-6 text-blue-900">
+            <p className="font-bold">مرجع: إجمالي مبيعات الموظف في هذا الشهر</p>
+            {!salesForMonth ? (
+              <p className="text-blue-700">جارٍ الحساب...</p>
+            ) : "failed" in salesForMonth ? (
+              <p className="text-red-600">تعذر جلب المبيعات (يمكنك إدخال المبلغ يدويًا).</p>
+            ) : (
+              <p>
+                <strong>{formatSDG(salesForMonth.revenueSdg)}</strong> — {salesForMonth.invoices} فاتورة كاشير
+                <span dir="ltr" className="block text-right text-[11px] text-blue-700">
+                  {salesForMonth.revenueUsd.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
 
         {type === "SALARY" && employee.advanceBalanceSdg > 0 && (
           <div className="space-y-2 rounded-xl border border-gray-200 p-3">
