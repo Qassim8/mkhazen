@@ -629,8 +629,25 @@ export interface TailorDuesPaymentRow {
   notes: string | null;
 }
 
+/** السلف المفتوحة للخياط (غير المرتبطة بالمستحقات): رصيدها وحركاتها */
+export interface TailorStatementAdvances {
+  balanceSdg: number;
+  /** سلف قديمة مربوطة بطلبات لم تُسلَّم */
+  orderAdvancesSdg: number;
+  movements: {
+    id: string;
+    type: "ADVANCE" | "RETURN" | "DEDUCTION";
+    amountSdg: number;
+    paymentMethod: "CASH" | "BANK" | null;
+    reference: string | null;
+    notes: string | null;
+    createdAt: string;
+  }[];
+}
+
 export interface TailorStatement {
   summary: TailorDuesRow;
   orders: TailorDuesOrderRow[];
   payments: TailorDuesPaymentRow[];
+  advances?: TailorStatementAdvances;
 }

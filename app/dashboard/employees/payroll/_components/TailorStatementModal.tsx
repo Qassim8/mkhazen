@@ -68,6 +68,64 @@ export default function TailorStatementModal({
           ))}
         </div>
 
+        {statement.advances && (
+          <div className="mt-5">
+            <h4 className="mb-2 text-sm font-black">السلف المفتوحة (غير المرتبطة بالمستحقات)</h4>
+            <div className="mb-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-gray-50 p-3">
+                <p className="text-[11px] font-bold text-gray-400">رصيد السلف</p>
+                <p dir="ltr" className="mt-1 text-right text-sm font-black text-amber-700">
+                  {formatSDG(statement.advances.balanceSdg)}
+                </p>
+              </div>
+              {statement.advances.orderAdvancesSdg > 0 && (
+                <div className="rounded-xl bg-gray-50 p-3">
+                  <p className="text-[11px] font-bold text-gray-400">سلف طلبات لم تُسلَّم (تُخصم عند التسليم)</p>
+                  <p dir="ltr" className="mt-1 text-right text-sm font-black text-gray-700">
+                    {formatSDG(statement.advances.orderAdvancesSdg)}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-gray-100">
+              <table className="w-full min-w-[640px] text-xs">
+                <thead className="bg-gray-50 text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 text-right">التاريخ</th>
+                    <th className="px-3 py-2 text-right">النوع</th>
+                    <th className="px-3 py-2 text-right">المبلغ</th>
+                    <th className="px-3 py-2 text-right">الطريقة</th>
+                    <th className="px-3 py-2 text-right">ملاحظات / المرجع</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {statement.advances.movements.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-6 text-center text-gray-400">لا يوجد.</td>
+                    </tr>
+                  )}
+                  {statement.advances.movements.map((movement) => (
+                    <tr key={movement.id}>
+                      <td className="px-3 py-2 text-gray-500">{dateTimeLabel(movement.createdAt)}</td>
+                      <td className="px-3 py-2 font-semibold">
+                        {movement.type === "ADVANCE" ? "سلفة" : movement.type === "RETURN" ? "استرداد نقدي" : "خصم من المستحقات"}
+                      </td>
+                      <td dir="ltr" className="px-3 py-2 text-right font-black">
+                        {movement.type === "ADVANCE" ? "+ " : "− "}
+                        {formatSDG(movement.amountSdg)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {movement.paymentMethod === "BANK" ? "البنك" : movement.paymentMethod === "CASH" ? "الخزينة" : "من المستحقات"}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">{movement.notes ?? movement.reference ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <h4 className="mb-2 mt-5 text-sm font-black">الطلبات المثبتة تكلفتها</h4>
         <div className="overflow-x-auto rounded-xl border border-gray-100">
           <table className="w-full min-w-[640px] text-xs">

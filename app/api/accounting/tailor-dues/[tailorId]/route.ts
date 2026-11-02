@@ -21,7 +21,7 @@ export async function GET(
   const { tailorId } = await params;
   if (!isUuid(tailorId)) return apiError(400, "VALIDATION_ERROR", "معرف الخياط غير صالح.");
 
-  const [summaryResult, ordersResult, paymentsResult] = await Promise.all([
+  const [summaryResult, ordersResult, paymentsResult, advancesResult, movementsResult] = await Promise.all([
     supabaseAdmin.rpc("get_tailor_dues", { p_branch_id: MAIN_BRANCH_ID, p_tailor_id: tailorId }),
     supabaseAdmin.rpc("get_tailor_dues_orders", { p_branch_id: MAIN_BRANCH_ID, p_tailor_id: tailorId }),
     supabaseAdmin
@@ -32,15 +32,32 @@ export async function GET(
       .order("created_at", { ascending: false })
       .order("id", { ascending: true })
       .limit(1000),
+    supabaseAdmin.rpc("get_tailor_advances", {
+      p_branch_id: MAIN_BRANCH_ID,
+      p_period: new Date().toISOString().slice(0, 10),
+      p_tailor_id: tailorId,
+    }),
+    // السلف المفتوحة (سلفة / استرداد نقدي / خصم من المستحقات)
+    supabaseAdmin
+      .from("tailor_advance_movements")
+      .select("id, type, amount, payment_method, reference, notes, created_at")
+      .eq("branch_id", MAIN_BRANCH_ID)
+      .eq("tailor_id", tailorId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .limit(1000),
   ]);
 
   if (summaryResult.error) return dbErrorResponse(summaryResult.error, "get_tailor_dues", "تعذر جلب كشف الخياط.");
   if (ordersResult.error) return dbErrorResponse(ordersResult.error, "get_tailor_dues_orders", "تعذر جلب كشف الخياط.");
   if (paymentsResult.error) return dbErrorResponse(paymentsResult.error, "tailor_commission_payments", "تعذر جلب كشف الخياط.");
+  if (advancesResult.error) return dbErrorResponse(advancesResult.error, "get_tailor_advances", "تعذر جلب سلف الخياط.");
+  if (movementsResult.error) return dbErrorResponse(movementsResult.error, "tailor_advance_movements", "تعذر جلب سلف الخياط.");
 
   const summaryRaw = ((summaryResult.data ?? []) as Record<string, unknown>[])[0];
   if (!summaryRaw) return apiError(404, "NOT_FOUND", "الخياط غير موجود.");
 
+  const advanceSummary = ((advancesResult.data ?? []) as Record<string, unknown>[])[0];
   const orders = ((ordersResult.data ?? []) as Record<string, unknown>[]).map(mapTailorDuesOrderRow);
   const payments = (paymentsResult.data ?? []) as Record<string, unknown>[];
 
@@ -65,6 +82,19 @@ export async function GET(
       summary: mapTailorDuesRow(summaryRaw),
       orders,
       payments: payments.map((payment) => mapTailorDuesPaymentRow(payment, orderNumbers)),
+      advances: {
+        balanceSdg: Number(advanceSummary?.general_balance_sdg ?? 0),
+        orderAdvancesSdg: Number(advanceSummary?.order_advances_sdg ?? 0),
+        movements: ((movementsResult.data ?? []) as Record<string, unknown>[]).map((movement) => ({
+          id: String(movement.id),
+          type: movement.type as "ADVANCE" | "RETURN" | "DEDUCTION",
+          amountSdg: Number(movement.amount ?? 0),
+          paymentMethod: movement.payment_method === "BANK" ? "BANK" : movement.payment_method === "CASH" ? "CASH" : null,
+          reference: movement.reference != null ? String(movement.reference) : null,
+          notes: movement.notes != null ? String(movement.notes) : null,
+          createdAt: String(movement.created_at),
+        })),
+      },
     },
   });
 }
