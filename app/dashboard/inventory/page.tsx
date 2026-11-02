@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { getOpeningLocks } from "@/lib/system-locks";
 
 import {
   getAllInventory,
@@ -19,6 +20,7 @@ interface Props {
 export default async function InventoryPage({ searchParams }: Props) {
   const query = await searchParams;
   const session = await getSession();
+  const locks = await getOpeningLocks();
 
   const validTypes = [
     "ALL",
@@ -64,7 +66,7 @@ export default async function InventoryPage({ searchParams }: Props) {
         }
       }
       inventory={inventoryResponse?.data || []}
-      canOpeningStock={can(session?.role, "inventory.openingStock")}
+      canOpeningStock={can(session?.role, "inventory.openingStock") && !locks.openingStockLocked}
     />
   );
 }

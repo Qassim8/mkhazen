@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 import type { PGliteInterface } from "@electric-sql/pglite";
 
-import { BRANCH_ID, RELEASE_SEQUENCE, asRole, createLiveDb, createProduct, num, releaseTemplate, rpcError, seedBase, sql, type Users } from "./db-harness";
+import { BRANCH_ID, RELEASE_SEQUENCE, asRole, createLiveDb, createProduct, num, releaseTemplate, rpcError, seedBase, sql, unlockOpening, type Users } from "./db-harness";
 
 const DIR = join(__dirname, "..", "migrations");
 // الملفان قابلان لتعديل القيم من المالك نفسه قبل التطبيق الحقيقي (تبقى كما هي)،
@@ -31,6 +31,7 @@ describe("opening stock shipping (20261017_02/03)", () => {
     users = await seedBase(db);
     a = await createProduct(db, { stock: 0, sellingPrice: 10 });
     b = await createProduct(db, { stock: 0, sellingPrice: 10 });
+    await unlockOpening(db);
     await asRole(db, "service_role", () =>
       db.query(`SELECT public.record_opening_stock($1, $2, $3::jsonb, NULL)`, [
         BRANCH_ID,

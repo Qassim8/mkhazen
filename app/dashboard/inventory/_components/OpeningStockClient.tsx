@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -26,6 +27,8 @@ import EditOpeningStockModal from "./EditOpeningStockModal";
 interface Props {
   candidates: OpeningStockCandidate[];
   corrections: OpeningStockCorrectionCandidate[];
+  /** المخزون الافتتاحي مقفل: السجل فقط، بدون نموذج إدخال */
+  locked?: boolean;
 }
 
 type Draft = { quantity: string; unitCost: string };
@@ -40,7 +43,7 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-export default function OpeningStockClient({ candidates, corrections }: Props) {
+export default function OpeningStockClient({ candidates, corrections, locked = false }: Props) {
   const router = useRouter();
   const { rate } = useExchangeRate();
 
@@ -162,6 +165,24 @@ export default function OpeningStockClient({ candidates, corrections }: Props) {
         </p>
       </header>
 
+      {locked && (
+        <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-7 text-amber-950">
+          <LuInfo className="mt-1 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-bold">
+              المخزون الافتتاحي مكتمل ومقفل. لإضافة بضاعة استخدم أوامر الشراء
+            </p>
+            <Link
+              href="/dashboard/orders"
+              className="font-bold text-(--primary-red) underline"
+            >
+              الذهاب إلى أوامر الشراء
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {!locked && (
       <div className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         <LuInfo className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="space-y-1">
@@ -177,6 +198,7 @@ export default function OpeningStockClient({ candidates, corrections }: Props) {
           </p>
         </div>
       </div>
+      )}
 
       {corrections.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -245,7 +267,7 @@ export default function OpeningStockClient({ candidates, corrections }: Props) {
         </div>
       )}
 
-      {candidates.length === 0 ? (
+      {locked ? null : candidates.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
           <p className="font-bold text-gray-900">لا توجد أصناف مؤهلة</p>
           <p className="mt-2 text-sm text-gray-500">

@@ -15,6 +15,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { requirePermission } from "@/lib/permissions-server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { apiError } from "@/lib/api-response";
+import { OPENING_STOCK_LOCKED_MESSAGE, getOpeningLocks } from "@/lib/system-locks";
 import { openingStockSchema } from "@/app/dashboard/inventory/schema/inventory.schemas";
 
 type CandidateRow = {
@@ -81,6 +83,11 @@ export async function GET() {
 export async function POST(request: Request) {
   const guard = await requirePermission("inventory.openingStock");
   if (!guard.ok) return guard.response;
+
+  // الدالة ترفض أيضًا؛ هذا فحص مبكر قبل قراءة الطلب
+  if ((await getOpeningLocks()).openingStockLocked) {
+    return apiError(400, "BUSINESS_RULE", OPENING_STOCK_LOCKED_MESSAGE);
+  }
 
   try {
     if (!MAIN_BRANCH_ID) {

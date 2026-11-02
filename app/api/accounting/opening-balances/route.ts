@@ -16,7 +16,8 @@ import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { requirePermission } from "@/lib/permissions-server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { runIdempotentRpc } from "@/lib/idempotency";
-import { dbErrorResponse, invalidJsonResponse, readJson } from "@/lib/api-response";
+import { apiError, dbErrorResponse, invalidJsonResponse, readJson } from "@/lib/api-response";
+import { OPENING_BALANCES_LOCKED_MESSAGE, getOpeningLocks } from "@/lib/system-locks";
 import { openingBalancesSchema } from "@/app/dashboard/accounting/schemas/opening-balances.schema";
 
 const FORBIDDEN = "الأرصدة الافتتاحية متاحة للمالك أو المدير فقط.";
@@ -90,6 +91,11 @@ export async function POST(request: Request) {
   const guard = await requirePermission("accounting.openingBalances", FORBIDDEN);
   if (!guard.ok) return guard.response;
   const user = guard.session;
+
+  // الدالة ترفض أيضًا؛ هذا فحص مبكر قبل قراءة الطلب
+  if ((await getOpeningLocks()).openingBalancesLocked) {
+    return apiError(400, "BUSINESS_RULE", OPENING_BALANCES_LOCKED_MESSAGE);
+  }
 
   const body = await readJson(request);
   if (body === null) return invalidJsonResponse();

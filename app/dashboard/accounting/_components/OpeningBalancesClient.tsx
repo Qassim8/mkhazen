@@ -84,6 +84,10 @@ type DebtRow = {
 interface Props {
   status: OpeningBalancesStatus;
   suppliers: { id: string; name: string; isActive: boolean }[];
+  /** الأرصدة الافتتاحية مقفلة: عرض ما سُجّل للقراءة فقط */
+  locked?: boolean;
+  /** المخزون الافتتاحي مقفل: لا رابط لصفحته */
+  stockLocked?: boolean;
 }
 
 /* =========================================================
@@ -151,11 +155,138 @@ function Done({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** الأرصدة الافتتاحية مقفلة: ما سُجّل فقط، بدون نموذج إدخال */
+function LockedView({ status }: { status: OpeningBalancesStatus }) {
+  const empty =
+    status.cash.length + status.assets.length + status.supplierDebts.length === 0;
+
+  return (
+    <main dir="rtl" className="space-y-5 pb-12">
+      <div className="mb-3">
+        <BackLink href="/dashboard/accounting" label="العودة إلى المحاسبة" />
+      </div>
+
+      <header className="border-b border-gray-100 pb-5">
+        <h1 className="flex items-center gap-2 text-2xl font-black text-gray-950">
+          <LuScale className="h-6 w-6 text-(--primary-red)" />
+          الأرصدة الافتتاحية
+        </h1>
+        <p className="mt-1 text-sm text-gray-500">
+          {status.asOf ? `تاريخ الافتتاح: ${status.asOf}` : "لم يُحدد تاريخ الافتتاح"}
+        </p>
+      </header>
+
+      <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-7 text-amber-950">
+        <LuInfo className="mt-1 h-5 w-5 shrink-0" />
+        <div>
+          <p className="font-bold">الأرصدة الافتتاحية مكتملة ومقفلة.</p>
+          <p>
+            لا يمكن تسجيل أرصدة جديدة من هذه الصفحة. المالك فقط يستطيع فتح
+            القفل من{" "}
+            <Link
+              href="/dashboard/settings"
+              className="font-bold text-(--primary-red) underline"
+            >
+              الإعدادات
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+
+      {empty && (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+          لا توجد أرصدة افتتاحية مسجّلة
+        </div>
+      )}
+
+      {status.cash.length > 0 && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-base font-black text-gray-900">
+            <LuBanknote className="h-5 w-5 text-(--primary-red)" />
+            النقدية في الخزينة والبنك
+          </h2>
+          <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100">
+            {status.cash.map((line) => (
+              <li
+                key={`${line.account}-${line.currency}`}
+                className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+              >
+                <span className="font-semibold text-gray-800">
+                  {line.account === "BANK" ? "البنك" : "الخزينة"} ({line.currency === "SDG" ? "جنيه" : "دولار"})
+                </span>
+                <span className="font-mono">{money(line.amount, line.currency)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {status.assets.length > 0 && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-base font-black text-gray-900">
+            <LuWarehouse className="h-5 w-5 text-(--primary-red)" />
+            الأصول القائمة
+          </h2>
+          <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100">
+            {status.assets.map((asset) => (
+              <li
+                key={asset.id}
+                className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+              >
+                <span className="font-semibold text-gray-800">{asset.name}</span>
+                <span className="font-mono">{money(asset.value, asset.currency)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {status.supplierDebts.length > 0 && (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-base font-black text-gray-900">
+            <LuTruck className="h-5 w-5 text-(--primary-red)" />
+            ديون الموردين
+          </h2>
+          <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100">
+            {status.supplierDebts.map((debt) => (
+              <li
+                key={debt.orderId}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+              >
+                <Link
+                  href={`/dashboard/orders/${debt.orderId}`}
+                  className="font-semibold text-gray-800 underline-offset-2 hover:underline"
+                >
+                  {debt.supplierName}
+                </Link>
+                <span className="flex items-center gap-3 text-xs">
+                  <span>
+                    الدين: <b className="font-mono">{formatUSD(debt.amount)}</b>
+                  </span>
+                  <span>
+                    المدفوع: <b className="font-mono">{formatUSD(debt.paid)}</b>
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </main>
+  );
+}
+
 /* =========================================================
    Component
 ========================================================= */
 
-export default function OpeningBalancesClient({ status, suppliers }: Props) {
+export default function OpeningBalancesClient({
+  status,
+  suppliers,
+  locked = false,
+  stockLocked = false,
+}: Props) {
   const router = useRouter();
   const openModal = useModalStore((state) => state.openModal);
   const idempotency = useIdempotencyKey();
@@ -327,6 +458,8 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
   const recordedAnything =
     status.cash.length + status.assets.length + status.supplierDebts.length > 0;
 
+  if (locked) return <LockedView status={status} />;
+
   return (
     <main dir="rtl" className="space-y-5 pb-36">
       <div className="mb-3">
@@ -399,6 +532,10 @@ export default function OpeningBalancesClient({ status, suppliers }: Props) {
               <span>المخزون الافتتاحي (البضاعة)</span>
               {status.openingStock.entries > 0 ? (
                 <Done>{formatUSD(status.openingStock.totalUsd)}</Done>
+              ) : stockLocked ? (
+                <span className="text-xs text-gray-400">
+                  مقفل — تُضاف البضاعة بأوامر الشراء
+                </span>
               ) : (
                 <Link
                   href="/dashboard/inventory/opening-stock"

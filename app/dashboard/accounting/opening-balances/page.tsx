@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import BackLink from "@/components/shared/BackLink";
+import { getOpeningLocks } from "@/lib/system-locks";
 import { getSupplierOptions } from "@/app/dashboard/suppliers/services/supplier.services";
 
 import OpeningBalancesClient from "../_components/OpeningBalancesClient";
@@ -53,7 +54,14 @@ export default async function OpeningBalancesPage() {
     .then((response) => response.data.map((supplier) => ({ id: supplier.id, name: supplier.name, isActive: supplier.isActive })))
     .catch(() => []);
 
+  const locks = await getOpeningLocks();
+
   return (
-    <OpeningBalancesClient status={status} suppliers={suppliers} />
+    <OpeningBalancesClient
+      status={status}
+      suppliers={suppliers}
+      locked={locks.openingBalancesLocked}
+      stockLocked={locks.openingStockLocked}
+    />
   );
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import BackLink from "@/components/shared/BackLink";
+import { getOpeningLocks } from "@/lib/system-locks";
 
 import OpeningStockClient from "../_components/OpeningStockClient";
 import {
@@ -21,13 +22,16 @@ export default async function OpeningStockPage() {
     redirect("/dashboard/inventory");
   }
 
+  const locked = (await getOpeningLocks()).openingStockLocked;
+
   let candidates: OpeningStockCandidate[] = [];
   let corrections: OpeningStockCorrectionCandidate[] = [];
   let loadError: string | null = null;
 
   try {
+    // عند القفل لا حاجة لقائمة الأصناف المؤهلة؛ يظهر السجل فقط
     const [candidatesResult, correctionsResult] = await Promise.all([
-      getOpeningStockCandidates(),
+      locked ? Promise.resolve({ data: [] as OpeningStockCandidate[] }) : getOpeningStockCandidates(),
       getOpeningStockCorrections(),
     ]);
     candidates = candidatesResult.data;
@@ -66,5 +70,5 @@ export default async function OpeningStockPage() {
     );
   }
 
-  return <OpeningStockClient candidates={candidates} corrections={corrections} />;
+  return <OpeningStockClient candidates={candidates} corrections={corrections} locked={locked} />;
 }

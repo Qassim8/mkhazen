@@ -39,6 +39,8 @@ export const PERMISSIONS = {
   "payroll.manage": ["owner", "admin"],
   /** المخزون الافتتاحي (يزيد الرصيد + قيد مدين المخزون / دائن رأس المال) */
   "inventory.openingStock": ["owner", "admin"],
+  /** قفل/فتح المخزون الافتتاحي والأرصدة الافتتاحية (تبويب في الإعدادات) */
+  "settings.openingLocks": ["owner"],
   /** تسجيل سعر الصرف (تبويب سعر الصرف في الإعدادات فقط) */
   "exchangeRate.manage": ["owner", "admin", "cashier"],
 

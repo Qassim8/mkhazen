@@ -29,6 +29,7 @@ import {
   rpcError,
   seedBase,
   sqlState,
+  unlockOpening,
   type Users,
 } from "./db-harness";
 
@@ -166,6 +167,7 @@ describe("existing RPCs after hardening (service_role)", () => {
   it("record_opening_stock: one JE-OPEN entry DR INVENTORY / CR CAPITAL + OPENING_STOCK movements; refuses a second opening", async () => {
     const a = await createProduct(db, { stock: 0 });
     const b = await createProduct(db, { stock: 0 });
+    await unlockOpening(db);
     const items = [
       { variantId: a.variantId, quantity: 5, unitCost: 3 },
       { variantId: b.variantId, quantity: 2, unitCost: 10 },

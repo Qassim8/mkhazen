@@ -48,12 +48,13 @@ export const M = {
   flexiblePayroll: join(MIGRATIONS_DIR, "20261029_01_flexible_payroll.sql"),
   resolveCustomerFillName: join(MIGRATIONS_DIR, "20261030_01_resolve_customer_fill_name.sql"),
   tailorAdvances: join(MIGRATIONS_DIR, "20261031_01_tailor_advances_separate.sql"),
+  openingLocks: join(MIGRATIONS_DIR, "20261101_01_opening_locks.sql"),
   linkCreditPreview: join(MIGRATIONS_DIR, "20261027_02_link_credit_customers_preview.sql"),
   linkCreditApply: join(MIGRATIONS_DIR, "20261027_03_link_credit_customers_apply.sql"),
 } as const;
 
 /** The mandatory release sequence, in filename order (07/08 are optional). */
-export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections, M.cashierOps, M.creditSales, M.creditNotifications, M.customersHub, M.unifiedReceivables, M.splitPayments, M.flexiblePayroll, M.resolveCustomerFillName, M.tailorAdvances];
+export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections, M.cashierOps, M.creditSales, M.creditNotifications, M.customersHub, M.unifiedReceivables, M.splitPayments, M.flexiblePayroll, M.resolveCustomerFillName, M.tailorAdvances, M.openingLocks];
 
 const ROLES_SQL = `
 DO $$ BEGIN
@@ -220,6 +221,11 @@ export async function fundAccount(db: PGliteInterface, account: "CASH" | "BANK",
      VALUES ($1, $2, 'CAPITAL', $3, $4, 'CAPITAL', $5)`,
     [`JE-T-${randomUUID().slice(0, 8)}`, BRANCH_ID, amount, account, currency],
   );
+}
+
+/** Opening stock is locked by default (20261101_01); tests that record opening stock unlock it first. */
+export async function unlockOpening(db: PGliteInterface, keys = ["opening_stock_locked", "opening_balances_locked"]) {
+  await db.query(`UPDATE public.system_settings SET bool_value = false WHERE key = ANY($1::text[])`, [keys]);
 }
 
 export async function rpcError(promise: Promise<unknown>): Promise<string> {

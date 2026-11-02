@@ -18,6 +18,7 @@ import {
   createLiveDb,
   createProduct,
   fundAccount,
+  unlockOpening,
   num,
   releaseTemplate,
   rpcError,
@@ -233,6 +234,7 @@ describe("opening balances (20261010_05)", () => {
 
   it("opening stock stays separate and is reported in the status", async () => {
     const product = await createProduct(db, { stock: 0 });
+    await unlockOpening(db);
     await asRole(db, "service_role", () =>
       db.query(`SELECT public.record_opening_stock($1, $2, $3::jsonb, NULL)`, [
         BRANCH_ID,

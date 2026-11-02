@@ -3,10 +3,11 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/shared/PageHeader";
-import { LuBadgeDollarSign, LuLock, LuUserRound } from "react-icons/lu";
+import { LuBadgeDollarSign, LuLock, LuLockKeyhole, LuUserRound } from "react-icons/lu";
 import PersonalInfo from "./_components/PersonalInfo";
 import Password from "./_components/Password";
 import ExchangeRateSettings from "./_components/ExchangeRate";
+import OpeningLocksSettings from "./_components/OpeningLocks";
 import { getMe } from "@/app/(login)/services/auth.services";
 import { can, homePageFor } from "@/lib/permissions";
 
@@ -19,6 +20,10 @@ const adminTabs = [
   { id: "exchange-rate", title: "سعر الصرف", icon: LuBadgeDollarSign },
 ];
 
+const ownerTabs = [
+  { id: "opening-locks", title: "قفل الإدخال الافتتاحي", icon: LuLockKeyhole },
+];
+
 // useSearchParams محتاج Suspense عشان الصفحة تتبني (next build)
 export default function SettingsPage() {
   return (
@@ -29,7 +34,11 @@ export default function SettingsPage() {
 }
 
 function tabsFor(role: string | null) {
-  return can(role, "exchangeRate.manage") ? [...baseTabs, ...adminTabs] : baseTabs;
+  return [
+    ...baseTabs,
+    ...(can(role, "exchangeRate.manage") ? adminTabs : []),
+    ...(can(role, "settings.openingLocks") ? ownerTabs : []),
+  ];
 }
 
 function SettingsContent() {
@@ -123,6 +132,9 @@ function SettingsContent() {
             can(role, "exchangeRate.manage") && (
               <ExchangeRateSettings />
             )}
+
+          {activeTab === "opening-locks" &&
+            can(role, "settings.openingLocks") && <OpeningLocksSettings />}
 
           {activeTab === "password" && (
             <Password

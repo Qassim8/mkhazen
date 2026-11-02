@@ -31,7 +31,7 @@ DECLARE
     'get_tailor_dues', 'get_tailor_dues_orders', 'pay_tailor_dues',
     'list_opening_stock_candidates', 'record_opening_stock',
     'correct_manual_journal_entry', 'correct_opening_stock_entry',
-    'list_opening_stock_corrections',
+    'list_opening_stock_corrections', 'set_opening_lock',
     'record_credit_payment', 'adjust_credit_remaining', 'close_credit_bad_debt',
     'get_receivables_summary',
     'merge_customers', 'find_duplicate_customers',

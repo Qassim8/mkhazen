@@ -15,6 +15,7 @@ import {
   asRole,
   createProduct,
   createLiveDb,
+  unlockOpening,
   fundAccount,
   num,
   releaseTemplate,
@@ -227,6 +228,7 @@ describe("correct_opening_stock_entry + list_opening_stock_corrections (20261020
 
   before(async () => {
     db = await createLiveDb({ migrations: RELEASE_SEQUENCE });
+    await unlockOpening(db);
     users = await seedBase(db);
   });
   after(() => db.close());

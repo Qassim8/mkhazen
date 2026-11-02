@@ -49,6 +49,7 @@ export const API_ROUTES: { pattern: string; load: () => Promise<RouteModule> }[]
   { pattern: "/api/inventory", load: () => import("@/app/api/inventory/route") },
   { pattern: "/api/notifications/check-overdue-tailoring", load: () => import("@/app/api/notifications/check-overdue-tailoring/route") },
   { pattern: "/api/notifications", load: () => import("@/app/api/notifications/route") },
+  { pattern: "/api/settings/opening-locks", load: () => import("@/app/api/settings/opening-locks/route") },
   { pattern: "/api/products/[id]", load: () => import("@/app/api/products/[id]/route") },
   { pattern: "/api/products", load: () => import("@/app/api/products/route") },
   { pattern: "/api/purchases/[id]/payments", load: () => import("@/app/api/purchases/[id]/payments/route") },

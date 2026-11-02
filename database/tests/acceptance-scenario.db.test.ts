@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import type { PGliteInterface } from "@electric-sql/pglite";
 
 import { computeBalances, computePerformance, type LedgerEntry } from "@/app/api/accounting/_lib/ledger";
-import { BRANCH_ID, RELEASE_SEQUENCE, asRole, createLiveDb, num, releaseTemplate, runVerify, seedBase, sql } from "./db-harness";
+import { BRANCH_ID, RELEASE_SEQUENCE, asRole, createLiveDb, num, releaseTemplate, runVerify, seedBase, sql, unlockOpening } from "./db-harness";
 
 const RESET = join(__dirname, "..", "maintenance", "reset_test_data.sql");
 const RATE = 2500;
@@ -129,6 +129,7 @@ describe("financial acceptance scenario", () => {
   });
 
   it("2. opening stock: 10 shirts × $8, 50 m fabric × $4", async () => {
+    await unlockOpening(db);
     await svc(`SELECT public.record_opening_stock($1, $2, $3::jsonb, NULL)`, [
       BRANCH_ID,
       owner,

@@ -296,7 +296,9 @@ function isPathActive(pathname: string, href: string, exact = false) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar() {
+const NO_HIDDEN_HREFS: string[] = [];
+
+export function Sidebar({ hiddenHrefs = NO_HIDDEN_HREFS }: { hiddenHrefs?: string[] }) {
   const pathname = usePathname();
 
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
@@ -360,8 +362,10 @@ export function Sidebar() {
 
         return {
           ...item,
-          subItems: item.subItems.filter((sub) =>
-            canAccessPath(userRole, sub.href),
+          subItems: item.subItems.filter(
+            (sub) =>
+              canAccessPath(userRole, sub.href) &&
+              !hiddenHrefs.includes(sub.href),
           ),
         };
       })
@@ -370,7 +374,7 @@ export function Sidebar() {
           ? item.subItems.length > 0
           : !item.href || canAccessPath(userRole, item.href),
       );
-  }, [userRole]);
+  }, [userRole, hiddenHrefs]);
 
   /* =======================================================
      GROUP TOGGLE
