@@ -54,6 +54,8 @@ const ENTRY_TYPES = [
   { value: "ASSET", label: "أصل" },
   { value: "PAYABLE_PAYMENT", label: "دفعة مستحق" },
   { value: "EMPLOYEE_ADVANCE", label: "سلفة موظف" },
+  { value: "TAILOR_ADVANCE_RETURN", label: "استرداد سلفة خياط" },
+  { value: "TAILOR_ADVANCE_DEDUCTION", label: "خصم سلفة خياط" },
   { value: "OTHER", label: "أخرى" },
 ];
 

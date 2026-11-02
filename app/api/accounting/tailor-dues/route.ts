@@ -30,7 +30,12 @@ export async function GET() {
   });
 }
 
-/** POST — سداد المستحق كاملًا أو سلفة للخياط (ذرّي في pay_tailor_dues + منع التكرار) */
+/**
+ * POST — ذرّي في pay_tailor_dues + منع التكرار:
+ *   SETTLEMENT     دفع المستحقات (كامل أو جزء) مع خصم اختياري من رصيد السلف (deductAdvance)
+ *   ADVANCE        سلفة مفتوحة غير مرتبطة بالمستحقات (TAILOR_ADVANCES ← الخزينة/البنك)
+ *   ADVANCE_RETURN استرداد نقدي لا يتجاوز رصيد السلف
+ */
 export async function POST(request: Request) {
   const guard = await requirePermission("accounting.manage", "سداد مستحقات الخياطين متاح للمدير أو المالك فقط.");
   if (!guard.ok) return guard.response;
@@ -64,6 +69,7 @@ export async function POST(request: Request) {
         p_amount: value.amount,
         p_payment_method: value.paymentMethod,
         p_notes: value.notes ?? null,
+        p_deduct_advance: value.deductAdvance ?? 0,
       }),
     onSuccess: async (data) => {
       await notifyTailorPayment({
@@ -71,7 +77,7 @@ export async function POST(request: Request) {
         amount: Number(data?.amount ?? value.amount),
         currency: "SDG",
         salesOrderId: null,
-        isAdvance: value.kind === "ADVANCE",
+        isAdvance: value.kind !== "SETTLEMENT",
         actor: user,
       });
 
@@ -80,8 +86,12 @@ export async function POST(request: Request) {
         body: {
           message:
             value.kind === "ADVANCE"
-              ? "تم تسجيل السلفة للخياط وخصمها من مستحقاته."
-              : "تم سداد مستحقات الخياط بالكامل.",
+              ? "تم تسجيل السلفة للخياط."
+              : value.kind === "ADVANCE_RETURN"
+                ? "تم تسجيل استرداد السلفة."
+                : value.deductAdvance
+                  ? "تم دفع المستحقات مع الخصم من رصيد السلف."
+                  : "تم دفع مستحقات الخياط.",
           data,
         },
       };

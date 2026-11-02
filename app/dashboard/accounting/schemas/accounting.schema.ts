@@ -99,6 +99,10 @@ export const journalEntryTypeEnum = z.enum([
   // سلفة موظف أو استرداد سلفة (EMPLOYEE_ADVANCES)
   "EMPLOYEE_ADVANCE",
 
+  // استرداد نقدي لسلفة خياط، وخصم من سلفته عند دفع مستحقاته (TAILOR_ADVANCES)
+  "TAILOR_ADVANCE_RETURN",
+  "TAILOR_ADVANCE_DEDUCTION",
+
   "INVENTORY_ADJUSTMENT",
   "SALES_RETURN",
 
@@ -565,15 +569,24 @@ export type AssetsQueryInput = z.infer<typeof assetsQuerySchema>;
 export const payTailorDuesSchema = z
   .object({
     tailorId: z.string().uuid("معرف الخياط غير صالح"),
-    /** SETTLEMENT = سداد المستحق كاملًا، ADVANCE = سلفة من المستحق */
-    kind: z.enum(["SETTLEMENT", "ADVANCE"], { message: "نوع العملية غير صالح" }),
-    /** بالجنيه: في السداد = المستحق المعروض، في السلفة = مبلغ السلفة */
+    /**
+     * SETTLEMENT = دفع المستحقات (كامل أو جزء)، ADVANCE = سلفة مفتوحة غير مرتبطة بالمستحقات،
+     * ADVANCE_RETURN = استرداد نقدي لجزء من السلفة
+     */
+    kind: z.enum(["SETTLEMENT", "ADVANCE", "ADVANCE_RETURN"], { message: "نوع العملية غير صالح" }),
+    /** بالجنيه: في دفع المستحقات = المبلغ الكامل (الصافي + المخصوم من السلف) */
     amount: z
       .number({ message: "المبلغ غير صالح" })
       .finite("المبلغ غير صالح")
       .positive("المبلغ يجب أن يكون أكبر من صفر")
       .refine((value) => Number(value.toFixed(2)) === value, "المبلغ يجب ألا يتجاوز منزلتين عشريتين"),
     paymentMethod: accountingPaymentMethodEnum,
+    /** خصم اختياري من رصيد السلف عند دفع المستحقات (لا يتجاوز الرصيد ولا المبلغ) */
+    deductAdvance: z
+      .number({ message: "مبلغ الخصم غير صالح" })
+      .min(0, "مبلغ الخصم غير صالح")
+      .refine((value) => Number(value.toFixed(2)) === value, "المبلغ يجب ألا يتجاوز منزلتين عشريتين")
+      .optional(),
     notes: z.string().trim().max(500, "الملاحظات طويلة جدًا").nullable(),
   });
 

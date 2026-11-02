@@ -47,12 +47,13 @@ export const M = {
   splitPayments: join(MIGRATIONS_DIR, "20261028_01_split_payments_payables.sql"),
   flexiblePayroll: join(MIGRATIONS_DIR, "20261029_01_flexible_payroll.sql"),
   resolveCustomerFillName: join(MIGRATIONS_DIR, "20261030_01_resolve_customer_fill_name.sql"),
+  tailorAdvances: join(MIGRATIONS_DIR, "20261031_01_tailor_advances_separate.sql"),
   linkCreditPreview: join(MIGRATIONS_DIR, "20261027_02_link_credit_customers_preview.sql"),
   linkCreditApply: join(MIGRATIONS_DIR, "20261027_03_link_credit_customers_apply.sql"),
 } as const;
 
 /** The mandatory release sequence, in filename order (07/08 are optional). */
-export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections, M.cashierOps, M.creditSales, M.creditNotifications, M.customersHub, M.unifiedReceivables, M.splitPayments, M.flexiblePayroll, M.resolveCustomerFillName];
+export const RELEASE_SEQUENCE = [M.hardening, M.purchases, M.ledger, M.legacyCleanup, M.openingBalances, M.tailorDues, M.depositGiftsPayroll, M.openingRepeatable, M.flexiblePrice, M.reassert, M.corrections, M.cashierOps, M.creditSales, M.creditNotifications, M.customersHub, M.unifiedReceivables, M.splitPayments, M.flexiblePayroll, M.resolveCustomerFillName, M.tailorAdvances];
 
 const ROLES_SQL = `
 DO $$ BEGIN

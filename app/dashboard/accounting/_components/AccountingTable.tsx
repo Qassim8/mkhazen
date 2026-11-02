@@ -78,6 +78,8 @@ const ENTRY_TYPE_LABELS: Record<JournalEntryType, string> = {
   ASSET: "أصل",
   PAYABLE_PAYMENT: "دفعة مستحق",
   EMPLOYEE_ADVANCE: "سلفة موظف",
+  TAILOR_ADVANCE_RETURN: "استرداد سلفة خياط",
+  TAILOR_ADVANCE_DEDUCTION: "خصم سلفة خياط من المستحقات",
 
   GIFT: "هدية",
   CURRENCY_EXCHANGE: "تحويل عملة",

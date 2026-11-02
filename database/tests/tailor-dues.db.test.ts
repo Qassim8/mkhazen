@@ -68,6 +68,8 @@ describe("manual deposit + tailor dues (20261013_01)", () => {
     await db.exec(sql(MIGRATION));
     // 20261014_01 replaces create_tailoring_order again → re-run what follows in the release
     await db.exec(sql(M.depositGiftsPayroll));
+    // 20261031_01 يستبدل pay_tailor_dues (الإعادة أعلاه تعيد توقيعها القديم)
+    await db.exec(sql(M.tailorAdvances));
     await db.exec(sql(M.reassert));
     const { failed, raised } = await runVerify(db);
     assert.deepEqual(failed, []);
@@ -108,12 +110,13 @@ describe("manual deposit + tailor dues (20261013_01)", () => {
     assert.deepEqual([num(row.orders_count), num(row.cost_sdg), num(row.remaining_sdg)], [2, 65_000, 65_000]);
   });
 
-  it("advance: only owner/admin, never above the remaining dues, not an expense", async () => {
-    assert.match(await rpcError(pay("ADVANCE", 1_000, users.cashier)), /للمدير أو المالك/);
-    assert.match(await rpcError(pay("ADVANCE", 65_000.01)), /تتجاوز مستحقات الخياط/);
+  it("partial dues payment: only owner/admin, never above the remaining dues, not an expense", async () => {
+    // (قبل 20261031_01 كان الجزئي يُسمّى "سلفة"؛ السلفة الآن مبلغ مفتوح منفصل — انظر tailor-advances.db.test.ts)
+    assert.match(await rpcError(pay("SETTLEMENT", 1_000, users.cashier)), /للمدير أو المالك/);
+    assert.match(await rpcError(pay("SETTLEMENT", 65_000.01)), /يتجاوز مستحقات الخياط/);
 
     const before = await ledger();
-    const { rows } = await pay("ADVANCE", 30_000);
+    const { rows } = await pay("SETTLEMENT", 30_000);
     const allocations = rows[0].r.allocations as { sales_order_id: string; amount: number }[];
     assert.deepEqual(allocations.map((a) => [a.sales_order_id, num(a.amount)]), [[orders[0], 25_000], [orders[1], 5_000]], "oldest first");
 
@@ -122,18 +125,16 @@ describe("manual deposit + tailor dues (20261013_01)", () => {
     assert.equal(after.b.cashSdg, before.b.cashSdg - 30_000);
 
     const row = await dues();
-    assert.deepEqual([num(row.advances_sdg), num(row.paid_sdg), num(row.remaining_sdg)], [30_000, 0, 35_000]);
+    assert.deepEqual([num(row.advances_sdg), num(row.paid_sdg), num(row.remaining_sdg)], [0, 30_000, 35_000]);
 
     // order 1 fully covered → settle_tailor_fx closed its payable in USD
     const fx = await db.query(`SELECT 1 FROM public.journal_entries WHERE sales_order_id = $1 AND entry_type = 'CURRENCY_EXCHANGE'`, [orders[0]]);
     assert.equal(fx.rows.length, 1);
   });
 
-  it("settlement pays the full remaining; stale amount is rejected; payable ends at 0 USD", async () => {
-    assert.match(await rpcError(pay("SETTLEMENT", 30_000)), /تغيّر مستحق الخياط/);
-
+  it("settlement pays the full remaining; payable ends at 0 USD", async () => {
     const before = await ledger();
-    const { rows } = await pay("SETTLEMENT", 35_000);
+    const { rows } = await pay("SETTLEMENT", null);
     assert.equal(num(rows[0].r.amount), 35_000);
 
     const after = await ledger();
@@ -141,13 +142,13 @@ describe("manual deposit + tailor dues (20261013_01)", () => {
     assert.equal(after.b.tailorsPayable, 0, "FX settled per order → nothing left in USD");
 
     const row = await dues();
-    assert.deepEqual([num(row.advances_sdg), num(row.paid_sdg), num(row.remaining_sdg)], [30_000, 35_000, 0]);
+    assert.deepEqual([num(row.advances_sdg), num(row.paid_sdg), num(row.remaining_sdg)], [0, 65_000, 0]);
     assert.match(await rpcError(pay("SETTLEMENT", null)), /لا توجد مستحقات/);
 
     const types = await db.query<{ entry_type: string; n: string }>(
       `SELECT entry_type, count(*) AS n FROM public.journal_entries
        WHERE entry_type IN ('TAILOR_DUES_PAYMENT', 'TAILOR_DUES_ADVANCE') GROUP BY entry_type ORDER BY entry_type`,
     );
-    assert.deepEqual(types.rows.map((r) => [r.entry_type, num(r.n)]), [["TAILOR_DUES_ADVANCE", 2], ["TAILOR_DUES_PAYMENT", 1]]);
+    assert.deepEqual(types.rows.map((r) => [r.entry_type, num(r.n)]), [["TAILOR_DUES_PAYMENT", 3]]);
   });
 });

@@ -207,14 +207,14 @@ describe("deposit transfer, gifts, opening balances, payroll (20261014_01)", () 
       await svc(`SELECT public.update_tailoring_status($1, $2, $3, $4)`, [orderId, BRANCH_ID, users.cashier, status]);
     }
     await svc(`SELECT public.complete_tailoring_pickup($1, $2, $3, 'CASH')`, [orderId, BRANCH_ID, users.cashier]);
-    await svc(`SELECT public.pay_tailor_dues($1, $2, $3, 'ADVANCE', 2000, 'CASH', NULL)`, [BRANCH_ID, users.admin, users.tailor]);
+    await svc(`SELECT public.pay_tailor_dues($1, $2, $3, 'SETTLEMENT', 2000, 'CASH', NULL)`, [BRANCH_ID, users.admin, users.tailor]);
 
     const period = new Date().toISOString().slice(0, 7) + "-01";
     const summary = await svc<Record<string, string>>(`SELECT * FROM public.get_tailor_month_summary($1, $2::date)`, [BRANCH_ID, period]);
     const row = summary.rows.find((r) => r.tailor_id === users.tailor)!;
     assert.deepEqual(
       [num(row.month_dues_sdg), num(row.month_advances_sdg), num(row.month_taken_sdg), num(row.remaining_sdg)],
-      [5_000, 2_000, 2_000, 3_000],
+      [5_000, 0, 2_000, 3_000],
     );
   });
 });
