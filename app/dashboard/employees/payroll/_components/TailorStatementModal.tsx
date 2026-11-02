@@ -165,9 +165,7 @@ export default function TailorStatementModal({
           );
           return (
             <div key={type}>
-              <h4 className="mb-2 mt-5 text-sm font-black">
-                المدفوعات
-              </h4>
+              <h4 className="mb-2 mt-5 text-sm font-black">المدفوعات</h4>
               <div className="overflow-x-auto rounded-xl border border-gray-100">
                 <table className="w-full min-w-[640px] text-xs">
                   <thead className="bg-gray-50 text-gray-500">
@@ -230,19 +228,8 @@ export default function TailorStatementModal({
 
         {statement.advances && (
           <div className="mt-5">
-            <h4 className="mb-2 text-sm font-black">السلف المفتوحة</h4>
+            <h4 className="mb-2 text-sm font-black">السلف</h4>
             <div className="mb-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-[11px] font-bold text-gray-400">
-                  رصيد السلف
-                </p>
-                <p
-                  dir="ltr"
-                  className="mt-1 text-right text-sm font-black text-amber-700"
-                >
-                  {formatSDG(statement.advances.balanceSdg)}
-                </p>
-              </div>
               {statement.advances.orderAdvancesSdg > 0 && (
                 <div className="rounded-xl bg-gray-50 p-3">
                   <p className="text-[11px] font-bold text-gray-400">
@@ -291,10 +278,7 @@ export default function TailorStatementModal({
                             ? "استرداد نقدي"
                             : "خصم من المستحقات"}
                       </td>
-                      <td
-                        dir="ltr"
-                        className="px-3 py-2 text-right font-black"
-                      >
+                      <td dir="ltr" className="px-3 py-2 text-right font-black">
                         {movement.type === "ADVANCE" ? "+ " : "− "}
                         {formatSDG(movement.amountSdg)}
                       </td>
