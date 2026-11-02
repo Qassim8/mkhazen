@@ -39,9 +39,14 @@ export default function TailorStatementModal({
 }) {
   return (
     <ModalShell>
-      <div dir="rtl" className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+      <div
+        dir="rtl"
+        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-black">كشف الخياط {statement.summary.tailorName}</h3>
+          <h3 className="text-base font-black">
+            كشف الخياط {statement.summary.tailorName}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -54,34 +59,199 @@ export default function TailorStatementModal({
 
         <div className="grid gap-3 sm:grid-cols-4">
           {[
-            { label: "الأجرة المستحقة", value: statement.summary.costSdg, cls: "text-gray-950" },
-            { label: "المدفوع", value: statement.summary.paidSdg, cls: "text-emerald-700" },
-            { label: "السلف", value: statement.summary.advancesSdg, cls: "text-amber-700" },
-            { label: "المتبقي", value: statement.summary.remainingSdg, cls: "text-red-600" },
+            {
+              label: "الأجرة المستحقة",
+              value: statement.summary.costSdg,
+              cls: "text-gray-950",
+            },
+            {
+              label: "المدفوع",
+              value: statement.summary.paidSdg,
+              cls: "text-emerald-700",
+            },
+            {
+              label: "السلف",
+              value: statement?.advances?.balanceSdg,
+              cls: "text-amber-700",
+            },
+            {
+              label: "المتبقي",
+              value: statement.summary.remainingSdg,
+              cls: "text-red-600",
+            },
           ].map((card) => (
             <div key={card.label} className="rounded-xl bg-gray-50 p-3">
-              <p className="text-[11px] font-bold text-gray-400">{card.label}</p>
-              <p dir="ltr" className={`mt-1 text-right text-sm font-black ${card.cls}`}>
+              <p className="text-[11px] font-bold text-gray-400">
+                {card.label}
+              </p>
+              <p
+                dir="ltr"
+                className={`mt-1 text-right text-sm font-black ${card.cls}`}
+              >
                 {formatSDG(card.value)}
               </p>
             </div>
           ))}
         </div>
 
+        <h4 className="mb-2 mt-5 text-sm font-black">
+          الطلبات المثبتة تكلفتها
+        </h4>
+        <div className="overflow-x-auto rounded-xl border border-gray-100">
+          <table className="w-full min-w-[640px] text-xs">
+            <thead className="bg-gray-50 text-gray-500">
+              <tr>
+                <th className="px-3 py-2 text-right">الطلب</th>
+                <th className="px-3 py-2 text-right">تاريخ التثبيت</th>
+                <th className="px-3 py-2 text-right">الأجرة</th>
+                <th className="px-3 py-2 text-right">المدفوع</th>
+                <th className="px-3 py-2 text-right">السلف</th>
+                <th className="px-3 py-2 text-right">المتبقي</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {statement.orders.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-3 py-6 text-center text-gray-400"
+                  >
+                    لا توجد طلبات مثبتة.
+                  </td>
+                </tr>
+              )}
+              {statement.orders.map((order) => (
+                <tr key={order.salesOrderId}>
+                  <td className="px-3 py-2">
+                    <a
+                      href={`/dashboard/tailoring/${order.salesOrderId}`}
+                      className="font-bold text-blue-700 hover:underline"
+                    >
+                      {order.orderNumber}
+                    </a>
+                    {order.itemName && (
+                      <span className="block text-gray-400">
+                        {order.itemName}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-gray-500">
+                    {dateTimeLabel(order.costRecognizedAt)}
+                  </td>
+                  <td dir="ltr" className="px-3 py-2 text-right">
+                    {formatSDG(order.costSdg)}
+                  </td>
+                  <td
+                    dir="ltr"
+                    className="px-3 py-2 text-right text-emerald-700"
+                  >
+                    {formatSDG(order.paidSdg)}
+                  </td>
+                  <td dir="ltr" className="px-3 py-2 text-right text-amber-700">
+                    {formatSDG(order.advancesSdg)}
+                  </td>
+                  <td dir="ltr" className="px-3 py-2 text-right font-black">
+                    {formatSDG(order.remainingSdg)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {(["SETTLEMENT"] as const).map((type) => {
+          const rows = statement.payments.filter(
+            (payment) => payment.paymentType !== "DUES_ADVANCE",
+          );
+          return (
+            <div key={type}>
+              <h4 className="mb-2 mt-5 text-sm font-black">
+                المدفوعات
+              </h4>
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
+                <table className="w-full min-w-[640px] text-xs">
+                  <thead className="bg-gray-50 text-gray-500">
+                    <tr>
+                      <th className="px-3 py-2 text-right">التاريخ</th>
+                      <th className="px-3 py-2 text-right">النوع</th>
+                      <th className="px-3 py-2 text-right">الطلب</th>
+                      <th className="px-3 py-2 text-right">المبلغ</th>
+                      <th className="px-3 py-2 text-right">الطريقة</th>
+                      <th className="px-3 py-2 text-right">ملاحظات / المرجع</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {rows.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-center text-gray-400"
+                        >
+                          لا يوجد.
+                        </td>
+                      </tr>
+                    )}
+                    {rows.map((payment) => (
+                      <tr key={payment.id}>
+                        <td className="px-3 py-2 text-gray-500">
+                          {dateTimeLabel(payment.createdAt)}
+                        </td>
+                        <td className="px-3 py-2 font-semibold">
+                          {PAYMENT_TYPE_LABELS[payment.paymentType]}
+                        </td>
+                        <td className="px-3 py-2">
+                          {payment.orderNumber ?? "-"}
+                        </td>
+                        <td
+                          dir="ltr"
+                          className="px-3 py-2 text-right font-black"
+                        >
+                          {formatSDG(payment.amountSdg)}
+                          <span className="block text-[10px] font-semibold text-gray-400">
+                            ≈ {formatUSD(payment.amountUsd)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {payment.paymentMethod === "BANK"
+                            ? "البنك"
+                            : "الخزينة"}
+                        </td>
+                        <td className="px-3 py-2 text-gray-500">
+                          {payment.notes ?? "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
+
         {statement.advances && (
           <div className="mt-5">
-            <h4 className="mb-2 text-sm font-black">السلف المفتوحة (غير المرتبطة بالمستحقات)</h4>
+            <h4 className="mb-2 text-sm font-black">السلف المفتوحة</h4>
             <div className="mb-3 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-[11px] font-bold text-gray-400">رصيد السلف</p>
-                <p dir="ltr" className="mt-1 text-right text-sm font-black text-amber-700">
+                <p className="text-[11px] font-bold text-gray-400">
+                  رصيد السلف
+                </p>
+                <p
+                  dir="ltr"
+                  className="mt-1 text-right text-sm font-black text-amber-700"
+                >
                   {formatSDG(statement.advances.balanceSdg)}
                 </p>
               </div>
               {statement.advances.orderAdvancesSdg > 0 && (
                 <div className="rounded-xl bg-gray-50 p-3">
-                  <p className="text-[11px] font-bold text-gray-400">سلف طلبات لم تُسلَّم (تُخصم عند التسليم)</p>
-                  <p dir="ltr" className="mt-1 text-right text-sm font-black text-gray-700">
+                  <p className="text-[11px] font-bold text-gray-400">
+                    سلف طلبات لم تُسلَّم (تُخصم عند التسليم)
+                  </p>
+                  <p
+                    dir="ltr"
+                    className="mt-1 text-right text-sm font-black text-gray-700"
+                  >
                     {formatSDG(statement.advances.orderAdvancesSdg)}
                   </p>
                 </div>
@@ -101,23 +271,43 @@ export default function TailorStatementModal({
                 <tbody className="divide-y divide-gray-100">
                   {statement.advances.movements.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-3 py-6 text-center text-gray-400">لا يوجد.</td>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-6 text-center text-gray-400"
+                      >
+                        لا يوجد.
+                      </td>
                     </tr>
                   )}
                   {statement.advances.movements.map((movement) => (
                     <tr key={movement.id}>
-                      <td className="px-3 py-2 text-gray-500">{dateTimeLabel(movement.createdAt)}</td>
-                      <td className="px-3 py-2 font-semibold">
-                        {movement.type === "ADVANCE" ? "سلفة" : movement.type === "RETURN" ? "استرداد نقدي" : "خصم من المستحقات"}
+                      <td className="px-3 py-2 text-gray-500">
+                        {dateTimeLabel(movement.createdAt)}
                       </td>
-                      <td dir="ltr" className="px-3 py-2 text-right font-black">
+                      <td className="px-3 py-2 font-semibold">
+                        {movement.type === "ADVANCE"
+                          ? "سلفة"
+                          : movement.type === "RETURN"
+                            ? "استرداد نقدي"
+                            : "خصم من المستحقات"}
+                      </td>
+                      <td
+                        dir="ltr"
+                        className="px-3 py-2 text-right font-black"
+                      >
                         {movement.type === "ADVANCE" ? "+ " : "− "}
                         {formatSDG(movement.amountSdg)}
                       </td>
                       <td className="px-3 py-2">
-                        {movement.paymentMethod === "BANK" ? "البنك" : movement.paymentMethod === "CASH" ? "الخزينة" : "من المستحقات"}
+                        {movement.paymentMethod === "BANK"
+                          ? "البنك"
+                          : movement.paymentMethod === "CASH"
+                            ? "الخزينة"
+                            : "من المستحقات"}
                       </td>
-                      <td className="px-3 py-2 text-gray-500">{movement.notes ?? movement.reference ?? "-"}</td>
+                      <td className="px-3 py-2 text-gray-500">
+                        {movement.notes ?? movement.reference ?? "-"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -125,91 +315,6 @@ export default function TailorStatementModal({
             </div>
           </div>
         )}
-
-        <h4 className="mb-2 mt-5 text-sm font-black">الطلبات المثبتة تكلفتها</h4>
-        <div className="overflow-x-auto rounded-xl border border-gray-100">
-          <table className="w-full min-w-[640px] text-xs">
-            <thead className="bg-gray-50 text-gray-500">
-              <tr>
-                <th className="px-3 py-2 text-right">الطلب</th>
-                <th className="px-3 py-2 text-right">تاريخ التثبيت</th>
-                <th className="px-3 py-2 text-right">الأجرة</th>
-                <th className="px-3 py-2 text-right">المدفوع</th>
-                <th className="px-3 py-2 text-right">السلف</th>
-                <th className="px-3 py-2 text-right">المتبقي</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {statement.orders.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-gray-400">لا توجد طلبات مثبتة.</td>
-                </tr>
-              )}
-              {statement.orders.map((order) => (
-                <tr key={order.salesOrderId}>
-                  <td className="px-3 py-2">
-                    <a href={`/dashboard/tailoring/${order.salesOrderId}`} className="font-bold text-blue-700 hover:underline">
-                      {order.orderNumber}
-                    </a>
-                    {order.itemName && <span className="block text-gray-400">{order.itemName}</span>}
-                  </td>
-                  <td className="px-3 py-2 text-gray-500">{dateTimeLabel(order.costRecognizedAt)}</td>
-                  <td dir="ltr" className="px-3 py-2 text-right">{formatSDG(order.costSdg)}</td>
-                  <td dir="ltr" className="px-3 py-2 text-right text-emerald-700">{formatSDG(order.paidSdg)}</td>
-                  <td dir="ltr" className="px-3 py-2 text-right text-amber-700">{formatSDG(order.advancesSdg)}</td>
-                  <td dir="ltr" className="px-3 py-2 text-right font-black">{formatSDG(order.remainingSdg)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {(["SETTLEMENT", "DUES_ADVANCE"] as const).map((type) => {
-          const rows = statement.payments.filter((payment) =>
-            type === "SETTLEMENT" ? payment.paymentType !== "DUES_ADVANCE" : payment.paymentType === type,
-          );
-          return (
-            <div key={type}>
-              <h4 className="mb-2 mt-5 text-sm font-black">
-                {type === "SETTLEMENT" ? "المدفوعات" : "السلف"}
-              </h4>
-              <div className="overflow-x-auto rounded-xl border border-gray-100">
-                <table className="w-full min-w-[640px] text-xs">
-                  <thead className="bg-gray-50 text-gray-500">
-                    <tr>
-                      <th className="px-3 py-2 text-right">التاريخ</th>
-                      <th className="px-3 py-2 text-right">النوع</th>
-                      <th className="px-3 py-2 text-right">الطلب</th>
-                      <th className="px-3 py-2 text-right">المبلغ</th>
-                      <th className="px-3 py-2 text-right">الطريقة</th>
-                      <th className="px-3 py-2 text-right">ملاحظات / المرجع</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {rows.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-6 text-center text-gray-400">لا يوجد.</td>
-                      </tr>
-                    )}
-                    {rows.map((payment) => (
-                      <tr key={payment.id}>
-                        <td className="px-3 py-2 text-gray-500">{dateTimeLabel(payment.createdAt)}</td>
-                        <td className="px-3 py-2 font-semibold">{PAYMENT_TYPE_LABELS[payment.paymentType]}</td>
-                        <td className="px-3 py-2">{payment.orderNumber ?? "-"}</td>
-                        <td dir="ltr" className="px-3 py-2 text-right font-black">
-                          {formatSDG(payment.amountSdg)}
-                          <span className="block text-[10px] font-semibold text-gray-400">≈ {formatUSD(payment.amountUsd)}</span>
-                        </td>
-                        <td className="px-3 py-2">{payment.paymentMethod === "BANK" ? "البنك" : "الخزينة"}</td>
-                        <td className="px-3 py-2 text-gray-500">{payment.notes ?? "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })}
       </div>
     </ModalShell>
   );

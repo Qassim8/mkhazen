@@ -193,7 +193,7 @@ const menuItems: MenuItem[] = [
       },
       {
         href: "/dashboard/employees/payroll",
-        label: "الموظفين",
+        label: "الرواتب والمستحقات",
         icon: LuHandCoins,
         roles: ["admin"],
         exact: true,

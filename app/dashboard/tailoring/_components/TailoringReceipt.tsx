@@ -124,9 +124,6 @@ function CustomerCopy({ order }: { order: TailoringOrder }) {
         <Row label="المتبقي" value={formatSDG(order.remainingAmount)} strong />
       </div>
 
-      <p className="border-t border-dashed border-black pt-2 text-center text-[10px]">
-        يُرجى إحضار هذه الفاتورة عند الاستلام
-      </p>
       <p className="text-center text-[10px]" dir="ltr">
         للتواصل: {STORE_INFO.phone}
       </p>
