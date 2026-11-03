@@ -1,7 +1,7 @@
 "use client";
 
 import { formatUSD } from "@/lib/currency";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -36,7 +36,9 @@ import { PurchaseOrder, PurchaseOrderStatus } from "../schemas/orders.schemas";
 
 import {
   deletePurchaseOrder,
+  getPurchasePaymentFunds,
   updatePurchaseOrderStatus,
+  type PurchasePaymentFunds,
 } from "../services/order.services";
 
 /* =========================================================
@@ -148,6 +150,28 @@ function ReceivePurchaseModal({
 
   const [paymentEnabled, setPaymentEnabled] = useState(false);
 
+  // الرصيد المتاح للحساب المختار (لا يظهر للكاشير؛ الفحص الفعلي في قاعدة البيانات)
+  const [funds, setFunds] = useState<PurchasePaymentFunds | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFunds() {
+      try {
+        const result = await getPurchasePaymentFunds();
+        if (mounted) setFunds(result.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    loadFunds();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const remainingAmount = Math.max(
     0,
     Number(
@@ -173,7 +197,29 @@ function ReceivePurchaseModal({
 
   const paymentAmount = Number(watch("amount") || 0);
 
+  const paymentMethod = watch("paymentMethod");
+
   const remainingAfterPayment = Math.max(remainingAmount - paymentAmount, 0);
+
+  const accountFunds =
+    funds?.visible ? (paymentMethod === "BANK" ? funds.bank : funds.cash) : null;
+
+  const accountLabel = paymentMethod === "BANK" ? "البنك" : "الخزينة";
+
+  const insufficientFunds =
+    paymentEnabled &&
+    accountFunds !== null &&
+    paymentAmount > 0 &&
+    Math.round(paymentAmount * 100) > Math.round(accountFunds.usd * 100);
+
+  // رصيد الجنيه في نفس الحساب يكفي بسعر الصرف الحالي → نقترح التحويل
+  const canConvertFromSdg =
+    insufficientFunds &&
+    funds?.visible === true &&
+    funds.rate !== null &&
+    funds.rate > 0 &&
+    accountFunds !== null &&
+    Math.round((accountFunds.sdg / funds.rate) * 100) >= Math.round(paymentAmount * 100);
 
   const handleFullPayment = () => {
     setValue("amount", Number(remainingAmount.toFixed(2)), {
@@ -419,6 +465,21 @@ function ReceivePurchaseModal({
                     {errors.amount.message}
                   </p>
                 )}
+
+                {accountFunds && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    المتاح في {accountLabel}:{" "}
+                    <span className="font-mono font-bold text-gray-800">
+                      {formatUSD(accountFunds.usd)}
+                    </span>
+                  </p>
+                )}
+
+                {insufficientFunds && accountFunds && (
+                  <p className="mt-1 text-xs font-semibold text-rose-600">
+                    {`رصيد ${accountLabel} غير كافٍ: المتاح ${accountFunds.usd.toFixed(2)} دولار، والمطلوب ${paymentAmount.toFixed(2)} دولار. موّل الحساب أولًا أو أدخل مبلغ دفع أقل${canConvertFromSdg ? " أو حوّل العملة من صفحة تحويل العملة" : ""}.`}
+                  </p>
+                )}
               </div>
 
               {/* Method */}
@@ -549,6 +610,7 @@ function ReceivePurchaseModal({
                 type="submit"
                 disabled={
                   isPending ||
+                  insufficientFunds ||
                   (paymentEnabled &&
                     (paymentAmount <= 0 || paymentAmount > remainingAmount))
                 }

@@ -41,7 +41,7 @@ DECLARE
     'get_employee_payroll', 'pay_employee', 'get_tailor_month_summary',
     'get_current_exchange_rate', 'ledger_period_totals',
     'maintain_notifications', 'process_inventory_adjustment',
-    'receive_purchase_order', 'record_purchase_payment',
+    'receive_purchase_order', 'receive_purchase_order_with_payment', 'record_purchase_payment',
     'refund_customer_advance', 'update_product', 'update_tailoring_order',
     'update_tailoring_status'
   ];

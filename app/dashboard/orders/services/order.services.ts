@@ -200,6 +200,26 @@ export async function updatePurchaseOrderStatus(
 }
 
 /* =========================================================
+   أرصدة الخزينة والبنك المتاحة للدفع عند الاستلام
+   (visible: false للكاشير — الفحص الفعلي في قاعدة البيانات)
+========================================================= */
+
+export type PurchasePaymentFunds =
+  | { visible: false }
+  | {
+      visible: true;
+      cash: { usd: number; sdg: number };
+      bank: { usd: number; sdg: number };
+      rate: number | null;
+    };
+
+export async function getPurchasePaymentFunds(): Promise<{ data: PurchasePaymentFunds }> {
+  return serverFetch<{ data: PurchasePaymentFunds }>(`${API_BASE_URL}/payment-funds`, {
+    method: "GET",
+  });
+}
+
+/* =========================================================
    GET PAYMENTS
 ========================================================= */
 

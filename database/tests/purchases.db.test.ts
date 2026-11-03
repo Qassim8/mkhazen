@@ -327,3 +327,117 @@ describe("record_purchase_payment (live schema, service_role)", () => {
     assert.equal(num(result.rows[0].result.amount), 50);
   });
 });
+
+describe("receive_purchase_order_with_payment (20261103_01) — no partial receipt", () => {
+  let db: PGliteInterface;
+  let users: Users;
+
+  before(async () => {
+    db = await createLiveDb({ migrations: RELEASE_SEQUENCE });
+    users = await seedBase(db);
+  });
+  after(() => db.close());
+
+  const receiveAndPay = (orderId: string, amount: number, method = "CASH", userId?: string) =>
+    asRole(db, "service_role", () =>
+      db.query<{ result: Record<string, unknown> }>(
+        `SELECT public.receive_purchase_order_with_payment($1, $2, $3, $4, $5, $6, 'REF', NULL) AS result`,
+        [orderId, userId ?? users.admin, BRANCH_ID, amount, new Date().toISOString(), method],
+      ),
+    );
+
+  const untouched = async (orderId: string, variantId: string) => {
+    const order = await db.query<{ status: string }>(`SELECT status FROM public.purchase_orders WHERE id = $1`, [orderId]);
+    assert.equal(order.rows[0].status, "APPROVED");
+    const stock = await db.query<{ q: string }>(`SELECT "stockQuantity" AS q FROM public.product_variants WHERE id = $1`, [variantId]);
+    assert.equal(num(stock.rows[0].q), 0);
+    const movements = await db.query(`SELECT 1 FROM public.inventory_movements WHERE variant_id = $1`, [variantId]);
+    assert.equal(movements.rows.length, 0);
+    const journals = await db.query(`SELECT 1 FROM public.journal_entries WHERE purchase_order_id = $1`, [orderId]);
+    assert.equal(journals.rows.length, 0);
+    const payments = await db.query(`SELECT 1 FROM public.purchase_order_payments WHERE purchase_order_id = $1`, [orderId]);
+    assert.equal(payments.rows.length, 0);
+  };
+
+  it("insufficient balance: refused before any change (no stock, movement, entry, payment or status change)", async () => {
+    await fundAccount(db, "CASH", 50);
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 80 }] });
+
+    const message = await rpcError(receiveAndPay(orderId, 80, "CASH"));
+    assert.match(
+      message,
+      /^رصيد الخزينة غير كافٍ: المتاح 50\.00 دولار، والمطلوب 80\.00 دولار\. موّل الحساب أولًا أو أدخل مبلغ دفع أقل\.$/,
+    );
+    await untouched(orderId, product.variantId);
+  });
+
+  it("adds the currency-exchange hint only when the SDG balance of the same account would cover it", async () => {
+    await fundAccount(db, "BANK", 10, "USD");
+    await fundAccount(db, "BANK", 10_000_000, "SDG");
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 80 }] });
+
+    assert.match(await rpcError(receiveAndPay(orderId, 80, "BANK")), /^رصيد البنك غير كافٍ: المتاح 10\.00 دولار، والمطلوب 80\.00 دولار\. موّل الحساب أولًا أو أدخل مبلغ دفع أقل أو حوّل العملة من صفحة تحويل العملة\.$/);
+
+    // الجنيه في الخزينة لا يكفي → بدون الجملة
+    await fundAccount(db, "CASH", 1_000, "SDG");
+    assert.doesNotMatch(await rpcError(receiveAndPay(orderId, 80, "CASH")), /تحويل العملة/);
+    await untouched(orderId, product.variantId);
+  });
+
+  it("enough balance: receives and records a partial payment, the rest stays a supplier debt", async () => {
+    await fundAccount(db, "CASH", 100);
+    const balanceBefore = await db.query<{ b: string }>(`SELECT public.get_account_balance($1, 'CASH', 'USD') AS b`, [BRANCH_ID]);
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 10, unitCost: 30 }] });
+
+    const { rows } = await receiveAndPay(orderId, 100, "CASH", users.cashier);
+    assert.equal(rows[0].result.status, "RECEIVED");
+    assert.equal(num((rows[0].result.payment as Record<string, unknown>).amount), 100);
+
+    const stock = await db.query<{ q: string }>(`SELECT "stockQuantity" AS q FROM public.product_variants WHERE id = $1`, [product.variantId]);
+    assert.equal(num(stock.rows[0].q), 10);
+    const paid = await db.query<{ total: string }>(`SELECT sum(amount) AS total FROM public.purchase_order_payments WHERE purchase_order_id = $1`, [orderId]);
+    assert.equal(num(paid.rows[0].total), 100);
+    const balance = await db.query<{ b: string }>(`SELECT public.get_account_balance($1, 'CASH', 'USD') AS b`, [BRANCH_ID]);
+    assert.equal(num(balance.rows[0].b), num(balanceBefore.rows[0].b) - 100);
+  });
+
+  it("a payment failure after the pre-check (amount above the order total) rolls the receipt back too", async () => {
+    await fundAccount(db, "CASH", 1_000);
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 80 }] });
+
+    assert.match(await rpcError(receiveAndPay(orderId, 500, "CASH")), /أكبر من المبلغ المتبقي/);
+    await untouched(orderId, product.variantId);
+  });
+
+  it("an order that is not approved keeps its own error; invalid method and zero amount are refused", async () => {
+    await fundAccount(db, "CASH", 1_000);
+    const product = await createProduct(db, { stock: 0 });
+    const draft = await createPurchaseOrder(db, { status: "DRAFT", items: [{ ...product, quantity: 1, unitCost: 10 }] });
+    const approved = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 10 }] });
+
+    assert.doesNotMatch(await rpcError(receiveAndPay(draft.orderId, 10, "CASH")), /رصيد/);
+    assert.match(await rpcError(receiveAndPay(approved.orderId, 10, "CHEQUE")), /خزينة أو بنك/);
+    assert.match(await rpcError(receiveAndPay(approved.orderId, 0, "CASH")), /أكبر من صفر/);
+  });
+
+  it("anon and authenticated cannot call the new functions", async () => {
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 10 }] });
+    for (const role of ["anon", "authenticated"] as const) {
+      await assert.rejects(
+        asRole(db, role, () =>
+          db.query(`SELECT public.receive_purchase_order_with_payment($1, $2, $3, 1, now(), 'CASH', NULL, NULL)`, [orderId, users.admin, BRANCH_ID]),
+        ),
+        /permission denied/,
+      );
+      await assert.rejects(
+        asRole(db, role, () => db.query(`SELECT public.check_purchase_payment_funds($1, 'CASH', 1)`, [BRANCH_ID])),
+        /permission denied/,
+      );
+    }
+  });
+});

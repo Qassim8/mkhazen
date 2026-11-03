@@ -332,6 +332,51 @@ export async function recordPurchasePayment(params: {
 }
 
 
+/**
+ * استلام مع دفعة في معاملة واحدة (receive_purchase_order_with_payment):
+ * يفحص رصيد الحساب أولًا؛ لو لا يكفي أو فشل الدفع يُرجَع الاستلام كله.
+ */
+export async function receivePurchaseOrderWithPayment(params: {
+  purchaseOrderId: string;
+  userId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  reference?: string | null;
+  notes?: string | null;
+}) {
+  const paymentTimestamp = new Date(params.paymentDate);
+
+  if (Number.isNaN(paymentTimestamp.getTime())) {
+    throw new Error("تاريخ الدفعة غير صالح");
+  }
+
+  const { data, error } = await supabaseAdmin.rpc("receive_purchase_order_with_payment", {
+    p_order_id: params.purchaseOrderId,
+    p_user_id: params.userId,
+    p_branch_id: MAIN_BRANCH_ID,
+    p_amount: Number(params.amount.toFixed(2)),
+    p_payment_date: paymentTimestamp.toISOString(),
+    p_payment_method: params.paymentMethod === "BANK" ? "BANK" : "CASH",
+    p_reference: params.reference || null,
+    p_notes: params.notes || null,
+  });
+
+  if (error) {
+    throw new PurchaseRpcError(error);
+  }
+
+  return data as {
+    order_id: string;
+    order_number: string;
+    status: "RECEIVED";
+    items_count: number;
+    journal_entry_id: string;
+    total_amount: number | string;
+    payment: Record<string, unknown>;
+  };
+}
+
 /* =========================================================
    NOTIFICATION
 ========================================================= */

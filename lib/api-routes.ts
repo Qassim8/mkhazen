@@ -52,6 +52,7 @@ export const API_ROUTES: { pattern: string; load: () => Promise<RouteModule> }[]
   { pattern: "/api/settings/opening-locks", load: () => import("@/app/api/settings/opening-locks/route") },
   { pattern: "/api/products/[id]", load: () => import("@/app/api/products/[id]/route") },
   { pattern: "/api/products", load: () => import("@/app/api/products/route") },
+  { pattern: "/api/purchases/payment-funds", load: () => import("@/app/api/purchases/payment-funds/route") },
   { pattern: "/api/purchases/[id]/payments", load: () => import("@/app/api/purchases/[id]/payments/route") },
   { pattern: "/api/purchases/[id]", load: () => import("@/app/api/purchases/[id]/route") },
   { pattern: "/api/purchases/[id]/status", load: () => import("@/app/api/purchases/[id]/status/route") },

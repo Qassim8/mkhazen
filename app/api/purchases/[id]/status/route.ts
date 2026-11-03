@@ -14,7 +14,7 @@ import {
   allowedStatusTransitions,
   fetchPurchaseOrderById,
   processPurchaseReceipt,
-  recordPurchasePayment,
+  receivePurchaseOrderWithPayment,
   notifyPurchaseDecision,
   PurchaseRpcError,
 } from "../../_lib/purchase-order";
@@ -191,10 +191,27 @@ export async function PATCH(
       let receipt: Awaited<ReturnType<typeof processPurchaseReceipt>>;
 
       try {
-        receipt = await processPurchaseReceipt(id, user.userId);
+        // مع دفعة: فحص الرصيد ثم الاستلام ثم الدفع في معاملة واحدة، فلا استلام جزئي
+        receipt = payment
+          ? await receivePurchaseOrderWithPayment({
+              purchaseOrderId: id,
+              userId: user.userId,
+              amount: payment.amount,
+              paymentDate: payment.paymentDate,
+              paymentMethod: payment.paymentMethod,
+              reference: payment.reference,
+              notes: payment.notes,
+            })
+          : await processPurchaseReceipt(id, user.userId);
       } catch (receiptError) {
         if (receiptError instanceof PurchaseRpcError) {
-          return dbErrorResponse(receiptError.dbError, "receive_purchase_order", "تعذر استلام طلب الشراء.");
+          return dbErrorResponse(
+            hideBalances
+              ? maskBalanceError(receiptError.dbError as { code?: string; message?: string } | null)
+              : receiptError.dbError,
+            "receive_purchase_order",
+            "تعذر استلام طلب الشراء.",
+          );
         }
         throw receiptError;
       }
@@ -211,64 +228,20 @@ export async function PATCH(
       });
 
       /* ===================================================
-         OPTIONAL PAYMENT AFTER RECEIPT
+         الدفعة (إن وُجدت) سُجّلت مع الاستلام في نفس المعاملة
       =================================================== */
 
       if (payment) {
-        try {
-          await recordPurchasePayment({
-            purchaseOrderId: id,
-
-            amount: payment.amount,
-
-            paymentDate: payment.paymentDate,
-
-            paymentMethod: payment.paymentMethod,
-
-            reference: payment.reference,
-
-            notes: payment.notes,
-
-            createdBy: user.userId,
-          });
-
-          await notifyOwnerOfCashierAction({
-            actor: user,
-            kind: "SUPPLIER_PAYMENT",
-            title: "دفعة مورد من الكاشير",
-            details: `سجّل دفعة بقيمة ${money(payment.amount, "USD")} (${payment.paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) على طلب الشراء ${existingOrder.order_number}`,
-            link: `/dashboard/orders/${id}`,
-            amount: payment.amount,
-            currency: "USD",
-            metadata: { purchase_order_id: id, payment_method: payment.paymentMethod },
-          });
-        } catch (paymentError) {
-          console.error("Receive payment error:", paymentError);
-
-          revalidateTag("products-list", "default");
-
-          revalidateTag("purchases-list", "default");
-
-          revalidatePath("/dashboard/orders");
-
-          revalidatePath(`/dashboard/orders/${id}`);
-
-          return NextResponse.json(
-            {
-              message:
-                paymentError instanceof Error
-                  ? `تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة: ${
-                      hideBalances
-                        ? maskBalanceError({ message: paymentError.message }).message
-                        : paymentError.message
-                    }`
-                  : "تم استلام الطلب وتحديث المخزون، لكن تعذر تسجيل الدفعة.",
-              warning: true,
-              data: (await fetchPurchaseOrderById(id)).data,
-            },
-            { status: 400 },
-          );
-        }
+        await notifyOwnerOfCashierAction({
+          actor: user,
+          kind: "SUPPLIER_PAYMENT",
+          title: "دفعة مورد من الكاشير",
+          details: `سجّل دفعة بقيمة ${money(payment.amount, "USD")} (${payment.paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) على طلب الشراء ${existingOrder.order_number}`,
+          link: `/dashboard/orders/${id}`,
+          amount: payment.amount,
+          currency: "USD",
+          metadata: { purchase_order_id: id, payment_method: payment.paymentMethod },
+        });
       }
 
       revalidateTag("products-list", "default");

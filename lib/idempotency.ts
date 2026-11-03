@@ -179,7 +179,7 @@ export function readIdempotencyKey(request: Request): string | null {
  * الكاشير ما يشوفش أرصدة الحسابات فبنستبدلها برسالة عامة.
  */
 export function maskBalanceError<E extends { code?: string; message?: string } | null>(error: E): E {
-  if (!error || !/الرصيد/.test(error.message ?? "")) return error;
+  if (!error || !/الرصيد|رصيد .+ غير كافٍ/.test(error.message ?? "")) return error;
   return { ...error, message: "الرصيد المتاح غير كافٍ لإتمام هذه العملية." };
 }
 
