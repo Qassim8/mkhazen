@@ -593,3 +593,80 @@ describe("split cash + bank payment (20261104_01)", () => {
     }
   });
 });
+
+describe("receive with payment: cash balance 10, payment 50 — nothing changes (single and split)", () => {
+  let db: PGliteInterface;
+  let users: Users;
+
+  before(async () => {
+    db = await createLiveDb({ migrations: RELEASE_SEQUENCE });
+    users = await seedBase(db);
+    await fundAccount(db, "CASH", 10);
+  });
+  after(() => db.close());
+
+  const call = (text: string, params: unknown[]) => asRole(db, "service_role", () => db.query(text, params));
+
+  const expectUntouched = async (orderId: string, variantId: string) => {
+    const order = await db.query<{ status: string }>(`SELECT status FROM public.purchase_orders WHERE id = $1`, [orderId]);
+    assert.equal(order.rows[0].status, "APPROVED");
+    const stock = await db.query<{ q: string }>(`SELECT "stockQuantity" AS q FROM public.product_variants WHERE id = $1`, [variantId]);
+    assert.equal(num(stock.rows[0].q), 0);
+    assert.equal((await db.query(`SELECT 1 FROM public.inventory_movements WHERE variant_id = $1`, [variantId])).rows.length, 0);
+    assert.equal((await db.query(`SELECT 1 FROM public.journal_entries WHERE purchase_order_id = $1`, [orderId])).rows.length, 0);
+    assert.equal((await db.query(`SELECT 1 FROM public.purchase_order_payments WHERE purchase_order_id = $1`, [orderId])).rows.length, 0);
+  };
+
+  it("receive_purchase_order_with_payment: refused, no stock, movement, entry or status change", async () => {
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 50 }] });
+
+    const message = await rpcError(
+      call(`SELECT public.receive_purchase_order_with_payment($1, $2, $3, 50, now(), 'CASH', NULL, NULL)`, [orderId, users.admin, BRANCH_ID]),
+    );
+    assert.match(message, /^رصيد الخزينة غير كافٍ: المتاح 10\.00 دولار، والمطلوب 50\.00 دولار/);
+    await expectUntouched(orderId, product.variantId);
+  });
+
+  it("receive_purchase_order_with_split_payment: refused when either part is not covered", async () => {
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 50 }] });
+
+    // الخزينة 10 تغطي جزءها (10) والبنك (0) لا يغطي 40
+    assert.match(
+      await rpcError(call(`SELECT public.receive_purchase_order_with_split_payment($1, $2, $3, 10, 40, now(), NULL, NULL)`, [orderId, users.admin, BRANCH_ID])),
+      /^رصيد البنك غير كافٍ: المتاح 0\.00 دولار، والمطلوب 40\.00 دولار/,
+    );
+    await expectUntouched(orderId, product.variantId);
+
+    // الجزء النقدي هو غير المغطى
+    assert.match(
+      await rpcError(call(`SELECT public.receive_purchase_order_with_split_payment($1, $2, $3, 50, 0, now(), NULL, NULL)`, [orderId, users.admin, BRANCH_ID])),
+      /^رصيد الخزينة غير كافٍ: المتاح 10\.00 دولار، والمطلوب 50\.00 دولار/,
+    );
+    await expectUntouched(orderId, product.variantId);
+  });
+
+  it("neither function swallows a payment failure (no EXCEPTION handler in their source)", async () => {
+    const { rows } = await db.query<{ proname: string; src: string }>(
+      `SELECT proname, prosrc AS src FROM pg_proc
+       WHERE pronamespace = 'public'::regnamespace
+         AND proname IN ('receive_purchase_order_with_payment', 'receive_purchase_order_with_split_payment')`,
+    );
+    assert.equal(rows.length, 2);
+    for (const row of rows) {
+      assert.doesNotMatch(row.src, /EXCEPTION\s+WHEN/i, row.proname);
+    }
+  });
+
+  it("covered payments and receipt without payment still work", async () => {
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 50 }] });
+    const result = await call(`SELECT public.receive_purchase_order_with_payment($1, $2, $3, 10, now(), 'CASH', NULL, NULL) AS r`, [orderId, users.admin, BRANCH_ID]);
+    assert.equal((result.rows[0] as { r: { status: string } }).r.status, "RECEIVED");
+
+    const plain = await createProduct(db, { stock: 0 });
+    const order2 = await createPurchaseOrder(db, { items: [{ ...plain, quantity: 1, unitCost: 5 }] });
+    await call(`SELECT public.receive_purchase_order($1, $2, $3)`, [order2.orderId, users.admin, BRANCH_ID]);
+  });
+});

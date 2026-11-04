@@ -36,7 +36,6 @@ import {
 
 import {
   createPurchaseOrder,
-  createPurchaseOrderPayment,
   getPurchasePaymentFunds,
   type PurchasePaymentFunds,
 } from "../services/order.services";
@@ -547,6 +546,24 @@ export default function CreateOrderClient({
       deliveryCost: Number(data.deliveryCost || 0),
 
       discountAmount: Number(data.discountAmount || 0),
+
+      // الشراء المباشر: الدفعة تُسجَّل مع الاستلام في معاملة واحدة (فحص الرصيد أولًا)
+      payment:
+        isDirectPurchase && currentPaymentAmount > 0
+          ? {
+              amount: Number(currentPaymentAmount.toFixed(2)),
+
+              paymentDate: data.orderDate,
+
+              paymentMethod,
+
+              ...(paymentMethod === "MIXED"
+                ? { cashAmount: mixedCash, bankAmount: mixedBank }
+                : {}),
+
+              notes: data.notes || null,
+            }
+          : null,
     };
 
     const validation = createPurchaseOrderSchema.safeParse(payload);
@@ -562,54 +579,7 @@ export default function CreateOrderClient({
          CREATE ORDER
       ================================================= */
 
-      const response = await createPurchaseOrder(validation.data);
-
-      const createdOrder = response.data;
-
-      /* ================================================
-         INITIAL PAYMENT
-
-         Only DIRECT purchase may be paid now.
-      ================================================= */
-
-      if (
-        createdOrder &&
-        createdOrder.status !== "DRAFT" &&
-        currentPaymentAmount > 0
-      ) {
-        const paymentPayload = {
-          amount: Number(currentPaymentAmount.toFixed(2)),
-
-          paymentDate: data.orderDate,
-
-          paymentMethod: paymentMethod,
-
-          ...(paymentMethod === "MIXED"
-            ? { cashAmount: mixedCash, bankAmount: mixedBank }
-            : {}),
-
-          notes: data.notes || null,
-        };
-
-        try {
-          // مفتاح ثابت لدفعة الطلب الجديد ده: أي إعادة إرسال ما تكررش الدفعة
-          await createPurchaseOrderPayment(createdOrder.id, paymentPayload, {
-            idempotencyKey: `po-initial-${createdOrder.id}`,
-          });
-        } catch (paymentError) {
-          console.error("Initial payment error:", paymentError);
-
-          toast.error(
-            "تم إنشاء طلب الشراء، لكن تعذر تسجيل الدفعة. يمكنك تسجيلها من تفاصيل الطلب.",
-          );
-
-          router.push(`/dashboard/orders/${createdOrder.id}`);
-
-          router.refresh();
-
-          return;
-        }
-      }
+      await createPurchaseOrder(validation.data);
 
       /* ================================================
          SUCCESS

@@ -219,6 +219,9 @@ export const createPurchaseOrderSchema = z
     items: z
       .array(purchaseOrderItemSchema)
       .min(1, "يرجى إضافة منتج واحد على الأقل للطلب"),
+
+    /** الشراء المباشر فقط: دفعة تُسجَّل مع الاستلام في معاملة واحدة */
+    payment: purchasePaymentSchema.nullable().optional(),
   })
   .superRefine((data, ctx) => {
     const subtotal = data.items.reduce(

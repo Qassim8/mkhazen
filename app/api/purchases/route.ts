@@ -17,10 +17,12 @@ import {
   normalizeConversionFactor,
   notifyOwnerForDraft,
   processPurchaseReceipt,
+  receivePurchaseOrderWithPayment,
   PurchaseRpcError,
   PURCHASE_ORDER_SELECT,
 } from "./_lib/purchase-order";
 import { apiError, dbErrorResponse, isDefiniteDbRejection } from "@/lib/api-response";
+import { maskBalanceError } from "@/lib/idempotency";
 import { money, notifyOwnerOfCashierAction } from "@/app/api/_lib/cashier-audit";
 
 /* =========================================================
@@ -381,9 +383,17 @@ export async function POST(request: Request) {
       items,
       deliveryCost,
       discountAmount,
+      payment,
     } = validation.data;
 
     const isDirect = purchaseType === "DIRECT";
+
+    if (payment && !isDirect) {
+      return NextResponse.json(
+        { message: "الدفعة مع إنشاء الطلب متاحة للشراء المباشر فقط." },
+        { status: 400 },
+      );
+    }
 
     // الشراء المباشر بيتسجل "معتمد" وبعدين بيتستلم ذرّيًا في قاعدة البيانات
     // (receive_purchase_order بيحوله RECEIVED مع المخزون والقيد في معاملة واحدة)
@@ -583,7 +593,20 @@ export async function POST(request: Request) {
 
     if (isDirect) {
       try {
-        const receipt = await processPurchaseReceipt(newOrder.id, user.userId);
+        // مع دفعة: فحص الرصيد ثم الاستلام ثم الدفع في معاملة واحدة، فلا استلام بدون دفع بسبب رصيد ناقص
+        const receipt = payment
+          ? await receivePurchaseOrderWithPayment({
+              purchaseOrderId: newOrder.id,
+              userId: user.userId,
+              amount: payment.amount,
+              paymentDate: payment.paymentDate,
+              paymentMethod: payment.paymentMethod,
+              cashAmount: payment.cashAmount,
+              bankAmount: payment.bankAmount,
+              reference: payment.reference,
+              notes: payment.notes,
+            })
+          : await processPurchaseReceipt(newOrder.id, user.userId);
 
         await notifyOwnerOfCashierAction({
           actor: user,
@@ -595,6 +618,25 @@ export async function POST(request: Request) {
           currency: "USD",
           metadata: { purchase_order_id: newOrder.id, order_number: receipt.order_number, direct: true },
         });
+
+        if (payment) {
+          await notifyOwnerOfCashierAction({
+            actor: user,
+            kind: "SUPPLIER_PAYMENT",
+            title: "دفعة مورد من الكاشير",
+            details: `سجّل دفعة بقيمة ${money(payment.amount, "USD")} (${
+              payment.paymentMethod === "MIXED"
+                ? `مختلط: خزينة ${money(payment.cashAmount ?? 0, "USD")} + بنك ${money(payment.bankAmount ?? 0, "USD")}`
+                : payment.paymentMethod === "BANK"
+                  ? "من البنك"
+                  : "من الخزينة"
+            }) على طلب الشراء ${receipt.order_number}`,
+            link: `/dashboard/orders/${newOrder.id}`,
+            amount: payment.amount,
+            currency: "USD",
+            metadata: { purchase_order_id: newOrder.id, payment_method: payment.paymentMethod },
+          });
+        }
       } catch (receiptError) {
         console.error("Direct purchase receipt error:", receiptError);
 
@@ -613,7 +655,13 @@ export async function POST(request: Request) {
             .eq("id", newOrder.id)
             .eq("status", "APPROVED");
 
-          return dbErrorResponse(receiptError.dbError, "direct purchase receive", "تعذر استلام الشراء المباشر.");
+          return dbErrorResponse(
+            can(user.role, "accounting.view")
+              ? receiptError.dbError
+              : maskBalanceError(receiptError.dbError as { code?: string; message?: string } | null),
+            "direct purchase receive",
+            "تعذر استلام الشراء المباشر.",
+          );
         }
 
         return apiError(
