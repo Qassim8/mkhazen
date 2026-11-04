@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
 import {
+  PaymentInputMethod,
   PaymentMethod,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -302,7 +303,10 @@ export async function recordPurchasePayment(params: {
   purchaseOrderId: string;
   amount: number;
   paymentDate: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentInputMethod;
+  /** للدفع المختلط */
+  cashAmount?: number | null;
+  bankAmount?: number | null;
   reference?: string | null;
   notes?: string | null;
   createdBy: string;
@@ -311,6 +315,25 @@ export async function recordPurchasePayment(params: {
 
   if (Number.isNaN(paymentTimestamp.getTime())) {
     throw new Error("تاريخ الدفعة غير صالح");
+  }
+
+  if (params.paymentMethod === "MIXED") {
+    const { data, error } = await supabaseAdmin.rpc("record_purchase_payment_split", {
+      p_order_id: params.purchaseOrderId,
+      p_user_id: params.createdBy,
+      p_branch_id: MAIN_BRANCH_ID,
+      p_cash_amount: Number((params.cashAmount ?? 0).toFixed(2)),
+      p_bank_amount: Number((params.bankAmount ?? 0).toFixed(2)),
+      p_payment_date: paymentTimestamp.toISOString(),
+      p_reference: params.reference || null,
+      p_notes: params.notes || null,
+    });
+
+    if (error) {
+      throw new PurchaseRpcError(error);
+    }
+
+    return data as Record<string, unknown>;
   }
 
   const { data, error } = await supabaseAdmin.rpc("record_purchase_payment", {
@@ -341,7 +364,10 @@ export async function receivePurchaseOrderWithPayment(params: {
   userId: string;
   amount: number;
   paymentDate: string;
-  paymentMethod: PaymentMethod;
+  paymentMethod: PaymentInputMethod;
+  /** للدفع المختلط */
+  cashAmount?: number | null;
+  bankAmount?: number | null;
   reference?: string | null;
   notes?: string | null;
 }) {
@@ -349,6 +375,35 @@ export async function receivePurchaseOrderWithPayment(params: {
 
   if (Number.isNaN(paymentTimestamp.getTime())) {
     throw new Error("تاريخ الدفعة غير صالح");
+  }
+
+  type ReceiptWithPayment = {
+    order_id: string;
+    order_number: string;
+    status: "RECEIVED";
+    items_count: number;
+    journal_entry_id: string;
+    total_amount: number | string;
+    payment: Record<string, unknown>;
+  };
+
+  if (params.paymentMethod === "MIXED") {
+    const { data, error } = await supabaseAdmin.rpc("receive_purchase_order_with_split_payment", {
+      p_order_id: params.purchaseOrderId,
+      p_user_id: params.userId,
+      p_branch_id: MAIN_BRANCH_ID,
+      p_cash_amount: Number((params.cashAmount ?? 0).toFixed(2)),
+      p_bank_amount: Number((params.bankAmount ?? 0).toFixed(2)),
+      p_payment_date: paymentTimestamp.toISOString(),
+      p_reference: params.reference || null,
+      p_notes: params.notes || null,
+    });
+
+    if (error) {
+      throw new PurchaseRpcError(error);
+    }
+
+    return data as ReceiptWithPayment;
   }
 
   const { data, error } = await supabaseAdmin.rpc("receive_purchase_order_with_payment", {

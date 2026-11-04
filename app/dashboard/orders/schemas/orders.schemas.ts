@@ -40,6 +40,11 @@ export const PaymentMethodEnum = z.enum(["CASH", "BANK"]);
 
 export type PaymentMethod = z.infer<typeof PaymentMethodEnum>;
 
+/** طريقة الدفع عند الإدخال: خزنة، بنك، أو مختلط (جزء من الخزنة وجزء من البنك) */
+export const PaymentInputMethodEnum = z.enum(["CASH", "BANK", "MIXED"]);
+
+export type PaymentInputMethod = z.infer<typeof PaymentInputMethodEnum>;
+
 export const PaymentStatusEnum = z.enum(["UNPAID", "PARTIAL", "PAID"]);
 
 export type PaymentStatus = z.infer<typeof PaymentStatusEnum>;
@@ -117,7 +122,12 @@ export const purchasePaymentFields = z.object({
 
   paymentDate: dateStringSchema,
 
-  paymentMethod: PaymentMethodEnum,
+  paymentMethod: PaymentInputMethodEnum,
+
+  /** للدفع المختلط فقط: جزء الخزنة وجزء البنك (مجموعهما = amount) */
+  cashAmount: z.number().finite("مبلغ الخزينة غير صالح").min(0, "مبلغ الخزينة لا يمكن أن يكون سالبًا").nullable().optional(),
+
+  bankAmount: z.number().finite("مبلغ البنك غير صالح").min(0, "مبلغ البنك لا يمكن أن يكون سالبًا").nullable().optional(),
 
   reference: z
     .string()
@@ -129,9 +139,36 @@ export const purchasePaymentFields = z.object({
   notes: z.string().trim().nullable().optional(),
 });
 
-export const createPurchasePaymentSchema = purchasePaymentFields.extend({
-  purchaseOrderId: z.string().uuid("معرف طلب الشراء غير صالح"),
-});
+/** الدفع المختلط: مجموع جزأي الخزنة والبنك يساوي مبلغ الدفعة */
+function refineMixedPayment(
+  value: {
+    amount: number;
+    paymentMethod: string;
+    cashAmount?: number | null;
+    bankAmount?: number | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (value.paymentMethod !== "MIXED") return;
+
+  const cents = (number: number | null | undefined) => Math.round((number ?? 0) * 100);
+
+  if (cents(value.cashAmount) + cents(value.bankAmount) !== cents(value.amount)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["amount"],
+      message: "مجموع مبلغ الخزينة ومبلغ البنك يجب أن يساوي مبلغ الدفعة",
+    });
+  }
+}
+
+export const purchasePaymentSchema = purchasePaymentFields.superRefine(refineMixedPayment);
+
+export const createPurchasePaymentSchema = purchasePaymentFields
+  .extend({
+    purchaseOrderId: z.string().uuid("معرف طلب الشراء غير صالح"),
+  })
+  .superRefine(refineMixedPayment);
 
 export type CreatePurchasePaymentInput = z.input<
   typeof createPurchasePaymentSchema
@@ -269,7 +306,7 @@ export const updatePurchaseOrderStatusSchema = z.object({
 
   status: PurchaseOrderStatusEnum,
 
-  payment: purchasePaymentFields.nullable().optional(),
+  payment: purchasePaymentSchema.nullable().optional(),
 });
 
 /* =========================================================

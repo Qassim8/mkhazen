@@ -199,6 +199,8 @@ export async function PATCH(
               amount: payment.amount,
               paymentDate: payment.paymentDate,
               paymentMethod: payment.paymentMethod,
+              cashAmount: payment.cashAmount,
+              bankAmount: payment.bankAmount,
               reference: payment.reference,
               notes: payment.notes,
             })
@@ -236,7 +238,13 @@ export async function PATCH(
           actor: user,
           kind: "SUPPLIER_PAYMENT",
           title: "دفعة مورد من الكاشير",
-          details: `سجّل دفعة بقيمة ${money(payment.amount, "USD")} (${payment.paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) على طلب الشراء ${existingOrder.order_number}`,
+          details: `سجّل دفعة بقيمة ${money(payment.amount, "USD")} (${
+            payment.paymentMethod === "MIXED"
+              ? `مختلط: خزينة ${money(payment.cashAmount ?? 0, "USD")} + بنك ${money(payment.bankAmount ?? 0, "USD")}`
+              : payment.paymentMethod === "BANK"
+                ? "من البنك"
+                : "من الخزينة"
+          }) على طلب الشراء ${existingOrder.order_number}`,
           link: `/dashboard/orders/${id}`,
           amount: payment.amount,
           currency: "USD",

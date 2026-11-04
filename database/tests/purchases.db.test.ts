@@ -441,3 +441,155 @@ describe("receive_purchase_order_with_payment (20261103_01) — no partial recei
     }
   });
 });
+
+describe("split cash + bank payment (20261104_01)", () => {
+  let db: PGliteInterface;
+  let users: Users;
+
+  before(async () => {
+    db = await createLiveDb({ migrations: RELEASE_SEQUENCE });
+    users = await seedBase(db);
+  });
+  after(() => db.close());
+
+  const balance = async (account: "CASH" | "BANK") =>
+    num((await db.query<{ b: string }>(`SELECT public.get_account_balance($1, $2, 'USD') AS b`, [BRANCH_ID, account])).rows[0].b);
+
+  const paySplit = (orderId: string, cash: number, bank: number, userId?: string) =>
+    asRole(db, "service_role", () =>
+      db.query<{ result: Record<string, unknown> }>(
+        `SELECT public.record_purchase_payment_split($1, $2, $3, $4, $5, $6, 'REF-S', 'ملاحظة') AS result`,
+        [orderId, userId ?? users.admin, BRANCH_ID, cash, bank, new Date().toISOString()],
+      ),
+    );
+
+  const receiveSplit = (orderId: string, cash: number, bank: number) =>
+    asRole(db, "service_role", () =>
+      db.query<{ result: Record<string, unknown> }>(
+        `SELECT public.receive_purchase_order_with_split_payment($1, $2, $3, $4, $5, $6, 'REF-S', NULL) AS result`,
+        [orderId, users.admin, BRANCH_ID, cash, bank, new Date().toISOString()],
+      ),
+    );
+
+  const paymentRows = async (orderId: string) =>
+    (
+      await db.query<{ payment_method: string; amount: string }>(
+        `SELECT payment_method, amount FROM public.purchase_order_payments WHERE purchase_order_id = $1 ORDER BY payment_method`,
+        [orderId],
+      )
+    ).rows.map((row) => [row.payment_method, num(row.amount)]);
+
+  const escape = (value: number) => value.toFixed(2).replace(".", "\\.");
+
+  it("later payment: one payment row and one journal entry per part, remainder stays a supplier debt", async () => {
+    await fundAccount(db, "CASH", 100);
+    await fundAccount(db, "BANK", 100);
+    const cashBefore = await balance("CASH");
+    const bankBefore = await balance("BANK");
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 10, unitCost: 30 }] });
+
+    const { rows } = await paySplit(orderId, 60, 40);
+    assert.equal(num(rows[0].result.amount), 100);
+
+    assert.deepEqual(await paymentRows(orderId), [["BANK", 40], ["CASH", 60]]);
+
+    const journals = await db.query<{ debit: string; credit: string; type: string; amount: string; currency: string }>(
+      `SELECT debit_account AS debit, credit_account AS credit, entry_type AS type, amount, currency
+       FROM public.journal_entries WHERE purchase_order_id = $1 ORDER BY amount`,
+      [orderId],
+    );
+    assert.deepEqual(
+      journals.rows.map((row) => [row.type, row.debit, row.credit, num(row.amount), row.currency]),
+      [
+        ["PURCHASE_PAYMENT", "SUPPLIERS", "BANK", 40, "USD"],
+        ["PURCHASE_PAYMENT", "SUPPLIERS", "CASH", 60, "USD"],
+      ],
+    );
+    assert.equal(await balance("CASH"), cashBefore - 60);
+    assert.equal(await balance("BANK"), bankBefore - 40);
+
+    // الباقي (300 − 100) يُدفع لاحقًا بالدفعات العادية
+    await fundAccount(db, "CASH", 50);
+    await asRole(db, "service_role", () =>
+      db.query(`SELECT public.record_purchase_payment($1, $2, $3, 50, now(), 'CASH', NULL, NULL)`, [orderId, users.admin, BRANCH_ID]),
+    );
+  });
+
+  it("a part with insufficient balance refuses everything and names the account and its available balance", async () => {
+    await fundAccount(db, "CASH", 500);
+    const bank = await balance("BANK");
+    const cash = await balance("CASH");
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 100, unitCost: 30 }] });
+
+    const message = await rpcError(paySplit(orderId, 10, bank + 5));
+    assert.match(message, new RegExp(`^رصيد البنك غير كافٍ: المتاح ${escape(bank)} دولار، والمطلوب ${escape(bank + 5)} دولار`));
+
+    const cashMessage = await rpcError(paySplit(orderId, cash + 1, 1));
+    assert.match(cashMessage, /^رصيد الخزينة غير كافٍ: المتاح/);
+
+    assert.deepEqual(await paymentRows(orderId), []);
+    const journals = await db.query(`SELECT 1 FROM public.journal_entries WHERE purchase_order_id = $1`, [orderId]);
+    assert.equal(journals.rows.length, 0);
+    assert.equal(await balance("CASH"), cash);
+    assert.equal(await balance("BANK"), bank);
+  });
+
+  it("rejects a total above the remaining amount, negative parts and an empty payment; a single non-zero part records one row", async () => {
+    await fundAccount(db, "CASH", 500);
+    await fundAccount(db, "BANK", 500);
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 80 }] });
+
+    assert.match(await rpcError(paySplit(orderId, 50, 40)), /مجموع الدفعة أكبر من المبلغ المتبقي \(80\.00 \$\)/);
+    assert.match(await rpcError(paySplit(orderId, -1, 10)), /لا يمكن أن يكونا سالبين/);
+    assert.match(await rpcError(paySplit(orderId, 0, 0)), /أكبر من صفر/);
+    assert.deepEqual(await paymentRows(orderId), []);
+
+    await paySplit(orderId, 0, 30);
+    assert.deepEqual(await paymentRows(orderId), [["BANK", 30]]);
+  });
+
+  it("receive with split payment: stock, status and both payments together; a short account leaves nothing behind", async () => {
+    await fundAccount(db, "CASH", 100);
+    await fundAccount(db, "BANK", 100);
+    const product = await createProduct(db, { stock: 0 });
+    const ok = await createPurchaseOrder(db, { items: [{ ...product, quantity: 10, unitCost: 30 }] });
+
+    const { rows } = await receiveSplit(ok.orderId, 20, 30);
+    assert.equal(rows[0].result.status, "RECEIVED");
+    assert.equal(num((rows[0].result.payment as Record<string, unknown>).amount), 50);
+    assert.deepEqual(await paymentRows(ok.orderId), [["BANK", 30], ["CASH", 20]]);
+    const stock = await db.query<{ q: string }>(`SELECT "stockQuantity" AS q FROM public.product_variants WHERE id = $1`, [product.variantId]);
+    assert.equal(num(stock.rows[0].q), 10);
+
+    const other = await createProduct(db, { stock: 0 });
+    const short = await createPurchaseOrder(db, { items: [{ ...other, quantity: 1, unitCost: 80 }] });
+    const bank = await balance("BANK");
+    assert.match(await rpcError(receiveSplit(short.orderId, 10, bank + 1)), /^رصيد البنك غير كافٍ: المتاح/);
+
+    const order = await db.query<{ status: string }>(`SELECT status FROM public.purchase_orders WHERE id = $1`, [short.orderId]);
+    assert.equal(order.rows[0].status, "APPROVED");
+    const untouchedStock = await db.query<{ q: string }>(`SELECT "stockQuantity" AS q FROM public.product_variants WHERE id = $1`, [other.variantId]);
+    assert.equal(num(untouchedStock.rows[0].q), 0);
+    assert.deepEqual(await paymentRows(short.orderId), []);
+    const movements = await db.query(`SELECT 1 FROM public.inventory_movements WHERE variant_id = $1`, [other.variantId]);
+    assert.equal(movements.rows.length, 0);
+  });
+
+  it("anon and authenticated cannot call the split functions", async () => {
+    const product = await createProduct(db, { stock: 0 });
+    const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 10 }] });
+    for (const role of ["anon", "authenticated"] as const) {
+      await assert.rejects(
+        asRole(db, role, () => db.query(`SELECT public.record_purchase_payment_split($1, $2, $3, 1, 1, now(), NULL, NULL)`, [orderId, users.admin, BRANCH_ID])),
+        /permission denied/,
+      );
+      await assert.rejects(
+        asRole(db, role, () => db.query(`SELECT public.receive_purchase_order_with_split_payment($1, $2, $3, 1, 1, now(), NULL, NULL)`, [orderId, users.admin, BRANCH_ID])),
+        /permission denied/,
+      );
+    }
+  });
+});

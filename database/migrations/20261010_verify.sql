@@ -42,6 +42,7 @@ DECLARE
     'get_current_exchange_rate', 'ledger_period_totals',
     'maintain_notifications', 'process_inventory_adjustment',
     'receive_purchase_order', 'receive_purchase_order_with_payment', 'record_purchase_payment',
+    'receive_purchase_order_with_split_payment', 'record_purchase_payment_split',
     'refund_customer_advance', 'update_product', 'update_tailoring_order',
     'update_tailoring_status'
   ];

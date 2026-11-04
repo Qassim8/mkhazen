@@ -16,10 +16,19 @@ import toast from "react-hot-toast";
 
 import {
   CreatePurchasePaymentFormInput,
-  purchasePaymentFields,
+  purchasePaymentSchema,
 } from "../schemas/orders.schemas";
 
-import { createPurchaseOrderPayment } from "../services/order.services";
+import {
+  createPurchaseOrderPayment,
+  getPurchasePaymentFunds,
+  type PurchasePaymentFunds,
+} from "../services/order.services";
+
+import MixedPaymentFields, {
+  isMixedPartShort,
+  parseMixedAmount,
+} from "./MixedPaymentFields";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -51,14 +60,21 @@ export default function PaymentModal({
 
   const [isPending, setIsPending] = useState(false);
 
+  // الدفع المختلط: جزء الخزينة وجزء البنك (مجموعهما = مبلغ الدفعة)
+  const [mixed, setMixed] = useState({ cash: "", bank: "" });
+
+  // الرصيد المتاح (لا يظهر للكاشير؛ الفحص الفعلي في قاعدة البيانات)
+  const [funds, setFunds] = useState<PurchasePaymentFunds | null>(null);
+
   const {
     register,
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<CreatePurchasePaymentFormInput>({
-    resolver: zodResolver(purchasePaymentFields),
+    resolver: zodResolver(purchasePaymentSchema),
 
     defaultValues: {
       amount: remainingAmount,
@@ -91,7 +107,52 @@ export default function PaymentModal({
     });
   }, [isOpen, remainingAmount, reset]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let mounted = true;
+
+    async function loadFunds() {
+      try {
+        const result = await getPurchasePaymentFunds();
+        if (mounted) setFunds(result.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    loadFunds();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen]);
+
   const amount = Number(watch("amount") || 0);
+
+  const isMixed = watch("paymentMethod") === "MIXED";
+
+  const mixedShort =
+    isMixed &&
+    (isMixedPartShort(funds, "cash", parseMixedAmount(mixed.cash)) ||
+      isMixedPartShort(funds, "bank", parseMixedAmount(mixed.bank)));
+
+  const handleMixedChange = (next: { cash: string; bank: string }) => {
+    setMixed(next);
+
+    setValue(
+      "amount",
+      Math.round((parseMixedAmount(next.cash) + parseMixedAmount(next.bank)) * 100) / 100,
+      { shouldValidate: true },
+    );
+  };
+
+  const closeModal = () => {
+    setMixed({ cash: "", bank: "" });
+    onClose();
+  };
 
   const remainingAfterPayment = useMemo(
     () => Math.max(remainingAmount - amount, 0),
@@ -123,6 +184,13 @@ export default function PaymentModal({
 
         paymentMethod: data.paymentMethod,
 
+        ...(data.paymentMethod === "MIXED"
+          ? {
+              cashAmount: parseMixedAmount(mixed.cash),
+              bankAmount: parseMixedAmount(mixed.bank),
+            }
+          : {}),
+
         reference: data.reference || null,
 
         notes: data.notes || null,
@@ -136,7 +204,7 @@ export default function PaymentModal({
 
       toast.success(response.message ?? "تم تسجيل الدفعة بنجاح");
 
-      onClose();
+      closeModal();
 
       router.refresh();
     } catch (error: unknown) {
@@ -151,7 +219,7 @@ export default function PaymentModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isPending) {
-          onClose();
+          closeModal();
         }
       }}
     >
@@ -167,7 +235,7 @@ export default function PaymentModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeModal}
             disabled={isPending}
             aria-label="إغلاق"
             className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
@@ -189,7 +257,7 @@ export default function PaymentModal({
 
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-              مبلغ الدفعة
+              {isMixed ? "مبلغ الدفعة (مجموع الخزينة والبنك)" : "مبلغ الدفعة"}
             </label>
 
             <input
@@ -202,7 +270,8 @@ export default function PaymentModal({
                 valueAsNumber: true,
               })}
               disabled={isPending}
-              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-(--primary-red) focus:bg-white"
+              readOnly={isMixed}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-sm outline-none transition focus:border-(--primary-red) focus:bg-white read-only:bg-gray-100"
             />
 
             {errors.amount && (
@@ -217,7 +286,7 @@ export default function PaymentModal({
               طريقة الدفع
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <label className="cursor-pointer">
                 <input
                   type="radio"
@@ -247,7 +316,44 @@ export default function PaymentModal({
                   حوالة / البنك
                 </div>
               </label>
+
+              <label className="cursor-pointer">
+                <input
+                  type="radio"
+                  value="MIXED"
+                  {...register("paymentMethod", {
+                    onChange: () => {
+                      // نبدأ بكامل المبلغ المُدخل من الخزينة ويعدّل المستخدم التوزيع
+                      if (!isMixed) {
+                        setMixed({
+                          cash: amount > 0 ? amount.toFixed(2) : "",
+                          bank: "",
+                        });
+                      }
+                    },
+                  })}
+                  disabled={isPending}
+                  className="peer sr-only"
+                />
+
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-600 transition peer-checked:border-(--primary-red) peer-checked:bg-red-50 peer-checked:text-(--primary-red)">
+                  <LuBanknote className="h-4 w-4" />
+                  مختلط
+                </div>
+              </label>
             </div>
+
+            {isMixed && (
+              <div className="mt-3">
+                <MixedPaymentFields
+                  cash={mixed.cash}
+                  bank={mixed.bank}
+                  funds={funds}
+                  disabled={isPending}
+                  onChange={handleMixedChange}
+                />
+              </div>
+            )}
 
             {errors.paymentMethod && (
               <p className="mt-1 text-xs text-rose-500">
@@ -347,7 +453,7 @@ export default function PaymentModal({
           <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeModal}
               disabled={isPending}
               className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:opacity-50"
             >
@@ -356,7 +462,7 @@ export default function PaymentModal({
 
             <button
               type="submit"
-              disabled={isPending || remainingAmount <= 0}
+              disabled={isPending || remainingAmount <= 0 || mixedShort}
               className="inline-flex items-center gap-2 rounded-xl bg-(--primary-red) px-6 py-2.5 text-sm font-semibold text-white shadow-xs transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending && <LuLoader className="h-4 w-4 animate-spin" />}

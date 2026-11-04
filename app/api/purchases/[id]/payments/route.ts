@@ -166,7 +166,7 @@ export async function POST(
       );
     }
 
-    const { amount, paymentDate, paymentMethod, reference, notes } =
+    const { amount, paymentDate, paymentMethod, cashAmount, bankAmount, reference, notes } =
       validation.data;
 
     // منع تسجيل نفس الدفعة مرتين (نقرتين / إعادة إرسال بعد انقطاع)
@@ -188,6 +188,10 @@ export async function POST(
         paymentDate,
 
         paymentMethod,
+
+        cashAmount,
+
+        bankAmount,
 
         reference,
 
@@ -218,7 +222,13 @@ export async function POST(
       actor: user,
       kind: "SUPPLIER_PAYMENT",
       title: "دفعة مورد من الكاشير",
-      details: `سجّل دفعة بقيمة ${money(amount, "USD")} (${paymentMethod === "BANK" ? "من البنك" : "من الخزينة"}) على طلب الشراء ${order.orderNumber ?? ""}`,
+      details: `سجّل دفعة بقيمة ${money(amount, "USD")} (${
+        paymentMethod === "MIXED"
+          ? `مختلط: خزينة ${money(cashAmount ?? 0, "USD")} + بنك ${money(bankAmount ?? 0, "USD")}`
+          : paymentMethod === "BANK"
+            ? "من البنك"
+            : "من الخزينة"
+      }) على طلب الشراء ${order.orderNumber ?? ""}`,
       link: `/dashboard/orders/${id}`,
       amount,
       currency: "USD",

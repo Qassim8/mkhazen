@@ -32,6 +32,11 @@ import {
 
 import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 
+import MixedPaymentFields, {
+  isMixedPartShort,
+  parseMixedAmount,
+} from "./MixedPaymentFields";
+
 import { PurchaseOrder, PurchaseOrderStatus } from "../schemas/orders.schemas";
 
 import {
@@ -49,7 +54,7 @@ const columnHelper = createColumnHelper<PurchaseOrder>();
 
 type ReceivePaymentForm = {
   amount: number;
-  paymentMethod: "CASH" | "BANK";
+  paymentMethod: "CASH" | "BANK" | "MIXED";
   paymentDate: string;
   reference: string;
   notes: string;
@@ -153,6 +158,9 @@ function ReceivePurchaseModal({
   // الرصيد المتاح للحساب المختار (لا يظهر للكاشير؛ الفحص الفعلي في قاعدة البيانات)
   const [funds, setFunds] = useState<PurchasePaymentFunds | null>(null);
 
+  // الدفع المختلط: جزء الخزينة وجزء البنك (مجموعهما = مبلغ الدفعة)
+  const [mixed, setMixed] = useState({ cash: "", bank: "" });
+
   useEffect(() => {
     let mounted = true;
 
@@ -201,8 +209,16 @@ function ReceivePurchaseModal({
 
   const remainingAfterPayment = Math.max(remainingAmount - paymentAmount, 0);
 
+  const isMixed = paymentMethod === "MIXED";
+
   const accountFunds =
-    funds?.visible ? (paymentMethod === "BANK" ? funds.bank : funds.cash) : null;
+    funds?.visible && !isMixed ? (paymentMethod === "BANK" ? funds.bank : funds.cash) : null;
+
+  const mixedShort =
+    paymentEnabled &&
+    isMixed &&
+    (isMixedPartShort(funds, "cash", parseMixedAmount(mixed.cash)) ||
+      isMixedPartShort(funds, "bank", parseMixedAmount(mixed.bank)));
 
   const accountLabel = paymentMethod === "BANK" ? "البنك" : "الخزينة";
 
@@ -221,7 +237,22 @@ function ReceivePurchaseModal({
     accountFunds !== null &&
     Math.round((accountFunds.sdg / funds.rate) * 100) >= Math.round(paymentAmount * 100);
 
+  const handleMixedChange = (next: { cash: string; bank: string }) => {
+    setMixed(next);
+
+    setValue(
+      "amount",
+      Math.round((parseMixedAmount(next.cash) + parseMixedAmount(next.bank)) * 100) / 100,
+      { shouldValidate: true },
+    );
+  };
+
   const handleFullPayment = () => {
+    if (isMixed) {
+      handleMixedChange({ cash: remainingAmount.toFixed(2), bank: "" });
+      return;
+    }
+
     setValue("amount", Number(remainingAmount.toFixed(2)), {
       shouldValidate: true,
     });
@@ -229,6 +260,8 @@ function ReceivePurchaseModal({
 
   const handleNoPayment = () => {
     setPaymentEnabled(false);
+
+    setMixed({ cash: "", bank: "" });
 
     setValue("amount", 0, {
       shouldValidate: true,
@@ -261,6 +294,13 @@ function ReceivePurchaseModal({
               paymentDate: data.paymentDate,
 
               paymentMethod: data.paymentMethod,
+
+              ...(data.paymentMethod === "MIXED"
+                ? {
+                    cashAmount: parseMixedAmount(mixed.cash),
+                    bankAmount: parseMixedAmount(mixed.bank),
+                  }
+                : {}),
 
               reference: data.reference.trim() || null,
 
@@ -423,7 +463,7 @@ function ReceivePurchaseModal({
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="text-sm font-semibold text-gray-700">
-                    مبلغ الدفعة
+                    {isMixed ? "مبلغ الدفعة (مجموع الخزينة والبنك)" : "مبلغ الدفعة"}
                   </label>
 
                   <button
@@ -457,7 +497,8 @@ function ReceivePurchaseModal({
                     },
                   })}
                   disabled={isPending}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-sm outline-none transition focus:border-(--primary-red)"
+                  readOnly={isMixed}
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-sm outline-none transition focus:border-(--primary-red) read-only:bg-gray-50"
                 />
 
                 {errors.amount && (
@@ -489,7 +530,7 @@ function ReceivePurchaseModal({
                   طريقة الدفع
                 </label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <label className="cursor-pointer">
                     <input
                       type="radio"
@@ -517,7 +558,43 @@ function ReceivePurchaseModal({
                       حوالة / البنك
                     </div>
                   </label>
+
+                  <label className="cursor-pointer">
+                    <input
+                      type="radio"
+                      value="MIXED"
+                      {...register("paymentMethod", {
+                        onChange: () => {
+                          // نبدأ بكامل المبلغ المُدخل من الخزينة ويعدّل المستخدم التوزيع
+                          if (!isMixed) {
+                            setMixed({
+                              cash: paymentAmount > 0 ? paymentAmount.toFixed(2) : "",
+                              bank: "",
+                            });
+                          }
+                        },
+                      })}
+                      disabled={isPending}
+                      className="peer sr-only"
+                    />
+
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-center text-sm font-semibold text-gray-600 transition peer-checked:border-(--primary-red) peer-checked:bg-red-50 peer-checked:text-(--primary-red)">
+                      مختلط
+                    </div>
+                  </label>
                 </div>
+
+                {isMixed && (
+                  <div className="mt-3">
+                    <MixedPaymentFields
+                      cash={mixed.cash}
+                      bank={mixed.bank}
+                      funds={funds}
+                      disabled={isPending}
+                      onChange={handleMixedChange}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Date + Reference */}
@@ -611,6 +688,7 @@ function ReceivePurchaseModal({
                 disabled={
                   isPending ||
                   insufficientFunds ||
+                  mixedShort ||
                   (paymentEnabled &&
                     (paymentAmount <= 0 || paymentAmount > remainingAmount))
                 }
