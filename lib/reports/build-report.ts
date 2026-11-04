@@ -18,6 +18,7 @@
 import { fetchAll, fetchIn } from "@/lib/supabase-fetch-all";
 import { loadReceivablesSnapshot } from "@/lib/credit-server";
 import { loadPayrollTotals } from "@/lib/reports/payroll-totals";
+import { STAFF_DAILY_EXPENSES_ACCOUNT, buildStaffCost } from "@/lib/staff-cost";
 import { supabaseAdmin } from "@/lib/supabase";
 import { MAIN_BRANCH_ID } from "@/lib/constants";
 
@@ -754,6 +755,12 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       manualReductionsSdg: r2(manualReductionsSdg),
       manualIncreasesSdg: r2(manualIncreasesSdg),
       payroll,
+      staffCost: buildStaffCost({
+        salariesUsd: payroll.salariesUsd,
+        commissionsUsd: payroll.commissionsUsd,
+        dailyExpensesUsd:
+          performance.expenseBreakdown.find((item) => item.account === STAFF_DAILY_EXPENSES_ACCOUNT)?.value ?? 0,
+      }),
       receivables: {
         posCredit: receivables.posCredit,
         tailoringInProgress: receivables.tailoringInProgress,

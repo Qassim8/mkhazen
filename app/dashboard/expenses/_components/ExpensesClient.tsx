@@ -17,6 +17,7 @@ import type { MyExpense } from "../services/expenses.services";
 import ExpenseModal from "./ExpenseModal";
 
 const ACCOUNT_LABELS: Record<string, string> = {
+  STAFF_DAILY_EXPENSES: "مصروفات الموظفين اليومية",
   UTILITIES: "كهرباء / ماء / إنترنت",
   RENTS: "إيجار",
   MAINTENANCE: "صيانة",

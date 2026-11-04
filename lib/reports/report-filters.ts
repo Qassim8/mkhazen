@@ -4,6 +4,7 @@
  */
 
 import type { ReceivablesBucket } from "@/lib/credit";
+import type { StaffCost } from "@/lib/staff-cost";
 
 /* =====================================================================
    الفلاتر
@@ -163,6 +164,8 @@ export interface ReportSummary {
     commissionsSdg: number;
     commissionsUsd: number;
   };
+  /** تكلفة الموظفين (عرض فقط، بالدولار): الرواتب والعمولات والمصروفات اليومية كل بند منفصل ثم الإجمالي */
+  staffCost: StaffCost;
   /** الذمم (فواتير التقسيط): المفتوح والمتأخر لقطة حالية، والمعدوم للفترة. الإيراد أعلاه = المحصّل فقط */
   receivables: {
     posCredit: ReceivablesBucket;

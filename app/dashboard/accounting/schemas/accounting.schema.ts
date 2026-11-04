@@ -52,6 +52,8 @@ export const accountingAccountEnum = z.enum([
 
   "ASSETS",
   "SALARIES",
+  // مصروفات الموظفين اليومية: وجبات ومواصلات (حساب مصروف منفصل عن الرواتب)
+  "STAFF_DAILY_EXPENSES",
   "MAINTENANCE",
   "UTILITIES",
   "RENTS",

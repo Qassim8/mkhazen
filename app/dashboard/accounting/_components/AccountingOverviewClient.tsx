@@ -10,6 +10,7 @@ import {
 } from "../services/accounting.services";
 import ExpensesAndRevenuesChart from "./ExpensesAndRevenuesChart";
 import ExpensesChart from "./ExpensesChart";
+import StaffCostCard from "./StaffCostCard";
 import OverviewCard from "./OverviewCard";
 import CurrencyExchangeModal from "./CurrencyExchangeModal";
 import { formatRate, formatSDG } from "@/lib/currency";
@@ -425,6 +426,8 @@ export default function AccountingOverviewClient({ initialData }: Props) {
         <Suspense fallback={<div className="h-75 rounded-lg bg-gray-100" />}>
           <ExpensesChart expenseBreakdown={expenseBreakdown} />
         </Suspense>
+
+        {data.staffCost && <StaffCostCard staffCost={data.staffCost} />}
       </div>
 
       {showExchange && (

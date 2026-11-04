@@ -1,4 +1,5 @@
 import type { ReceivablesBucket } from "@/lib/credit";
+import type { StaffCost } from "@/lib/staff-cost";
 import { serverFetch } from "@/lib/api-client";
 
 import {
@@ -364,6 +365,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   COGS: "تكلفة البضاعة المباعة",
   ASSETS: "الأصول",
   SALARIES: "الرواتب",
+  STAFF_DAILY_EXPENSES: "مصروفات الموظفين اليومية (وجبات ومواصلات)",
   MAINTENANCE: "الصيانة",
   UTILITIES: "خدمات ومرافق",
   RENTS: "الإيجارات",
@@ -497,6 +499,8 @@ export interface AccountingOverview {
   employeeAdvances?: AccountingEmployeeAdvances;
   monthly: AccountingOverviewMonth[];
   expenseBreakdown: AccountingOverviewExpense[];
+  /** تكلفة الموظفين (عرض فقط): الرواتب والعمولات والمصروفات اليومية ثم الإجمالي */
+  staffCost?: StaffCost | null;
 }
 
 export interface AccountingOverviewResponse {

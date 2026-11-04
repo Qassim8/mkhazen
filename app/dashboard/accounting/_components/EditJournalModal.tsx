@@ -32,6 +32,7 @@ interface EditJournalModalProps {
 }
 
 const EXPENSE_ACCOUNTS: { value: AccountingAccount; label: string }[] = [
+  { value: "STAFF_DAILY_EXPENSES", label: "مصروفات الموظفين اليومية (وجبات ومواصلات)" },
   { value: "UTILITIES", label: "فواتير وخدمات (كهرباء، ماء، إنترنت)" },
   { value: "RENTS", label: "مصاريف الايجار" },
   { value: "MAINTENANCE", label: "الصيانة والإصلاحات" },

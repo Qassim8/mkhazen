@@ -24,6 +24,7 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
   const idempotency = useIdempotencyKey();
 
   const accounts: { value: AccountingAccount; label: string }[] = [
+    { value: "STAFF_DAILY_EXPENSES", label: "مصروفات الموظفين اليومية (وجبات ومواصلات)" },
     { value: "UTILITIES", label: "فواتير وخدمات (كهرباء، ماء، إنترنت)" },
     { value: "MAINTENANCE", label: "الصيانة والإصلاحات" },
     ...(allowRent ? [{ value: "RENTS" as const, label: "مصاريف الإيجار" }] : []),
@@ -168,6 +169,10 @@ export default function ExpenseModal({ allowRent, onClose, onCreated }: Props) {
                   </option>
                 ))}
               </select>
+
+              {account === "STAFF_DAILY_EXPENSES" && (
+                <p className="mt-1.5 text-xs text-gray-500">فطور، عشاء، مواصلات الموظفين</p>
+              )}
             </div>
           </div>
 

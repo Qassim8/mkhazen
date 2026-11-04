@@ -14,6 +14,8 @@ import {
 import { entriesBetween, loadLedgerEntries } from "../_lib/ledger-source";
 import { getFiscalYears } from "../_lib/fiscal-years";
 import { loadReceivablesSnapshot } from "@/lib/credit-server";
+import { loadPayrollTotals } from "@/lib/reports/payroll-totals";
+import { STAFF_DAILY_EXPENSES_ACCOUNT, buildStaffCost } from "@/lib/staff-cost";
 
 type PayablesBucketRaw = {
   count?: number;
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
     const { start: startDate, end: nextYearDate } = sudanYearRange(year);
 
     // مصدر واحد (مجاميع من قاعدة البيانات) للأرصدة حتى نهاية السنة وأداء السنة نفسها
-    const [ledger, rateResult, years, receivables, payablesResult, advancesResult] = await Promise.all([
+    const [ledger, rateResult, years, receivables, payablesResult, advancesResult, payroll] = await Promise.all([
       loadLedgerEntries({ branchId: MAIN_BRANCH_ID, before: nextYearDate }),
       supabaseAdmin.rpc("get_current_exchange_rate", { p_branch_id: MAIN_BRANCH_ID }),
       getFiscalYears(),
@@ -82,6 +84,11 @@ export async function GET(request: Request) {
       supabaseAdmin.rpc("get_payables_summary"),
       // سلف الموظفين (أصل): رصيد المستحق على الموظفين — لقطة حالية
       supabaseAdmin.rpc("get_employee_advances_summary", { p_branch_id: MAIN_BRANCH_ID }),
+      // الرواتب والعمولات المصروفة في السنة (كل واحد منفصل) لمجموعة تكلفة الموظفين؛ عرض فقط
+      loadPayrollTotals(startDate, nextYearDate).catch((error) => {
+        console.error("overview payroll totals:", error);
+        return null;
+      }),
     ]);
 
     if (payablesResult.error) {
@@ -115,6 +122,15 @@ export async function GET(request: Request) {
         },
         monthly: performance.monthly,
         expenseBreakdown: performance.expenseBreakdown,
+        // تكلفة الموظفين: الرواتب والعمولات والمصروفات اليومية كل بند منفصل ثم الإجمالي (عرض فقط)
+        staffCost: payroll
+          ? buildStaffCost({
+              salariesUsd: payroll.salariesUsd,
+              commissionsUsd: payroll.commissionsUsd,
+              dailyExpensesUsd:
+                performance.expenseBreakdown.find((item) => item.account === STAFF_DAILY_EXPENSES_ACCOUNT)?.value ?? 0,
+            })
+          : null,
         // المستحقات على المحل: الأصول والمصروفات (من جدول المستحقات) وديون الموردين (من المشتريات)
         payables: buildPayables(payablesResult.data, balances.supplierDebts),
         employeeAdvances: {

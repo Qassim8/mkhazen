@@ -169,8 +169,8 @@ export async function POST(request: Request) {
 
       // الكاشير: كهرباء/ماء/إنترنت، صيانة، أخرى (بدون إيجارات)
       const allowedExpenseAccounts: readonly string[] = canManage
-        ? ["UTILITIES", "RENTS", "MAINTENANCE", "OTHER_EXPENSE"]
-        : ["UTILITIES", "MAINTENANCE", "OTHER_EXPENSE"];
+        ? ["STAFF_DAILY_EXPENSES", "UTILITIES", "RENTS", "MAINTENANCE", "OTHER_EXPENSE"]
+        : ["STAFF_DAILY_EXPENSES", "UTILITIES", "MAINTENANCE", "OTHER_EXPENSE"];
 
       if (!allowedExpenseAccounts.includes(account)) {
         return respond(422, {

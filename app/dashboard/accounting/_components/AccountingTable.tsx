@@ -39,6 +39,7 @@ const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   ASSETS: "الأصول",
   UTILITIES: "الخدمات والمرافق",
   SALARIES: "الرواتب",
+  STAFF_DAILY_EXPENSES: "مصروفات الموظفين اليومية (وجبات ومواصلات)",
   MAINTENANCE: "الصيانة",
   OTHER_EXPENSE: "مصروفات أخرى",
   OTHER_INCOME: "إيرادات أخرى",

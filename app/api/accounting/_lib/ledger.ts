@@ -26,6 +26,7 @@ export const EXPENSE_CONFIG: Record<string, { label: string; color: string }> = 
   UTILITIES: { label: "فواتير وخدمات (كهرباء، ماء، إنترنت)", color: "var(--primary-red)" },
   RENTS: { label: "الإيجار", color: "#0EA5E9" },
   SALARIES: { label: "الرواتب والأجور", color: "var(--primary-pink)" },
+  STAFF_DAILY_EXPENSES: { label: "مصروفات الموظفين اليومية (وجبات ومواصلات)", color: "#14B8A6" },
   MAINTENANCE: { label: "الصيانة والإصلاحات", color: "#F59E0B" },
   GIFTS: { label: "هدايا للعملاء", color: "#10B981" },
   OTHER_EXPENSE: { label: "مصروفات أخرى", color: "#8B5CF6" },

@@ -164,6 +164,18 @@ function SummaryTab({ report }: { report: ReportData }) {
       </Section>
 
       <Section
+        title="تكلفة الموظفين"
+        subtitle="عرض فقط بالدولار: كل بند حساب منفصل في الدفاتر، ثم الإجمالي."
+      >
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
+          {s.staffCost.items.map((item) => (
+            <Kpi key={item.key} title={item.label} value={formatUSD(item.valueUsd)} />
+          ))}
+          <Kpi title="إجمالي تكلفة الموظفين" value={formatUSD(s.staffCost.totalUsd)} />
+        </div>
+      </Section>
+
+      <Section
         title="ذمم العملاء"
         subtitle="الإيراد أعلاه يعكس المحصّل فقط؛ المتبقي غير المحصّل ليس إيرادًا. ديون الكاشير بالتقسيط ومتبقي التفصيل قيد التنفيذ (مبالغ متوقعة) حاليًا، والمعدوم خلال الفترة."
       >

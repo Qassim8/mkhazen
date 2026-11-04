@@ -11,7 +11,7 @@ import { MAIN_BRANCH_ID } from "@/lib/constants";
 import { requirePermission } from "@/lib/permissions-server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const EXPENSE_ACCOUNTS = ["UTILITIES", "RENTS", "MAINTENANCE", "OTHER_EXPENSE"];
+const EXPENSE_ACCOUNTS = ["STAFF_DAILY_EXPENSES", "UTILITIES", "RENTS", "MAINTENANCE", "OTHER_EXPENSE"];
 const MAX_LIMIT = 100;
 
 export async function GET(request: Request) {

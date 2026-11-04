@@ -24,6 +24,10 @@ const EXPENSE_ACCOUNTS: {
   label: string;
 }[] = [
   {
+    value: "STAFF_DAILY_EXPENSES",
+    label: "مصروفات الموظفين اليومية (وجبات ومواصلات)",
+  },
+  {
     value: "UTILITIES",
     label: "فواتير وخدمات (كهرباء، ماء، إنترنت)",
   },

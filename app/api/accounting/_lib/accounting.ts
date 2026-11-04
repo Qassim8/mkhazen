@@ -21,6 +21,7 @@ export const ACCOUNT_LABELS: Record<AccountingAccount, string> = {
   SALES: "المبيعات",
   CUSTOMER_ADVANCES: "عربون العملاء",
   SALARIES: "الرواتب",
+  STAFF_DAILY_EXPENSES: "مصروفات الموظفين اليومية (وجبات ومواصلات)",
   MAINTENANCE: "الصيانة",
   ASSETS: "الأصول",
   TAILORS_PAYABLE: "تسجيل مستحقات الخياطين",
