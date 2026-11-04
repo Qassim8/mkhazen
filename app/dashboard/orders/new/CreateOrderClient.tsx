@@ -23,6 +23,11 @@ import {
 
 import PurchaseCart, { PurchaseItem } from "../_components/Cart";
 
+import MixedPaymentFields, {
+  isMixedPartShort,
+  parseMixedAmount,
+} from "../_components/MixedPaymentFields";
+
 import {
   CreatePurchaseOrderInput,
   createPurchaseOrderSchema,
@@ -32,6 +37,8 @@ import {
 import {
   createPurchaseOrder,
   createPurchaseOrderPayment,
+  getPurchasePaymentFunds,
+  type PurchasePaymentFunds,
 } from "../services/order.services";
 
 /* =========================================================
@@ -206,7 +213,32 @@ export default function CreateOrderClient({
 
   const [paymentMode, setPaymentMode] = useState<"FULL" | "PARTIAL">("FULL");
 
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "BANK" | "MIXED">("CASH");
+
+  // الدفع المختلط: جزء الخزينة وجزء البنك (مجموعهما = مبلغ الدفعة)
+  const [mixedPayment, setMixedPayment] = useState({ cash: "", bank: "" });
+
+  // الرصيد المتاح (لا يظهر للكاشير؛ الفحص الفعلي في قاعدة البيانات)
+  const [funds, setFunds] = useState<PurchasePaymentFunds | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFunds() {
+      try {
+        const result = await getPurchasePaymentFunds();
+        if (mounted) setFunds(result.data);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    loadFunds();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
 
@@ -276,13 +308,28 @@ export default function CreateOrderClient({
    * Therefore no payment is recorded at this stage.
    */
 
-  const currentPaymentAmount = isDirectPurchase
-    ? paymentMode === "FULL"
-      ? totalAmount
-      : Math.max(0, Number(partialPaymentAmount || 0))
-    : 0;
+  const isMixedPayment = isDirectPurchase && paymentMethod === "MIXED";
+
+  const mixedCash = parseMixedAmount(mixedPayment.cash);
+
+  const mixedBank = parseMixedAmount(mixedPayment.bank);
+
+  const currentPaymentAmount = isMixedPayment
+    ? Math.round((mixedCash + mixedBank) * 100) / 100
+    : isDirectPurchase
+      ? paymentMode === "FULL"
+        ? totalAmount
+        : Math.max(0, Number(partialPaymentAmount || 0))
+      : 0;
 
   const remainingAfterPayment = Math.max(0, totalAmount - currentPaymentAmount);
+
+  // مجموع الجزأين لا يتجاوز الإجمالي، وكل جزء مغطى برصيد حسابه
+  const mixedBlocked =
+    isMixedPayment &&
+    (Math.round(currentPaymentAmount * 100) > Math.round(totalAmount * 100) ||
+      isMixedPartShort(funds, "cash", mixedCash) ||
+      isMixedPartShort(funds, "bank", mixedBank));
 
   /* =======================================================
      SYNC CART -> FORM
@@ -536,6 +583,10 @@ export default function CreateOrderClient({
           paymentDate: data.orderDate,
 
           paymentMethod: paymentMethod,
+
+          ...(paymentMethod === "MIXED"
+            ? { cashAmount: mixedCash, bankAmount: mixedBank }
+            : {}),
 
           notes: data.notes || null,
         };
@@ -888,7 +939,7 @@ export default function CreateOrderClient({
                     طريقة الدفع
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
                       disabled={isSubmitting}
@@ -916,11 +967,53 @@ export default function CreateOrderClient({
                       <LuBanknote className="h-4 w-4" />
                       حوالة / البنك
                     </button>
+
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        // نبدأ بالدفعة الحالية كلها من الخزينة ويعدّل المستخدم التوزيع
+                        if (paymentMethod !== "MIXED") {
+                          setMixedPayment({
+                            cash: currentPaymentAmount > 0 ? currentPaymentAmount.toFixed(2) : "",
+                            bank: "",
+                          });
+                        }
+                        setPaymentMethod("MIXED");
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        paymentMethod === "MIXED"
+                          ? "border-(--primary-red) bg-white text-(--primary-red)"
+                          : "border-gray-200 bg-white text-gray-600"
+                      }`}
+                    >
+                      <LuBanknote className="h-4 w-4" />
+                      مختلط
+                    </button>
                   </div>
                 </div>
 
+                {isMixedPayment && (
+                  <div>
+                    <MixedPaymentFields
+                      cash={mixedPayment.cash}
+                      bank={mixedPayment.bank}
+                      funds={funds}
+                      disabled={isSubmitting}
+                      onChange={setMixedPayment}
+                    />
+
+                    {Math.round(currentPaymentAmount * 100) > Math.round(totalAmount * 100) && (
+                      <p className="mt-1 text-xs font-semibold text-rose-600">
+                        {`مجموع الدفعة أكبر من إجمالي الطلب (${formatUSD(totalAmount)}).`}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Payment mode */}
 
+                {!isMixedPayment && (
                 <div>
                   <p className="mb-2 text-xs font-semibold text-gray-600">
                     قيمة الدفعة
@@ -954,8 +1047,9 @@ export default function CreateOrderClient({
                     </button>
                   </div>
                 </div>
+                )}
 
-                {paymentMode === "PARTIAL" && (
+                {!isMixedPayment && paymentMode === "PARTIAL" && (
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-gray-600">
                       مبلغ الدفعة
@@ -1056,7 +1150,7 @@ export default function CreateOrderClient({
 
         <button
           type="submit"
-          disabled={isSubmitting || purchaseItems.length === 0}
+          disabled={isSubmitting || purchaseItems.length === 0 || mixedBlocked}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-(--primary-red) px-7 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting ? (
