@@ -1,6 +1,7 @@
 "use client";
 
 import { formatUSD } from "@/lib/currency";
+import { describePurchaseQuantity, purchaseUnitInfo } from "@/lib/purchase-units";
 import { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
@@ -36,6 +37,8 @@ import MixedPaymentFields, {
   isMixedPartShort,
   parseMixedAmount,
 } from "./MixedPaymentFields";
+
+import PurchaseConfirmModal from "./PurchaseConfirmModal";
 
 import { PurchaseOrder, PurchaseOrderStatus } from "../schemas/orders.schemas";
 
@@ -154,6 +157,9 @@ function ReceivePurchaseModal({
   const [isPending, setIsPending] = useState(false);
 
   const [paymentEnabled, setPaymentEnabled] = useState(false);
+
+  // ملخص التأكيد قبل الاستلام: الكميات بوحدة الشراء وما سيُضاف للمخزون
+  const [confirmData, setConfirmData] = useState<ReceivePaymentForm | null>(null);
 
   // الرصيد المتاح للحساب المختار (لا يظهر للكاشير؛ الفحص الفعلي في قاعدة البيانات)
   const [funds, setFunds] = useState<PurchasePaymentFunds | null>(null);
@@ -283,6 +289,17 @@ function ReceivePurchaseModal({
       return;
     }
 
+    // نافذة التأكيد؛ الاستلام الفعلي في submitConfirmed
+    setConfirmData(data);
+  };
+
+  const submitConfirmed = async () => {
+    const data = confirmData;
+
+    if (!data) {
+      return;
+    }
+
     try {
       setIsPending(true);
 
@@ -327,6 +344,8 @@ function ReceivePurchaseModal({
       toast.error(
         error instanceof Error ? error.message : "تعذر استلام طلب الشراء",
       );
+
+      setConfirmData(null);
     } finally {
       setIsPending(false);
     }
@@ -704,6 +723,27 @@ function ReceivePurchaseModal({
               </button>
             </div>
           </div>
+          {confirmData && (
+            <PurchaseConfirmModal
+              title="تأكيد استلام أمر الشراء"
+              description={`${order.orderNumber} — ستُضاف الكميات التالية للمخزون فور التأكيد.`}
+              confirmLabel="تأكيد الاستلام"
+              rows={(order.items ?? []).map((item) => ({
+                key: item.id,
+                name: item.productName || "منتج",
+                details: [item.colorName, item.size].filter(Boolean).join(" | "),
+                quantity: item.quantity,
+                unitCost: item.unitCost,
+                purchaseUnit: item.purchaseUnit,
+                sellingUnit: item.sellingUnit,
+                conversionFactor: item.conversionFactor,
+              }))}
+              total={order.totalAmount}
+              pending={isPending}
+              onConfirm={submitConfirmed}
+              onCancel={() => setConfirmData(null)}
+            />
+          )}
         </form>
       </div>
     </div>
@@ -815,18 +855,26 @@ const OrdersTable = ({ orders }: OrdersTableProps) => {
       cell: (info) => {
         const items = info.getValue() || [];
 
-        const totalItems = items.reduce(
-          (acc, item) => acc + (item.quantity || 0),
-          0,
-        );
+        // الكمية بوحدتيها: "{الكمية} {وحدة الشراء} ({الناتج} {وحدة البيع})"
+        const shown = items.slice(0, 2);
 
         return (
-          <div className="flex items-center gap-1.5 text-sm text-gray-700">
-            <LuPackage className="h-4 w-4 text-gray-400" />
+          <div className="flex items-start gap-1.5 text-sm text-gray-700">
+            <LuPackage className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
 
-            <span>
-              {totalItems} {totalItems > 10 ? "منتج" : "منتجات"}
-            </span>
+            <div className="space-y-0.5">
+              {shown.map((item) => (
+                <p key={item.id} className="whitespace-nowrap">
+                  {describePurchaseQuantity(Number(item.quantity || 0), purchaseUnitInfo(item))}
+                </p>
+              ))}
+
+              {items.length > shown.length && (
+                <p className="text-xs text-gray-400">
+                  +{items.length - shown.length} أصناف أخرى
+                </p>
+              )}
+            </div>
           </div>
         );
       },

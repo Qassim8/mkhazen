@@ -375,6 +375,10 @@ export interface PurchaseOrderItem {
   sku?: string;
   colorName?: string | null;
   size?: string | null;
+  /** وحدات قالب المنتج (للعرض فقط): الكمية بوحدة الشراء والمخزون بوحدة البيع */
+  purchaseUnit?: string | null;
+  sellingUnit?: string | null;
+  conversionFactor?: number | null;
   quantity: number;
   receivedQuantity: number;
   unitCost: number;

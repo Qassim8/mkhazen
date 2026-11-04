@@ -72,6 +72,9 @@ export function mapPurchaseOrder(rawOrder: RawPurchaseOrder): PurchaseOrder {
     const template = item.product_templates as {
       id?: string;
       name?: string;
+      purchaseUnit?: string | null;
+      sellingUnit?: string | null;
+      conversionFactor?: number | string | null;
     } | null;
 
     const variant = item.product_variants as {
@@ -109,6 +112,15 @@ export function mapPurchaseOrder(rawOrder: RawPurchaseOrder): PurchaseOrder {
       colorName: variant?.colorName ?? null,
 
       size: variant?.size ?? null,
+
+      purchaseUnit: template?.purchaseUnit ?? null,
+
+      sellingUnit: template?.sellingUnit ?? null,
+
+      conversionFactor:
+        template?.conversionFactor === null || template?.conversionFactor === undefined
+          ? null
+          : Number(template.conversionFactor),
 
       quantity,
 
@@ -238,7 +250,10 @@ export const PURCHASE_ORDER_SELECT = `
     created_at,
     product_templates (
       id,
-      name
+      name,
+      purchaseUnit,
+      sellingUnit,
+      conversionFactor
     ),
     product_variants (
       id,

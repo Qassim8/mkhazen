@@ -1,9 +1,16 @@
 "use client";
 
 import { formatNumber, formatUSD } from "@/lib/currency";
-import { LuTrash2 } from "react-icons/lu";
+import {
+  formatUnitNumber,
+  largeQuantityWarning,
+  pricePerSellingUnit,
+  purchaseUnitInfo,
+  stockQuantity,
+} from "@/lib/purchase-units";
+import { LuTrash2, LuTriangleAlert } from "react-icons/lu";
 
-import type { Dispatch } from "react";
+import { Fragment, type Dispatch } from "react";
 
 export interface PurchaseItem {
   id: string;
@@ -23,6 +30,13 @@ export interface PurchaseItem {
   unitCost: number;
 
   quantity: number;
+
+  /** وحدات قالب المنتج (للعرض فقط) */
+  purchaseUnit?: string | null;
+
+  sellingUnit?: string | null;
+
+  conversionFactor?: number | null;
 }
 
 interface CartProps {
@@ -205,8 +219,13 @@ export default function PurchaseCart({
 
                 const effectiveUnitCost = item.unitCost + shippingPerUnit;
 
+                const units = purchaseUnitInfo(item);
+
+                const unitWarning = largeQuantityWarning(item.quantity, units);
+
                 return (
-                  <tr key={item.variantId} className="hover:bg-gray-50/50">
+                  <Fragment key={item.variantId}>
+                  <tr className="hover:bg-gray-50/50">
                     {/* Product */}
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-800">
@@ -228,6 +247,10 @@ export default function PurchaseCart({
 
                     {/* Cost */}
                     <td className="px-4 py-3">
+                      <p className="mb-1 text-[10px] font-semibold text-gray-500">
+                        سعر {units.purchaseUnit} الواحدة
+                      </p>
+
                       {readOnly ? (
                         <div>
                           <p className="font-semibold text-gray-800">
@@ -250,6 +273,12 @@ export default function PurchaseCart({
                         />
                       )}
 
+                      {units.factor !== 1 && (
+                        <p className="mt-1 text-[10px] text-gray-500">
+                          = {formatUnitNumber(pricePerSellingUnit(item.unitCost, units), 4)} لكل {units.sellingUnit}
+                        </p>
+                      )}
+
                       {deliveryCost > 0 && (
                         <div className="mt-1 text-[9px] text-gray-400">
                           شحن/وحدة: {formatNumber(shippingPerUnit)} <br />
@@ -263,6 +292,10 @@ export default function PurchaseCart({
 
                     {/* Quantity */}
                     <td className="px-4 py-3">
+                      <p className="mb-1 text-[10px] font-semibold text-gray-500">
+                        الكمية ({units.purchaseUnit})
+                      </p>
+
                       {readOnly ? (
                         <span className="font-semibold text-gray-800">
                           {item.quantity}
@@ -290,6 +323,12 @@ export default function PurchaseCart({
                           </button>
                         </div>
                       )}
+
+                      {units.factor !== 1 && (
+                        <p className="mt-1 text-[10px] font-semibold text-emerald-700">
+                          = {formatUnitNumber(stockQuantity(item.quantity, units))} {units.sellingUnit} ستُضاف للمخزون
+                        </p>
+                      )}
                     </td>
 
                     {/* Total */}
@@ -310,6 +349,18 @@ export default function PurchaseCart({
                       </td>
                     )}
                   </tr>
+
+                  {unitWarning && (
+                    <tr>
+                      <td colSpan={readOnly ? 4 : 5} className="px-4 pb-3">
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                          <LuTriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                          <span>{unitWarning}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })
             )}

@@ -37,6 +37,9 @@ interface Variant {
 interface ProductTemplate {
   id: string;
   name: string;
+  purchaseUnit?: string | null;
+  sellingUnit?: string | null;
+  conversionFactor?: number | null;
   variants: Variant[];
 }
 
@@ -100,6 +103,12 @@ export default function EditPurchaseOrderForm({
           unitCost: item.unitCost,
 
           quantity: item.quantity,
+
+          purchaseUnit: item.purchaseUnit,
+
+          sellingUnit: item.sellingUnit,
+
+          conversionFactor: item.conversionFactor,
         };
       }) || []
     );
@@ -334,6 +343,12 @@ export default function EditPurchaseOrderForm({
         unitCost: foundVariant!.purchasePrice || 0,
 
         quantity: 1,
+
+        purchaseUnit: foundTemplate!.purchaseUnit,
+
+        sellingUnit: foundTemplate!.sellingUnit,
+
+        conversionFactor: foundTemplate!.conversionFactor,
       };
 
       return [...previousItems, newItem];

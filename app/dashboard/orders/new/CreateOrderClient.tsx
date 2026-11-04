@@ -23,6 +23,8 @@ import {
 
 import PurchaseCart, { PurchaseItem } from "../_components/Cart";
 
+import PurchaseConfirmModal from "../_components/PurchaseConfirmModal";
+
 import MixedPaymentFields, {
   isMixedPartShort,
   parseMixedAmount,
@@ -167,6 +169,9 @@ function getInitialPurchaseItems(
         variantAttributes: getVariantAttributes(variant),
         unitCost: Number(variant.purchasePrice || 0),
         quantity: 1,
+        purchaseUnit: product.purchaseUnit,
+        sellingUnit: product.sellingUnit,
+        conversionFactor: product.conversionFactor,
       },
     ];
   }
@@ -240,6 +245,11 @@ export default function CreateOrderClient({
   }, []);
 
   const [partialPaymentAmount, setPartialPaymentAmount] = useState(0);
+
+  // ملخص التأكيد قبل الحفظ: الكميات بوحدة الشراء وما سيُضاف للمخزون
+  const [confirmData, setConfirmData] = useState<CreatePurchaseOrderInput | null>(null);
+
+  const [isConfirming, setIsConfirming] = useState(false);
 
   /* =======================================================
      FORM
@@ -510,6 +520,12 @@ export default function CreateOrderClient({
           unitCost: selected.price,
 
           quantity: 1,
+
+          purchaseUnit: selected.purchaseUnit,
+
+          sellingUnit: selected.sellingUnit,
+
+          conversionFactor: selected.conversionFactor,
         },
       ];
     }
@@ -574,12 +590,23 @@ export default function CreateOrderClient({
       return;
     }
 
+    // نافذة التأكيد؛ الحفظ الفعلي في submitConfirmed
+    setConfirmData(validation.data);
+  };
+
+  const submitConfirmed = async () => {
+    if (!confirmData) {
+      return;
+    }
+
+    setIsConfirming(true);
+
     try {
       /* ================================================
          CREATE ORDER
       ================================================= */
 
-      await createPurchaseOrder(validation.data);
+      await createPurchaseOrder(confirmData);
 
       /* ================================================
          SUCCESS
@@ -602,6 +629,10 @@ export default function CreateOrderClient({
           ? error.message
           : "حدث خطأ أثناء إنشاء طلب الشراء",
       );
+
+      setConfirmData(null);
+
+      setIsConfirming(false);
     }
   };
 
@@ -1139,6 +1170,32 @@ export default function CreateOrderClient({
           )}
         </button>
       </div>
+
+      {confirmData && (
+        <PurchaseConfirmModal
+          title={isDirectPurchase ? "تأكيد الشراء المباشر" : "تأكيد حفظ طلب الشراء"}
+          description={
+            isDirectPurchase
+              ? "تُضاف الكميات التالية للمخزون فور التأكيد."
+              : "راجع الكميات بوحدة الشراء وما سيُضاف للمخزون عند الاستلام."
+          }
+          confirmLabel="تأكيد"
+          rows={purchaseItems.map((item) => ({
+            key: item.variantId,
+            name: item.productName,
+            details: item.variantAttributes,
+            quantity: item.quantity,
+            unitCost: item.unitCost,
+            purchaseUnit: item.purchaseUnit,
+            sellingUnit: item.sellingUnit,
+            conversionFactor: item.conversionFactor,
+          }))}
+          total={totalAmount}
+          pending={isConfirming}
+          onConfirm={submitConfirmed}
+          onCancel={() => setConfirmData(null)}
+        />
+      )}
     </form>
   );
 }

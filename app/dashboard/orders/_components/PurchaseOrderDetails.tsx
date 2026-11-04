@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { LuCircleDollarSign } from "react-icons/lu";
 import PaymentModal from "./PaymentModal";
 import BackLink from "@/components/shared/BackLink";
+import { describePurchaseQuantity, purchaseUnitInfo } from "@/lib/purchase-units";
 
 interface Props {
   order: PurchaseOrder;
@@ -425,7 +426,7 @@ export default function PurchaseOrderDetailView({ order }: Props) {
                         </td>
 
                         <td className="px-4 py-4 text-center font-medium text-gray-900 print:py-1 print:text-xs">
-                          {formatNumber(quantity)}
+                          {describePurchaseQuantity(quantity, purchaseUnitInfo(item))}
                         </td>
 
                         <td className="px-4 py-4 text-left font-mono text-gray-700 print:py-1 print:text-xs">
