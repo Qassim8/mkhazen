@@ -243,7 +243,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         />
       </section>
 
-      {/* <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="frame xl:col-span-2">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -347,7 +347,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           )}
         </div>
-      </section> */}
+      </section>
 
       <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="frame xl:col-span-2">
