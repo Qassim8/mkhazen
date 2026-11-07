@@ -176,12 +176,19 @@ export function computePerformance(yearEntries: LedgerEntry[]) {
       monthly[monthIndex].cogs -= value;
     }
 
-    // المصروفات التشغيلية
+    // المصروفات التشغيلية: الصافي = مدين − دائن (القيود العكسية للتصحيح تُنقص المصروف)
     const debitTarget = normalizeAccount(entry.debit_account);
     if (debitTarget in expenseTotals) {
       expenseTotals[debitTarget] += value;
       expenses += value;
       monthly[monthIndex].expenses += value;
+    }
+
+    const creditTarget = normalizeAccount(entry.credit_account);
+    if (creditTarget in expenseTotals) {
+      expenseTotals[creditTarget] -= value;
+      expenses -= value;
+      monthly[monthIndex].expenses -= value;
     }
 
     // فروق العملة المحققة (الطرف المدين للحساب الوسيط = اللي خرج)

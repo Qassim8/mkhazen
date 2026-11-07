@@ -249,20 +249,30 @@ export async function buildReport(filters: ReportFilters): Promise<ReportData> {
       if (bucket) bucket.revenue += sign * usd;
     }
 
+    // الإيراد الآخر صافي: دائن − مدين (عكس قيد إيراد آخر مدين OTHER_INCOME)
     if (entry.credit_account === "OTHER_INCOME") {
       otherIncome += usd;
       if (bucket) bucket.revenue += usd;
+    }
+    if (entry.debit_account === "OTHER_INCOME") {
+      otherIncome -= usd;
+      if (bucket) bucket.revenue -= usd;
     }
 
     if (bucket) {
       if (entry.debit_account === "COGS") bucket.cogs += usd;
       if (entry.credit_account === "COGS") bucket.cogs -= usd;
+      // المصروف صافي: مدين − دائن
       if (normalizeAccount(entry.debit_account) in EXPENSE_CONFIG) {
         bucket.expenses += usd;
+      }
+      if (normalizeAccount(entry.credit_account) in EXPENSE_CONFIG) {
+        bucket.expenses -= usd;
       }
     }
 
     if (normalizeAccount(entry.debit_account) === "GIFTS") giftsCost += usd;
+    if (normalizeAccount(entry.credit_account) === "GIFTS") giftsCost -= usd;
   }
 
   for (const point of trend) {
