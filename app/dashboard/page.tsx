@@ -1,8 +1,5 @@
 import Link from "next/link";
-import {
-  LuArrowLeft,
-  LuTriangleAlert,
-} from "react-icons/lu";
+import { LuArrowLeft, LuTriangleAlert } from "react-icons/lu";
 
 import PageHeader from "@/components/shared/PageHeader";
 import { getSession } from "@/lib/auth";
@@ -170,7 +167,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         ))}
       </section>
 
-      <section className="mt-6 rounded-2xl border border-amber-100 bg-white p-5">
+      {/* <section className="mt-6 rounded-2xl border border-amber-100 bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-gray-900">ذمم العملاء</h2>
@@ -236,7 +233,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </p>
           </div>
         </div>
-      </section>
+      </section> */}
 
       <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <DashboardCharts
@@ -246,7 +243,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
         />
       </section>
 
-      <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+      {/* <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="frame xl:col-span-2">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -293,7 +290,6 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <div className="flex items-center gap-2">
-                      {/* عرض تصنيف الغرض (للعميل / تصنيع داخلي) القادم من نقطة النهاية */}
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
                         {order.purposeLabel}
                       </span>
@@ -351,7 +347,7 @@ export default async function Dashboard({ searchParams }: DashboardPageProps) {
             </div>
           )}
         </div>
-      </section>
+      </section> */}
 
       <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <div className="frame xl:col-span-2">

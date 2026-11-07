@@ -298,7 +298,11 @@ function isPathActive(pathname: string, href: string, exact = false) {
 
 const NO_HIDDEN_HREFS: string[] = [];
 
-export function Sidebar({ hiddenHrefs = NO_HIDDEN_HREFS }: { hiddenHrefs?: string[] }) {
+export function Sidebar({
+  hiddenHrefs = NO_HIDDEN_HREFS,
+}: {
+  hiddenHrefs?: string[];
+}) {
   const pathname = usePathname();
 
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
