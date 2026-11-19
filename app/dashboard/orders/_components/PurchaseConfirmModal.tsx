@@ -29,6 +29,8 @@ interface Props {
   rows: PurchaseConfirmRow[];
   /** إجمالي الطلب (يشمل الشحن والخصم) */
   total: number;
+  /** سطور تنبيه قبل التأكيد (مثل التحويل التلقائي للعملة) */
+  notes?: string[];
   pending?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -41,6 +43,7 @@ export default function PurchaseConfirmModal({
   confirmLabel,
   rows,
   total,
+  notes = [],
   pending = false,
   onConfirm,
   onCancel,
@@ -106,6 +109,14 @@ export default function PurchaseConfirmModal({
             <span className="font-mono">{formatUSD(total)}</span>
           </div>
         </div>
+
+        {notes.length > 0 && (
+          <ul className="mx-5 mb-4 space-y-1 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-900">
+            {notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        )}
 
         <div className="flex items-center justify-end gap-3 border-t border-gray-100 p-5">
           <button

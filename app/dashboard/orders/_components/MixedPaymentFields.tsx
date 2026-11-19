@@ -3,6 +3,7 @@
 import { formatUSD } from "@/lib/currency";
 
 import type { PurchasePaymentFunds } from "../services/order.services";
+import AccountFundsHint, { accountPlan } from "./AccountFundsHint";
 
 /** رقم موجب من حقل نصي، وإلا صفر (بمنزلتين) */
 export function parseMixedAmount(value: string) {
@@ -10,10 +11,10 @@ export function parseMixedAmount(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
 }
 
-/** رصيد الحساب لا يكفي جزءه (لا يُعرف الرصيد للكاشير فلا يُحجب شيء هنا) */
+/** الدولار + الجنيه في الحساب لا يغطيان جزءه (لا يُعرف الرصيد للكاشير فلا يُحجب شيء هنا) */
 export function isMixedPartShort(funds: PurchasePaymentFunds | null, account: "cash" | "bank", amount: number) {
-  if (!funds?.visible || amount <= 0) return false;
-  return Math.round(amount * 100) > Math.round(funds[account].usd * 100);
+  const plan = accountPlan(funds, account, amount);
+  return plan !== null && !plan.covered;
 }
 
 interface Props {
@@ -42,9 +43,6 @@ export default function MixedPaymentFields({ cash, bank, funds, disabled, onChan
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2">
         {parts.map((part) => {
-          const available = funds?.visible ? funds[part.key].usd : null;
-          const short = isMixedPartShort(funds, part.key, part.number);
-
           return (
             <div key={part.key}>
               <label className="mb-1.5 block text-sm font-semibold text-gray-700">
@@ -67,18 +65,7 @@ export default function MixedPaymentFields({ cash, bank, funds, disabled, onChan
                 className={inputClass}
               />
 
-              {available !== null && (
-                <p className="mt-1 text-xs text-gray-500">
-                  المتاح في {part.key === "cash" ? "الخزينة" : "البنك"}:{" "}
-                  <span className="font-mono font-bold text-gray-800">{formatUSD(available)}</span>
-                </p>
-              )}
-
-              {short && available !== null && (
-                <p className="mt-1 text-xs font-semibold text-rose-600">
-                  {`رصيد ${part.key === "cash" ? "الخزينة" : "البنك"} غير كافٍ: المتاح ${available.toFixed(2)} دولار، والمطلوب ${part.number.toFixed(2)} دولار. موّل الحساب أولًا أو أدخل مبلغ دفع أقل.`}
-                </p>
-              )}
+              <AccountFundsHint funds={funds} account={part.key} amount={part.number} />
             </div>
           );
         })}

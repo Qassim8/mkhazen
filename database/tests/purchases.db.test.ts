@@ -276,20 +276,26 @@ describe("record_purchase_payment (live schema, service_role)", () => {
     );
   });
 
-  it("refuses when the USD balance is insufficient (SDG balance does not count) — same number as get_account_balance", async () => {
+  it("20261119_01: a USD shortfall is covered from the SDG balance of the same account; refused only when both are short", async () => {
     await fundAccount(db, "BANK", 50, "USD");
     await fundAccount(db, "BANK", 10_000_000, "SDG");
     const product = await createProduct(db);
     const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 80 }] });
 
-    assert.match(await rpcError(pay(orderId, 80, "BANK")), /الرصيد غير كافٍ في البنك \(دولار\)\. الرصيد الحالي 50\.00 \$/);
-    const payments = await db.query(`SELECT 1 FROM public.purchase_order_payments WHERE purchase_order_id = $1`, [orderId]);
-    assert.equal(payments.rows.length, 0);
+    // ناقص 30$ × 2500 = 75,000 ج.س تُحوَّل تلقائيًا ثم يُدفع 80$
+    await pay(orderId, 80, "BANK");
+    const usd = await db.query<{ b: string }>(`SELECT public.get_account_balance($1, 'BANK', 'USD') AS b`, [BRANCH_ID]);
+    const sdg = await db.query<{ b: string }>(`SELECT public.get_account_balance($1, 'BANK', 'SDG') AS b`, [BRANCH_ID]);
+    assert.equal(num(usd.rows[0].b), 0);
+    assert.equal(num(sdg.rows[0].b), 9_925_000);
 
-    await pay(orderId, 50, "BANK");
-    assert.match(await rpcError(pay(orderId, 1, "BANK")), /الرصيد الحالي 0\.00 \$/);
-    const balance = await db.query<{ b: string }>(`SELECT public.get_account_balance($1, 'BANK', 'USD') AS b`, [BRANCH_ID]);
-    assert.equal(num(balance.rows[0].b), 0);
+    const big = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 1_000_000 }] });
+    assert.match(
+      await rpcError(pay(big.orderId, 1_000_000, "BANK")),
+      /^رصيد البنك غير كافٍ: المتاح 0\.00\$ و 9925000\.00 ج\.س \(= 3970\.00\$\)، والمطلوب 1000000\.00\$\.$/,
+    );
+    const payments = await db.query(`SELECT 1 FROM public.purchase_order_payments WHERE purchase_order_id = $1`, [big.orderId]);
+    assert.equal(payments.rows.length, 0);
   });
 
   it("rejects draft, cancelled, invalid amounts, invalid method and unauthorized users", async () => {
@@ -367,22 +373,28 @@ describe("receive_purchase_order_with_payment (20261103_01) — no partial recei
     const message = await rpcError(receiveAndPay(orderId, 80, "CASH"));
     assert.match(
       message,
-      /^رصيد الخزينة غير كافٍ: المتاح 50\.00 دولار، والمطلوب 80\.00 دولار\. موّل الحساب أولًا أو أدخل مبلغ دفع أقل\.$/,
+      /^رصيد الخزينة غير كافٍ: المتاح 50\.00\$ و 0\.00 ج\.س \(= 0\.00\$\)، والمطلوب 80\.00\$\.$/,
     );
     await untouched(orderId, product.variantId);
   });
 
-  it("adds the currency-exchange hint only when the SDG balance of the same account would cover it", async () => {
+  it("20261119_01: SDG in the same account covers the shortfall; when it does not, the message shows both balances", async () => {
     await fundAccount(db, "BANK", 10, "USD");
     await fundAccount(db, "BANK", 10_000_000, "SDG");
+    const covered = await createProduct(db, { stock: 0 });
+    const ok = await createPurchaseOrder(db, { items: [{ ...covered, quantity: 1, unitCost: 80 }] });
+
+    const { rows } = await receiveAndPay(ok.orderId, 80, "BANK");
+    assert.equal(rows[0].result.status, "RECEIVED");
+
+    // الجنيه في الخزينة لا يكفي (1,000 ج.س = 0.40$) → رفض بالرصيدين ولا تغيير
+    await fundAccount(db, "CASH", 1_000, "SDG");
     const product = await createProduct(db, { stock: 0 });
     const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 1, unitCost: 80 }] });
-
-    assert.match(await rpcError(receiveAndPay(orderId, 80, "BANK")), /^رصيد البنك غير كافٍ: المتاح 10\.00 دولار، والمطلوب 80\.00 دولار\. موّل الحساب أولًا أو أدخل مبلغ دفع أقل أو حوّل العملة من صفحة تحويل العملة\.$/);
-
-    // الجنيه في الخزينة لا يكفي → بدون الجملة
-    await fundAccount(db, "CASH", 1_000, "SDG");
-    assert.doesNotMatch(await rpcError(receiveAndPay(orderId, 80, "CASH")), /تحويل العملة/);
+    assert.match(
+      await rpcError(receiveAndPay(orderId, 80, "CASH")),
+      /^رصيد الخزينة غير كافٍ: المتاح 50\.00\$ و 1000\.00 ج\.س \(= 0\.40\$\)، والمطلوب 80\.00\$\.$/,
+    );
     await untouched(orderId, product.variantId);
   });
 
@@ -524,7 +536,7 @@ describe("split cash + bank payment (20261104_01)", () => {
     const { orderId } = await createPurchaseOrder(db, { items: [{ ...product, quantity: 100, unitCost: 30 }] });
 
     const message = await rpcError(paySplit(orderId, 10, bank + 5));
-    assert.match(message, new RegExp(`^رصيد البنك غير كافٍ: المتاح ${escape(bank)} دولار، والمطلوب ${escape(bank + 5)} دولار`));
+    assert.match(message, new RegExp(`^رصيد البنك غير كافٍ: المتاح ${escape(bank)}\\$ و 0\\.00 ج\\.س \\(= 0\\.00\\$\\)، والمطلوب ${escape(bank + 5)}\\$`));
 
     const cashMessage = await rpcError(paySplit(orderId, cash + 1, 1));
     assert.match(cashMessage, /^رصيد الخزينة غير كافٍ: المتاح/);
@@ -624,7 +636,7 @@ describe("receive with payment: cash balance 10, payment 50 — nothing changes 
     const message = await rpcError(
       call(`SELECT public.receive_purchase_order_with_payment($1, $2, $3, 50, now(), 'CASH', NULL, NULL)`, [orderId, users.admin, BRANCH_ID]),
     );
-    assert.match(message, /^رصيد الخزينة غير كافٍ: المتاح 10\.00 دولار، والمطلوب 50\.00 دولار/);
+    assert.match(message, /^رصيد الخزينة غير كافٍ: المتاح 10\.00\$ و 0\.00 ج\.س \(= 0\.00\$\)، والمطلوب 50\.00\$/);
     await expectUntouched(orderId, product.variantId);
   });
 
@@ -635,14 +647,14 @@ describe("receive with payment: cash balance 10, payment 50 — nothing changes 
     // الخزينة 10 تغطي جزءها (10) والبنك (0) لا يغطي 40
     assert.match(
       await rpcError(call(`SELECT public.receive_purchase_order_with_split_payment($1, $2, $3, 10, 40, now(), NULL, NULL)`, [orderId, users.admin, BRANCH_ID])),
-      /^رصيد البنك غير كافٍ: المتاح 0\.00 دولار، والمطلوب 40\.00 دولار/,
+      /^رصيد البنك غير كافٍ: المتاح 0\.00\$ و 0\.00 ج\.س \(= 0\.00\$\)، والمطلوب 40\.00\$/,
     );
     await expectUntouched(orderId, product.variantId);
 
     // الجزء النقدي هو غير المغطى
     assert.match(
       await rpcError(call(`SELECT public.receive_purchase_order_with_split_payment($1, $2, $3, 50, 0, now(), NULL, NULL)`, [orderId, users.admin, BRANCH_ID])),
-      /^رصيد الخزينة غير كافٍ: المتاح 10\.00 دولار، والمطلوب 50\.00 دولار/,
+      /^رصيد الخزينة غير كافٍ: المتاح 10\.00\$ و 0\.00 ج\.س \(= 0\.00\$\)، والمطلوب 50\.00\$/,
     );
     await expectUntouched(orderId, product.variantId);
   });

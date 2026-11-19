@@ -205,12 +205,14 @@ export async function updatePurchaseOrderStatus(
 ========================================================= */
 
 export type PurchasePaymentFunds =
-  | { visible: false }
+  | { visible: false; rate: number | null; rateUpdatedAt: string | null }
   | {
       visible: true;
       cash: { usd: number; sdg: number };
       bank: { usd: number; sdg: number };
       rate: number | null;
+      /** آخر تحديث لسعر الصرف (للتنبيه لو أقدم من 6 ساعات قبل التحويل التلقائي) */
+      rateUpdatedAt: string | null;
     };
 
 export async function getPurchasePaymentFunds(): Promise<{ data: PurchasePaymentFunds }> {

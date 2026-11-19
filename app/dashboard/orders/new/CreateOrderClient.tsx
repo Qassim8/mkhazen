@@ -25,6 +25,12 @@ import PurchaseCart, { PurchaseItem } from "../_components/Cart";
 
 import PurchaseConfirmModal from "../_components/PurchaseConfirmModal";
 
+import AccountFundsHint, {
+  RateAgeWarning,
+  accountPlan,
+  conversionNotes,
+} from "../_components/AccountFundsHint";
+
 import MixedPaymentFields, {
   isMixedPartShort,
   parseMixedAmount,
@@ -334,7 +340,23 @@ export default function CreateOrderClient({
   const remainingAfterPayment = Math.max(0, totalAmount - currentPaymentAmount);
 
   // مجموع الجزأين لا يتجاوز الإجمالي، وكل جزء مغطى برصيد حسابه
+  const singleAccount: "cash" | "bank" = paymentMethod === "BANK" ? "bank" : "cash";
+
+  // الدفع من حساب واحد: الدولار + الجنيه (بالسعر الحالي) يغطيان المبلغ؟ الناقص بالدولار يُحوَّل تلقائيًا
+  const singlePlan =
+    isDirectPurchase && !isMixedPayment ? accountPlan(funds, singleAccount, currentPaymentAmount) : null;
+
+  const conversions = !isDirectPurchase
+    ? []
+    : isMixedPayment
+      ? conversionNotes(funds, [
+          { account: "cash", amount: mixedCash },
+          { account: "bank", amount: mixedBank },
+        ])
+      : conversionNotes(funds, [{ account: singleAccount, amount: currentPaymentAmount }]);
+
   const mixedBlocked =
+    (singlePlan !== null && !singlePlan.covered) ||
     isMixedPayment &&
     (Math.round(currentPaymentAmount * 100) > Math.round(totalAmount * 100) ||
       isMixedPartShort(funds, "cash", mixedCash) ||
@@ -1070,6 +1092,12 @@ export default function CreateOrderClient({
                     />
                   </div>
                 )}
+
+                {!isMixedPayment && (
+                  <AccountFundsHint funds={funds} account={singleAccount} amount={currentPaymentAmount} />
+                )}
+
+                <RateAgeWarning funds={funds} show={conversions.length > 0} />
               </>
             ) : (
               <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-700">
@@ -1191,6 +1219,7 @@ export default function CreateOrderClient({
             conversionFactor: item.conversionFactor,
           }))}
           total={totalAmount}
+          notes={conversions}
           pending={isConfirming}
           onConfirm={submitConfirmed}
           onCancel={() => setConfirmData(null)}

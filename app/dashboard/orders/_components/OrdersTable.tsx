@@ -40,6 +40,8 @@ import MixedPaymentFields, {
 
 import PurchaseConfirmModal from "./PurchaseConfirmModal";
 
+import AccountFundsHint, { RateAgeWarning, accountPlan, conversionNotes } from "./AccountFundsHint";
+
 import { PurchaseOrder, PurchaseOrderStatus } from "../schemas/orders.schemas";
 
 import {
@@ -217,8 +219,7 @@ function ReceivePurchaseModal({
 
   const isMixed = paymentMethod === "MIXED";
 
-  const accountFunds =
-    funds?.visible && !isMixed ? (paymentMethod === "BANK" ? funds.bank : funds.cash) : null;
+  const singleAccount: "cash" | "bank" = paymentMethod === "BANK" ? "bank" : "cash";
 
   const mixedShort =
     paymentEnabled &&
@@ -226,22 +227,20 @@ function ReceivePurchaseModal({
     (isMixedPartShort(funds, "cash", parseMixedAmount(mixed.cash)) ||
       isMixedPartShort(funds, "bank", parseMixedAmount(mixed.bank)));
 
-  const accountLabel = paymentMethod === "BANK" ? "البنك" : "الخزينة";
+  // الدولار + الجنيه (بالسعر الحالي) لا يغطيان المبلغ؛ الناقص بالدولار وحده يُحوَّل تلقائيًا
+  const singlePlan = paymentEnabled && !isMixed ? accountPlan(funds, singleAccount, paymentAmount) : null;
 
-  const insufficientFunds =
-    paymentEnabled &&
-    accountFunds !== null &&
-    paymentAmount > 0 &&
-    Math.round(paymentAmount * 100) > Math.round(accountFunds.usd * 100);
+  const insufficientFunds = singlePlan !== null && !singlePlan.covered;
 
-  // رصيد الجنيه في نفس الحساب يكفي بسعر الصرف الحالي → نقترح التحويل
-  const canConvertFromSdg =
-    insufficientFunds &&
-    funds?.visible === true &&
-    funds.rate !== null &&
-    funds.rate > 0 &&
-    accountFunds !== null &&
-    Math.round((accountFunds.sdg / funds.rate) * 100) >= Math.round(paymentAmount * 100);
+  // سطور التحويل التلقائي (قبل التأكيد وفي ملخصه)
+  const conversions = !paymentEnabled
+    ? []
+    : isMixed
+      ? conversionNotes(funds, [
+          { account: "cash", amount: parseMixedAmount(mixed.cash) },
+          { account: "bank", amount: parseMixedAmount(mixed.bank) },
+        ])
+      : conversionNotes(funds, [{ account: singleAccount, amount: paymentAmount }]);
 
   const handleMixedChange = (next: { cash: string; bank: string }) => {
     setMixed(next);
@@ -526,19 +525,8 @@ function ReceivePurchaseModal({
                   </p>
                 )}
 
-                {accountFunds && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    المتاح في {accountLabel}:{" "}
-                    <span className="font-mono font-bold text-gray-800">
-                      {formatUSD(accountFunds.usd)}
-                    </span>
-                  </p>
-                )}
-
-                {insufficientFunds && accountFunds && (
-                  <p className="mt-1 text-xs font-semibold text-rose-600">
-                    {`رصيد ${accountLabel} غير كافٍ: المتاح ${accountFunds.usd.toFixed(2)} دولار، والمطلوب ${paymentAmount.toFixed(2)} دولار. موّل الحساب أولًا أو أدخل مبلغ دفع أقل${canConvertFromSdg ? " أو حوّل العملة من صفحة تحويل العملة" : ""}.`}
-                  </p>
+                {!isMixed && (
+                  <AccountFundsHint funds={funds} account={singleAccount} amount={paymentAmount} />
                 )}
               </div>
 
@@ -614,6 +602,10 @@ function ReceivePurchaseModal({
                     />
                   </div>
                 )}
+
+                <div className="mt-3">
+                  <RateAgeWarning funds={funds} show={conversions.length > 0} />
+                </div>
               </div>
 
               {/* Date + Reference */}
@@ -739,6 +731,7 @@ function ReceivePurchaseModal({
                 conversionFactor: item.conversionFactor,
               }))}
               total={order.totalAmount}
+              notes={conversions}
               pending={isPending}
               onConfirm={submitConfirmed}
               onCancel={() => setConfirmData(null)}

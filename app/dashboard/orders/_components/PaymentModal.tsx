@@ -30,6 +30,8 @@ import MixedPaymentFields, {
   parseMixedAmount,
 } from "./MixedPaymentFields";
 
+import AccountFundsHint, { RateAgeWarning, accountPlan, conversionNotes } from "./AccountFundsHint";
+
 interface PaymentModalProps {
   isOpen: boolean;
   orderId: string;
@@ -134,10 +136,23 @@ export default function PaymentModal({
 
   const isMixed = watch("paymentMethod") === "MIXED";
 
+  const singleAccount: "cash" | "bank" = watch("paymentMethod") === "BANK" ? "bank" : "cash";
+
+  // الدولار + الجنيه في الحساب لا يغطيان المبلغ (الناقص بالدولار وحده يُحوَّل تلقائيًا)
+  const singlePlan = !isMixed ? accountPlan(funds, singleAccount, amount) : null;
+
   const mixedShort =
-    isMixed &&
-    (isMixedPartShort(funds, "cash", parseMixedAmount(mixed.cash)) ||
-      isMixedPartShort(funds, "bank", parseMixedAmount(mixed.bank)));
+    (singlePlan !== null && !singlePlan.covered) ||
+    (isMixed &&
+      (isMixedPartShort(funds, "cash", parseMixedAmount(mixed.cash)) ||
+        isMixedPartShort(funds, "bank", parseMixedAmount(mixed.bank))));
+
+  const conversions = isMixed
+    ? conversionNotes(funds, [
+        { account: "cash", amount: parseMixedAmount(mixed.cash) },
+        { account: "bank", amount: parseMixedAmount(mixed.bank) },
+      ])
+    : conversionNotes(funds, [{ account: singleAccount, amount }]);
 
   const handleMixedChange = (next: { cash: string; bank: string }) => {
     setMixed(next);
@@ -343,7 +358,7 @@ export default function PaymentModal({
               </label>
             </div>
 
-            {isMixed && (
+            {isMixed ? (
               <div className="mt-3">
                 <MixedPaymentFields
                   cash={mixed.cash}
@@ -353,7 +368,13 @@ export default function PaymentModal({
                   onChange={handleMixedChange}
                 />
               </div>
+            ) : (
+              <AccountFundsHint funds={funds} account={singleAccount} amount={amount} />
             )}
+
+            <div className="mt-3">
+              <RateAgeWarning funds={funds} show={conversions.length > 0} />
+            </div>
 
             {errors.paymentMethod && (
               <p className="mt-1 text-xs text-rose-500">
